@@ -1,0 +1,31 @@
+import {
+  LayoutDashboard,
+  Package,
+  Warehouse,
+  ShoppingCart,
+  Monitor,
+  Receipt,
+  CreditCard,
+  Users,
+  BarChart3,
+  Tag,
+  ShieldCheck,
+  ScrollText,
+  Settings,
+} from 'lucide-react';
+
+export const adminNavItems = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/products', label: 'Products', icon: Package },
+  { href: '/admin/inventory', label: 'Inventory', icon: Warehouse },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+  { href: '/admin/pos', label: 'Point of Sale', icon: Monitor },
+  { href: '/admin/receipts', label: 'Receipts', icon: Receipt },
+  { href: '/admin/transactions', label: 'Transactions', icon: CreditCard },
+  { href: '/admin/customers', label: 'Customers', icon: Users },
+  { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/admin/categories', label: 'Categories', icon: Tag },
+  { href: '/admin/users', label: 'User Roles', icon: ShieldCheck },
+  { href: '/admin/audit', label: 'Audit Log', icon: ScrollText },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
+] as const;

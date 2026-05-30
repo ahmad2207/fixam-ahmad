@@ -1,0 +1,5 @@
+id;user_id;label;street_address;city;state;postal_code;country;is_default;created_at;updated_at
+9f1164e9-2262-41f7-8786-a8b5fb2bef51;d11e3c94-a0f5-4215-a760-9243d748b203;Home;1045 Abubakar koko avenue, Lifecamp, Abuja;Abuja;FCT;900100;Nigeria;true;2026-01-21 20:30:54.170826+00;2026-01-27 07:45:53.238902+00
+047f8fa7-78d6-4df8-ab24-1f17d4beb417;6748ccca-1b20-4ba9-9d15-b8c8359cc33a;Home;No 16 Abuja Road Rigasa;Kaduna;Kaduna;;Nigeria;false;2026-01-29 14:40:11.448742+00;2026-01-29 14:40:11.448742+00
+d3424e7b-431b-4f56-bcc5-ce224d14f7f8;fc9e137b-59cf-4c0d-ae1c-182bd8946e24;Home;33 dogongada street, Lokogoma;Abuja;FCT;900106;Nigeria;true;2026-03-07 16:56:14.684706+00;2026-03-07 16:56:19.903525+00
+2e91e326-492e-480c-b1d8-5188bdf9f91b;f7137d18-9fe6-491a-a2b1-bad3027e64fd;World bank, idea suite;8  iwuchukwu Larry avenue;Owerri;Imo State;;Nigeria;false;2026-05-28 12:33:53.267958+00;2026-05-28 12:33:53.267958+00

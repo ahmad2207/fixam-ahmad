@@ -1,0 +1,139 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/db';
+import {
+  orders, orderItems, batchAllocations, inventoryBatches, paymentTransactions,
+} from '@/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { logAdminAction } from '@/lib/auditLog';
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function GET(_: NextRequest, { params }: Params) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== 'admin' && role !== 'staff')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const [order] = await db.select().from(orders).where(eq(orders.id, id));
+  if (!order) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
+
+  // Fetch FIFO batch allocations for each item
+  const itemIds = items.map((i) => i.id);
+  const allocRows =
+    itemIds.length > 0
+      ? await db
+          .select({
+            id: batchAllocations.id,
+            orderItemId: batchAllocations.orderItemId,
+            batchId: batchAllocations.batchId,
+            quantity: batchAllocations.quantity,
+            costPriceAtTime: batchAllocations.costPriceAtTime,
+            batchCreatedAt: inventoryBatches.createdAt,
+          })
+          .from(batchAllocations)
+          .leftJoin(inventoryBatches, eq(batchAllocations.batchId, inventoryBatches.id))
+          .where(inArray(batchAllocations.orderItemId, itemIds))
+      : [];
+
+  // Group allocations by orderItemId
+  const allocByItem: Record<string, typeof allocRows> = {};
+  for (const a of allocRows) {
+    if (!allocByItem[a.orderItemId]) allocByItem[a.orderItemId] = [];
+    allocByItem[a.orderItemId].push(a);
+  }
+
+  const itemsWithAllocations = items.map((item) => ({
+    ...item,
+    allocations: (allocByItem[item.id] ?? []).map((a) => ({
+      batchId: a.batchId,
+      quantity: a.quantity,
+      costPriceAtTime: a.costPriceAtTime,
+      batchCreatedAt: a.batchCreatedAt?.toISOString() ?? null,
+    })),
+  }));
+
+  // Total COGS from batch allocations
+  const totalCOGS = allocRows.reduce(
+    (s, a) => s + a.quantity * Number(a.costPriceAtTime),
+    0,
+  );
+
+  // Payment transactions for this order
+  const txns = await db
+    .select()
+    .from(paymentTransactions)
+    .where(eq(paymentTransactions.orderId, id));
+
+  return NextResponse.json({
+    ...order,
+    items: itemsWithAllocations,
+    totalCOGS,
+    paymentTransactions: txns,
+  });
+}
+
+export async function PATCH(req: NextRequest, { params }: Params) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== 'admin' && role !== 'staff')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const body = await req.json();
+
+  const [existing] = await db.select().from(orders).where(eq(orders.id, id));
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const updates: Partial<typeof existing> = {};
+  if (body.paymentStatus !== undefined) updates.paymentStatus = body.paymentStatus;
+
+  const [updated] = await db
+    .update(orders)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(orders.id, id))
+    .returning();
+
+  await logAdminAction({
+    userId: session.user?.id ?? '',
+    adminName: session.user?.name ?? 'Admin',
+    action: 'update',
+    entityType: 'order',
+    entityId: id,
+    before: existing,
+    after: updated,
+  });
+
+  return NextResponse.json(updated);
+}
+
+export async function DELETE(_: NextRequest, { params }: Params) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== 'admin' && role !== 'staff')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const [existing] = await db.select().from(orders).where(eq(orders.id, id));
+  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  await db.delete(orders).where(eq(orders.id, id));
+
+  await logAdminAction({
+    userId: session.user?.id ?? '',
+    adminName: session.user?.name ?? 'Admin',
+    action: 'delete',
+    entityType: 'order',
+    entityId: id,
+    before: existing,
+    after: null,
+  });
+
+  return NextResponse.json({ success: true });
+}

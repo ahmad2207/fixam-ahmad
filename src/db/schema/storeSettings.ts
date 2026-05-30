@@ -1,0 +1,24 @@
+import { pgTable, text, integer, numeric, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
+
+export const storeSettings = pgTable('store_settings', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  storeName: text('store_name').notNull().default('Fixam Africa'),
+  currency: text('currency').notNull().default('NGN'),
+  currencySymbol: text('currency_symbol').notNull().default('₦'),
+  logoUrl: text('logo_url'),
+  storeEmail: text('store_email'),
+  storePhone: text('store_phone'),
+  storeAddress: text('store_address'),
+  deliveryFee: numeric('delivery_fee', { precision: 12, scale: 2 }).notNull().default('0'),
+  freeDeliveryThreshold: numeric('free_delivery_threshold', { precision: 12, scale: 2 }),
+  deliveryConfig: jsonb('delivery_config'),
+  bankName: text('bank_name'),
+  accountNumber: text('account_number'),
+  accountName: text('account_name'),
+  notifyNewOrders: boolean('notify_new_orders').default(true),
+  notifyLowStock: boolean('notify_low_stock').default(true),
+  lowStockThreshold: integer('low_stock_threshold').default(5),
+  notifyEmail: text('notify_email'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});

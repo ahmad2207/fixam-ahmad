@@ -1,0 +1,29 @@
+import { pgTable, text, integer, numeric, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { categories } from './categories';
+
+export const products = pgTable('products', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  description: text('description'),
+  price: numeric('price', { precision: 12, scale: 2 }).notNull(),
+  compareAtPrice: numeric('compare_at_price', { precision: 12, scale: 2 }),
+  costPrice: numeric('cost_price', { precision: 12, scale: 2 }).notNull().default('0'),
+  categoryId: text('category_id').references(() => categories.id, { onDelete: 'set null' }),
+  collection: text('collection'),
+  imageUrl: text('image_url'),
+  images: jsonb('images').$type<string[]>().default([]),
+  stock: integer('stock').notNull().default(0),
+  sku: text('sku').unique(),
+  status: text('status').notNull().default('active'),
+  variations: jsonb('variations').$type<{ name: string; options: string[] }[]>().default([]),
+  specifications: jsonb('specifications'),
+  tags: jsonb('tags').$type<string[]>().default([]),
+  rating: numeric('rating', { precision: 3, scale: 2 }).notNull().default('0'),
+  reviewsCount: integer('reviews_count').notNull().default(0),
+  isFeatured: boolean('is_featured').default(false).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  weight: numeric('weight', { precision: 8, scale: 3 }),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
