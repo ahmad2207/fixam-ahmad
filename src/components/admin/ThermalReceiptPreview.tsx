@@ -67,7 +67,9 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
     <div style="width:80mm;padding:4mm;box-sizing:border-box">
       <div style="text-align:center;margin-bottom:4px">
         <div style="font-size:17px;font-weight:900;letter-spacing:3px">FIXAM</div>
-        <div style="font-size:9px">Fixam Africa — Lagos, Nigeria</div>
+        <div style="font-size:9px;font-weight:700">Fixam Africa Ltd.</div>
+        <div style="font-size:9px">Abuja, Nigeria</div>
+        <div style="font-size:9px">fixam.africa</div>
       </div>
       <div style="border-top:1px dashed #000;margin:4px 0"></div>
       <div style="font-size:10px;margin-bottom:4px">
@@ -91,8 +93,8 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
       ${notesRow}
       <div style="border-top:1px dashed #000;margin:4px 0"></div>
       <div style="text-align:center;font-size:9px;margin-top:4px">
-        <div>Thank you for shopping at Fixam!</div>
-        <div>www.fixam.africa</div>
+        <div style="font-weight:700">Thank you for shopping at Fixam!</div>
+        <div>fixam.africa</div>
       </div>
     </div>
   </body></html>`;
@@ -134,7 +136,9 @@ export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
               {/* Store header */}
               <div style={{ textAlign: 'center', marginBottom: '4px' }}>
                 <div style={{ fontSize: '17px', fontWeight: 900, letterSpacing: '3px' }}>FIXAM</div>
-                <div style={{ fontSize: '9px' }}>Fixam Africa — Lagos, Nigeria</div>
+                <div style={{ fontSize: '9px', fontWeight: 700 }}>Fixam Africa Ltd.</div>
+                <div style={{ fontSize: '9px' }}>Abuja, Nigeria</div>
+                <div style={{ fontSize: '9px' }}>fixam.africa</div>
               </div>
               <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
 
@@ -196,8 +200,8 @@ export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
 
               <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
               <div style={{ textAlign: 'center', fontSize: '9px', marginTop: '4px' }}>
-                <div>Thank you for shopping at Fixam!</div>
-                <div>www.fixam.africa</div>
+                <div style={{ fontWeight: 700 }}>Thank you for shopping at Fixam!</div>
+                <div>fixam.africa</div>
               </div>
             </div>
           </div>
