@@ -16,10 +16,11 @@ type StatusTab = (typeof STATUS_TABS)[number];
 
 const PAYMENT_METHOD_OPTIONS = [
   { value: '', label: 'All Methods' },
-  { value: 'card', label: 'Card' },
+  { value: 'flutterwave', label: 'Flutterwave' },
+  { value: 'pod', label: 'Pay on Delivery' },
   { value: 'cash', label: 'Cash' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
-  { value: 'flutterwave', label: 'Flutterwave' },
+  { value: 'card', label: 'Card' },
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -36,6 +37,15 @@ const PAYMENT_STATUS_STYLES: Record<string, string> = {
   paid:    'bg-emerald-100 text-emerald-800',
   pending: 'bg-amber-100 text-amber-700',
   failed:  'bg-red-100 text-red-700',
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  flutterwave:   'Flutterwave',
+  pod:           'Pay on Delivery',
+  cash:          'Cash',
+  bank_transfer: 'Bank Transfer',
+  card:          'Card',
+  card_pos:      'Card (POS)',
 };
 
 export default function AdminOrdersPage() {
@@ -351,7 +361,7 @@ export default function AdminOrdersPage() {
                           {row.paymentStatus ?? 'pending'}
                         </span>
                         {row.paymentMethod && (
-                          <p className="text-xs text-gray-400 mt-0.5 capitalize">{row.paymentMethod.replace('_', ' ')}</p>
+                          <p className="text-xs text-gray-400 mt-0.5 capitalize">{PAYMENT_METHOD_LABELS[row.paymentMethod] ?? row.paymentMethod.replace('_', ' ')}</p>
                         )}
                       </td>
                       <td className="px-4 py-3">

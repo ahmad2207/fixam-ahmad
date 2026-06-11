@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, Heart, ShoppingCart } from 'lucide-react';
+import { Heart, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -29,129 +29,93 @@ export function ProductCard({ product }: { product: Product }) {
   const [showDialog, setShowDialog] = useState(false);
   const isWishlisted = has(product.id);
   const inStock = product.stock > 0;
-  const isLowStock = inStock && product.stock <= 5;
 
   const price = Number(product.price);
   const compareAt = Number(product.compareAtPrice ?? 0);
   const discount = compareAt > price ? Math.round(((compareAt - price) / compareAt) * 100) : 0;
-  const rating = product.rating ?? 0;
-  const reviewsCount = product.reviewsCount ?? 0;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!inStock) return;
-    addItem({
-      productId: product.id,
-      name: product.name,
-      price,
-      imageUrl: product.imageUrl ?? null,
-      quantity: 1,
-      stock: product.stock,
-    });
+    addItem({ productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null, quantity: 1, stock: product.stock });
     setShowDialog(true);
   };
 
   return (
     <>
-      <Link href={`/products/${product.slug}`} className="group block">
-        <div className="relative bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-500 hover:-translate-y-2 card-shine">
-          {/* Image container */}
-          <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary/50 to-secondary/30">
+      <Link href={`/products/${product.slug}`} className="group flex flex-col h-full">
+        <div className="flex flex-col h-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-white/80 hover:border-primary/20 bg-white/60 backdrop-blur-sm">
+
+          {/* Image area — full image always visible */}
+          <div className="relative h-36 sm:h-44 flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
             {product.imageUrl ? (
               <Image
                 src={product.imageUrl}
                 alt={product.name}
                 fill
-                className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                className="object-contain p-3 transition-transform duration-500 group-hover:scale-110"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-4xl">📦</div>
+              <div className="absolute inset-0 flex items-center justify-center text-4xl text-gray-200">📦</div>
             )}
 
-            {/* Gradient overlay on hover */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
             {/* Badges */}
-            <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+            <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
               {discount > 0 && (
-                <span className="bg-primary text-primary-foreground font-bold px-2.5 py-1 rounded-full text-xs shadow-lg">
+                <span className="bg-red-500 text-white font-bold px-2 py-0.5 rounded-full text-[10px] shadow-sm">
                   -{discount}%
                 </span>
               )}
               {!inStock && (
-                <span className="bg-destructive text-destructive-foreground font-semibold px-2.5 py-1 rounded-full text-xs shadow-lg">
-                  Out of Stock
-                </span>
-              )}
-              {isLowStock && (
-                <span className="bg-warning text-warning-foreground font-semibold px-2.5 py-1 rounded-full text-xs shadow-lg">
-                  Only {product.stock} left
+                <span className="bg-black/50 backdrop-blur-sm text-white font-semibold px-2 py-0.5 rounded-full text-[10px]">
+                  Sold Out
                 </span>
               )}
             </div>
 
-            {/* Quick action buttons (top-right) */}
-            <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0 z-10">
-              <button
-                className={`rounded-full shadow-lg w-10 h-10 flex items-center justify-center transition ${
-                  isWishlisted
-                    ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                    : 'bg-white/90 hover:bg-white hover:text-primary'
+            {/* Wishlist */}
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(product.id); }}
+              className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 z-10 backdrop-blur-sm border border-white/40 shadow-sm
+                ${isWishlisted
+                  ? 'bg-red-50/90 text-red-500'
+                  : 'bg-white/60 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100'
                 }`}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(product.id); }}
-              >
-                <Heart className={`h-4 w-4 ${isWishlisted ? 'fill-primary' : ''}`} />
-              </button>
-            </div>
-
-            {/* Add to cart overlay (bottom) */}
-            <div className="absolute inset-x-0 bottom-0 p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0 z-10">
-              <button
-                className="w-full shadow-xl rounded-xl h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2 disabled:opacity-50"
-                disabled={!inStock}
-                onClick={handleAddToCart}
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Add to Cart
-              </button>
-            </div>
+            >
+              <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-red-500' : ''}`} />
+            </button>
           </div>
 
-          {/* Content */}
-          <div className="p-5">
+          {/* Glassmorphism info panel */}
+          <div className="flex-1 flex flex-col px-3 pt-2.5 pb-3 backdrop-blur-md bg-white/70 border-t border-white/60">
             {product.categoryName && (
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-2">
+              <p className="text-[9px] text-gray-400 uppercase tracking-wider font-semibold mb-0.5 truncate">
                 {product.categoryName}
               </p>
             )}
-            <h3 className="font-semibold text-foreground line-clamp-2 mb-3 text-base group-hover:text-primary transition-colors leading-snug">
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-2 leading-snug group-hover:text-primary transition-colors flex-1 mb-2">
               {product.name}
             </h3>
-
-            {/* Rating */}
-            <div className="flex items-center gap-1.5 mb-4">
-              <div className="flex items-center gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`h-4 w-4 ${i < Math.floor(rating) ? 'fill-warning text-warning' : 'fill-muted text-muted'}`}
-                  />
-                ))}
-              </div>
-              <span className="text-sm font-medium text-foreground">{rating.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground">({reviewsCount})</span>
-            </div>
-
-            {/* Price */}
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-bold text-primary">{formatCurrency(price)}</span>
-              {compareAt > price && (
-                <span className="text-sm text-muted-foreground line-through">
-                  {formatCurrency(compareAt)}
+            <div className="flex items-center justify-between gap-2 mt-auto">
+              <div className="min-w-0">
+                <span className="text-sm font-extrabold text-primary leading-none">
+                  {formatCurrency(price)}
                 </span>
-              )}
+                {compareAt > price && (
+                  <span className="text-[10px] text-gray-400 line-through ml-1 leading-none">
+                    {formatCurrency(compareAt)}
+                  </span>
+                )}
+              </div>
+              <button
+                disabled={!inStock}
+                onClick={handleAddToCart}
+                className="w-8 h-8 flex-shrink-0 rounded-xl bg-primary hover:bg-primary/90 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>

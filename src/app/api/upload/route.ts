@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 });
   }
 
-  const maxBytes = 10 * 1024 * 1024; // 10 MB
+  const maxBytes = 20 * 1024 * 1024; // 20 MB (allows animated GIFs)
   if (file.size > maxBytes) {
-    return NextResponse.json({ error: 'File exceeds 10 MB limit' }, { status: 413 });
+    return NextResponse.json({ error: 'File exceeds 20 MB limit' }, { status: 413 });
   }
 
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4'];

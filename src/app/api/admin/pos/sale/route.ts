@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { items, customerName, customerPhone, customerEmail, subtotal, deliveryFee, total, notes } = body;
+  const { items, customerName, customerPhone, customerEmail, subtotal, deliveryFee, total, notes, paymentMethod, salesRep: salesRepBody } = body;
 
   if (!items?.length) {
     return NextResponse.json({ error: 'No items' }, { status: 400 });
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
       orderNumber,
       status: 'delivered',
       paymentStatus: 'paid',
+      paymentMethod: paymentMethod ?? 'cash',
       saleType: 'pos',
       subtotal: String(subtotal),
       deliveryFee: String(deliveryFee ?? 0),
@@ -71,9 +72,9 @@ export async function POST(req: NextRequest) {
       items: JSON.stringify(items),
       notes,
       createdBy: session.user?.id ?? null,
-      salesRep: (session.user as any)?.name ?? null,
+      salesRep: salesRepBody || (session.user as any)?.name || null,
     })
     .returning();
 
-  return NextResponse.json({ orderId: order.id, receiptNumber: receipt.receiptNumber }, { status: 201 });
+  return NextResponse.json({ orderId: order.id, receiptId: receipt.id, receiptNumber: receipt.receiptNumber }, { status: 201 });
 }

@@ -38,6 +38,7 @@ async function OrderDetailFetcher({ id }: { id: string }) {
         orderNumber: order.orderNumber,
         status: order.status,
         paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
         subtotal: order.subtotal,
         deliveryFee: order.deliveryFee,
         total: order.total,
@@ -47,6 +48,7 @@ async function OrderDetailFetcher({ id }: { id: string }) {
         shippingCity: order.shippingCity,
         shippingState: order.shippingState,
         shippingPhone: order.shippingPhone,
+        notes: order.notes,
       }}
       items={items.map((item) => ({
         id: item.id,

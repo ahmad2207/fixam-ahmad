@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { db } from '@/lib/db';
 import { profiles, orders, addresses } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { desc, inArray } from 'drizzle-orm';
 import { formatCurrency } from '@/lib/utils';
 import { Users, ShoppingBag, TrendingUp, DollarSign } from 'lucide-react';
 import CustomersClient, { type CustomerRow } from './CustomersClient';
@@ -10,45 +10,77 @@ import CustomersClient, { type CustomerRow } from './CustomersClient';
 export default async function AdminCustomersPage() {
   const allProfiles = await db.select().from(profiles).orderBy(desc(profiles.createdAt));
 
-  const customersWithStats: CustomerRow[] = await Promise.all(
-    allProfiles.map(async (profile) => {
-      const [orderData, addrData] = await Promise.all([
+  const userIds = allProfiles.map((p) => p.userId);
+
+  const [allOrders, allAddresses] = userIds.length > 0
+    ? await Promise.all([
         db
-          .select({ id: orders.id, orderNumber: orders.orderNumber, total: orders.total, status: orders.status, createdAt: orders.createdAt })
+          .select({
+            userId: orders.userId,
+            id: orders.id,
+            orderNumber: orders.orderNumber,
+            total: orders.total,
+            status: orders.status,
+            createdAt: orders.createdAt,
+          })
           .from(orders)
-          .where(eq(orders.userId, profile.userId))
+          .where(inArray(orders.userId, userIds))
           .orderBy(desc(orders.createdAt)),
-        db.select().from(addresses).where(eq(addresses.userId, profile.userId)).limit(1),
-      ]);
-      const totalOrders = orderData.length;
-      const totalSpent = orderData.reduce((sum, o) => sum + Number(o.total), 0);
-      return {
-        id: profile.id,
-        fullName: profile.fullName,
-        email: profile.email,
-        phone: profile.phone,
-        totalOrders,
-        totalSpent,
-        createdAt: profile.createdAt,
-        primaryAddress: addrData[0] ? { city: addrData[0].city, state: addrData[0].state } : null,
-        recentOrders: orderData.slice(0, 8).map((o) => ({
-          id: o.id,
-          orderNumber: o.orderNumber,
-          total: o.total,
-          status: o.status,
-          createdAt: o.createdAt,
-        })),
-      };
-    })
-  );
+        db
+          .select({ userId: addresses.userId, city: addresses.city, state: addresses.state })
+          .from(addresses)
+          .where(inArray(addresses.userId, userIds)),
+      ])
+    : [[], []];
+
+  // Group orders by userId (already sorted desc by createdAt)
+  const ordersByUser = new Map<string, typeof allOrders>();
+  for (const o of allOrders) {
+    if (!o.userId) continue;
+    if (!ordersByUser.has(o.userId)) ordersByUser.set(o.userId, []);
+    ordersByUser.get(o.userId)!.push(o);
+  }
+
+  // First address per userId
+  const addressByUser = new Map<string, { city: string; state: string }>();
+  for (const a of allAddresses) {
+    if (a.userId && !addressByUser.has(a.userId)) {
+      addressByUser.set(a.userId, { city: a.city, state: a.state });
+    }
+  }
+
+  const customersWithStats: CustomerRow[] = allProfiles.map((profile) => {
+    const userOrders = ordersByUser.get(profile.userId) ?? [];
+    const totalSpent = userOrders.reduce((sum, o) => sum + Number(o.total), 0);
+    const addr = addressByUser.get(profile.userId) ?? null;
+    return {
+      id: profile.id,
+      fullName: profile.fullName,
+      email: profile.email,
+      phone: profile.phone,
+      totalOrders: userOrders.length,
+      totalSpent,
+      createdAt: profile.createdAt,
+      primaryAddress: addr,
+      recentOrders: userOrders.slice(0, 8).map((o) => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        total: o.total,
+        status: o.status,
+        createdAt: o.createdAt,
+      })),
+    };
+  });
 
   const stats = {
     total: customersWithStats.length,
     active: customersWithStats.filter((c) => c.totalOrders > 0).length,
     totalRevenue: customersWithStats.reduce((s, c) => s + c.totalSpent, 0),
-    avgOrder: customersWithStats.reduce((s, c) => s + c.totalOrders, 0) > 0
-      ? customersWithStats.reduce((s, c) => s + c.totalSpent, 0) / customersWithStats.reduce((s, c) => s + c.totalOrders, 0)
-      : 0,
+    avgOrder:
+      customersWithStats.reduce((s, c) => s + c.totalOrders, 0) > 0
+        ? customersWithStats.reduce((s, c) => s + c.totalSpent, 0) /
+          customersWithStats.reduce((s, c) => s + c.totalOrders, 0)
+        : 0,
   };
 
   return (

@@ -10,7 +10,8 @@ export function useStoreSetting<T>(key: string) {
       if (res.status === 404) return null;
       if (!res.ok) throw new Error('Failed to fetch setting');
       const data = await res.json();
-      return data.value as T;
+      // General route returns a flat object; [key] route wraps in { value }
+      return (data.value !== undefined ? data.value : data) as T;
     },
   });
 }

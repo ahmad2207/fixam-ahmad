@@ -64,6 +64,34 @@
       "when": 1780052584333,
       "tag": "0008_faulty_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780735817387,
+      "tag": "0009_absurd_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780742277791,
+      "tag": "0010_eager_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780753721865,
+      "tag": "0011_pink_anthem",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780809174690,
+      "tag": "0012_aspiring_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

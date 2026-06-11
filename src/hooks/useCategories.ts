@@ -48,3 +48,19 @@ export function useDeleteCategory() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
   });
 }
+
+export function useUpdateCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: Partial<Category> & { id: string }) => {
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update category');
+      return res.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
+  });
+}

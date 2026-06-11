@@ -19,6 +19,13 @@ export const storeSettings = pgTable('store_settings', {
   notifyLowStock: boolean('notify_low_stock').default(true),
   lowStockThreshold: integer('low_stock_threshold').default(5),
   notifyEmail: text('notify_email'),
+  // Social media
+  facebookUrl:   text('facebook_url'),
+  instagramUrl:  text('instagram_url'),
+  twitterUrl:    text('twitter_url'),
+  whatsappNumber: text('whatsapp_number'),
+  youtubeUrl:    text('youtube_url'),
+  tiktokUrl:     text('tiktok_url'),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

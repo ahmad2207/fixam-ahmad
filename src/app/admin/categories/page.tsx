@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useCategories, useCreateCategory, useDeleteCategory } from '@/hooks/useCategories';
+import { useCategories, useCreateCategory, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories';
 import { toast } from 'sonner';
-import { Plus, Trash2, Tag } from 'lucide-react';
+import { Plus, Trash2, Tag, Pencil, Check, X } from 'lucide-react';
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -13,10 +13,15 @@ export default function AdminCategoriesPage() {
   const { data: categories = [], isLoading } = useCategories();
   const createCategory = useCreateCategory();
   const deleteCategory = useDeleteCategory();
+  const updateCategory = useUpdateCategory();
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', description: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Inline edit state: id → { name, description }
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '' });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +50,32 @@ export default function AdminCategoriesPage() {
       toast.success('Category deleted');
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to delete category');
+    }
+  };
+
+  const startEdit = (cat: { id: string; name: string; description: string | null }) => {
+    setEditing(cat.id);
+    setEditForm({ name: cat.name, description: cat.description ?? '' });
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setEditForm({ name: '', description: '' });
+  };
+
+  const handleUpdate = async (id: string) => {
+    if (!editForm.name.trim()) return;
+    try {
+      await updateCategory.mutateAsync({
+        id,
+        name: editForm.name.trim(),
+        slug: slugify(editForm.name),
+        description: editForm.description.trim() || null,
+      });
+      toast.success('Category updated');
+      cancelEdit();
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to update category');
     }
   };
 
@@ -115,25 +146,78 @@ export default function AdminCategoriesPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Name</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Slug</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Description</th>
-                <th className="px-4 py-3 w-12" />
+                <th className="px-4 py-3 w-20" />
               </tr>
             </thead>
             <tbody>
-              {categories.map((cat) => (
-                <tr key={cat.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{cat.name}</td>
-                  <td className="px-4 py-3 text-gray-400 font-mono text-xs">{cat.slug}</td>
-                  <td className="px-4 py-3 text-gray-500">{cat.description ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleDelete(cat.id, cat.name)}
-                      className="text-red-400 hover:text-red-600 transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {categories.map((cat) =>
+                editing === cat.id ? (
+                  <tr key={cat.id} className="border-b last:border-0 bg-orange-50">
+                    <td className="px-4 py-2">
+                      <input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                        autoFocus
+                        className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-gray-400 font-mono text-xs">
+                      {slugify(editForm.name || cat.slug)}
+                    </td>
+                    <td className="px-4 py-2">
+                      <input
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                        placeholder="Optional"
+                        className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleUpdate(cat.id)}
+                          disabled={updateCategory.isPending}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition disabled:opacity-50"
+                          title="Save"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition"
+                          title="Cancel"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={cat.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">{cat.name}</td>
+                    <td className="px-4 py-3 text-gray-400 font-mono text-xs">{cat.slug}</td>
+                    <td className="px-4 py-3 text-gray-500">{cat.description ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => startEdit(cat)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(cat.id, cat.name)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         )}
