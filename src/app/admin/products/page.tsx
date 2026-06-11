@@ -6,10 +6,12 @@ import { formatCurrency } from '@/lib/utils';
 import {
   Search, Package, ArrowUpDown, ArrowUp, ArrowDown,
   RotateCcw, Trash2, CheckSquare, Square, MinusSquare,
+  Plus, TrendingUp, AlertTriangle, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface AdminProduct {
   id: string;
@@ -46,13 +48,7 @@ function getMargin(p: AdminProduct) {
 }
 
 // ── Quick Restock Dialog ─────────────────────────────────────────
-function RestockDialog({
-  product,
-  onClose,
-}: {
-  product: AdminProduct;
-  onClose: () => void;
-}) {
+function RestockDialog({ product, onClose }: { product: AdminProduct; onClose: () => void }) {
   const qc = useQueryClient();
   const [qty, setQty] = useState('');
   const [costPrice, setCostPrice] = useState(product.costPrice ?? '');
@@ -64,10 +60,7 @@ function RestockDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!qty || !costPrice) {
-      toast.error('Quantity and cost price are required');
-      return;
-    }
+    if (!qty || !costPrice) { toast.error('Quantity and cost price are required'); return; }
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/admin/inventory/${product.id}/batches`, {
@@ -87,61 +80,57 @@ function RestockDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 overflow-hidden">
-        <div className="px-6 py-4 border-b flex items-center justify-between">
-          <h3 className="font-bold text-lg">Quick Restock</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-sm mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="font-bold text-foreground">Quick Restock</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:bg-secondary transition">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Product preview */}
-          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-            <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
+            <div className="w-10 h-10 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
               {product.imageUrl ? (
                 <Image src={product.imageUrl} alt={product.name} width={40} height={40} className="object-cover w-full h-full" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-gray-400" /></div>
+                <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-muted-foreground" /></div>
               )}
             </div>
             <div>
-              <p className="font-medium text-sm">{product.name}</p>
-              <p className="text-xs text-gray-400">Current stock: <span className="font-semibold text-gray-700">{product.stock}</span></p>
+              <p className="font-semibold text-sm text-foreground">{product.name}</p>
+              <p className="text-xs text-muted-foreground">Current stock: <span className="font-bold text-foreground">{product.stock}</span></p>
             </div>
           </div>
-
           <div>
-            <label className="block text-sm font-medium mb-1">Quantity to Add *</label>
+            <label className="block text-sm font-semibold text-foreground mb-1.5">Quantity to Add *</label>
             <input
               type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} required
               placeholder="e.g. 50"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium mb-1">Cost Price per Unit (₦) *</label>
+            <label className="block text-sm font-semibold text-foreground mb-1.5">Cost Price per Unit (₦) *</label>
             <input
               type="number" min="0" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} required
               placeholder="e.g. 2500"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
             />
           </div>
-
           {batchValue > 0 && (
-            <div className="bg-primary/5 rounded-lg px-4 py-3 text-sm flex justify-between">
-              <span className="text-gray-600">Batch value</span>
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex justify-between items-center">
+              <span className="text-sm text-muted-foreground font-medium">Batch value</span>
               <span className="font-bold text-primary">{formatCurrency(batchValue)}</span>
             </div>
           )}
-
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 border rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50 transition">
+              className="flex-1 border border-border rounded-xl py-2.5 text-sm font-semibold hover:bg-secondary transition">
               Cancel
             </button>
             <button type="submit" disabled={isSubmitting}
-              className="flex-1 bg-primary text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-50">
+              className="flex-1 bg-primary text-primary-foreground rounded-xl py-2.5 text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-50">
               {isSubmitting ? 'Adding…' : 'Add Stock'}
             </button>
           </div>
@@ -163,7 +152,6 @@ export default function AdminProductsPage() {
   const [restockProduct, setRestockProduct] = useState<AdminProduct | null>(null);
   const [bulkAction, setBulkAction] = useState('');
 
-  // Sorted + filtered list
   const filtered = useMemo(() => {
     const list = (products ?? []).filter((p) =>
       p.name.toLowerCase().includes(search.toLowerCase()),
@@ -179,23 +167,18 @@ export default function AdminProductsPage() {
   }, [products, search, sortKey, sortDir]);
 
   const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
+    if (sortKey === key) { setSortDir((d) => (d === 'asc' ? 'desc' : 'asc')); }
+    else { setSortKey(key); setSortDir('asc'); }
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 inline text-gray-300" />;
+    if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 ml-1 inline opacity-30" />;
     return sortDir === 'asc'
-      ? <ArrowUp className="w-3.5 h-3.5 ml-1 inline text-primary" />
-      : <ArrowDown className="w-3.5 h-3.5 ml-1 inline text-primary" />;
+      ? <ArrowUp className="w-3 h-3 ml-1 inline text-primary" />
+      : <ArrowDown className="w-3 h-3 ml-1 inline text-primary" />;
   };
 
-  // Bulk selection helpers
-  const allSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const allSelected  = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
   const someSelected = filtered.some((p) => selected.has(p.id)) && !allSelected;
 
   const toggleAll = () => {
@@ -205,7 +188,6 @@ export default function AdminProductsPage() {
       setSelected((s) => { const n = new Set(s); filtered.forEach((p) => n.add(p.id)); return n; });
     }
   };
-
   const toggleOne = (id: string) =>
     setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -215,15 +197,13 @@ export default function AdminProductsPage() {
     try {
       if (bulkAction === 'activate' || bulkAction === 'deactivate') {
         const isActive = bulkAction === 'activate';
-        await Promise.all(
-          ids.map((id) =>
-            fetch(`/api/admin/products/${id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ isActive }),
-            }),
-          ),
-        );
+        await Promise.all(ids.map((id) =>
+          fetch(`/api/admin/products/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ isActive }),
+          }),
+        ));
         toast.success(`${ids.length} products ${isActive ? 'activated' : 'deactivated'}`);
       }
       qc.invalidateQueries({ queryKey: ['admin-products-list'] });
@@ -261,102 +241,100 @@ export default function AdminProductsPage() {
     }
   };
 
-  const totalProducts     = products?.length ?? 0;
-  const activeProducts    = products?.filter((p) => p.isActive).length ?? 0;
-  const outOfStock        = products?.filter((p) => p.stock <= 0).length ?? 0;
-  const totalRetailValue  = (products ?? []).reduce((s, p) => s + Number(p.price) * p.stock, 0);
+  const totalProducts    = products?.length ?? 0;
+  const activeProducts   = products?.filter((p) => p.isActive).length ?? 0;
+  const outOfStock       = products?.filter((p) => p.stock <= 0).length ?? 0;
+  const totalRetailValue = (products ?? []).reduce((s, p) => s + Number(p.price) * p.stock, 0);
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Products</h1>
+    <div className="space-y-6">
+
+      {/* ── Page Header ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Products</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{totalProducts} products in catalog</p>
+        </div>
         <Link
           href="/admin/products/new"
-          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition shadow-sm shadow-primary/20"
         >
-          + New Product
+          <Plus className="w-4 h-4" />
+          New Product
         </Link>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border rounded-xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Products</p>
-          <p className="text-2xl font-bold">{totalProducts}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Active</p>
-          <p className="text-2xl font-bold text-primary">{activeProducts}</p>
-        </div>
-        <div className="bg-white border border-red-100 rounded-xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Out of Stock</p>
-          <p className="text-2xl font-bold text-red-600">{outOfStock}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Retail Value</p>
-          <p className="text-2xl font-bold text-emerald-600">{formatCurrency(totalRetailValue)}</p>
-        </div>
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Products',   value: totalProducts,                   icon: Package,      color: 'bg-primary/10 text-primary',      border: 'border-primary/15' },
+          { label: 'Active',           value: activeProducts,                  icon: TrendingUp,   color: 'bg-emerald-50 text-emerald-600',  border: 'border-emerald-100' },
+          { label: 'Out of Stock',     value: outOfStock,                      icon: AlertTriangle,color: 'bg-red-50 text-red-600',          border: 'border-red-100' },
+          { label: 'Total Retail Value',value: formatCurrency(totalRetailValue),icon: TrendingUp,  color: 'bg-emerald-50 text-emerald-600',  border: 'border-emerald-100' },
+        ].map(({ label, value, icon: Icon, color, border }) => (
+          <div key={label} className={cn('bg-card rounded-2xl p-5 border shadow-sm', border)}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
+                <p className="text-2xl font-bold text-foreground mt-1 leading-none">{value}</p>
+              </div>
+              <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0', color)}>
+                <Icon className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Search */}
-      <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="search" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search products..."
-          className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        />
-      </div>
-
-      {/* P1 — Bulk action bar */}
-      {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-primary/5 border border-primary/20 rounded-xl">
-          <span className="text-sm font-medium text-primary">{selected.size} selected</span>
-          <div className="flex items-center gap-2 ml-auto">
+      {/* ── Search + Bulk Actions ── */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="search" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search products…"
+            className="w-full pl-9 pr-4 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-card"
+          />
+        </div>
+        {selected.size > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/20 rounded-xl">
+            <span className="text-sm font-semibold text-primary">{selected.size} selected</span>
             <select
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              className="border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"
             >
               <option value="">Bulk action…</option>
               <option value="activate">Activate</option>
               <option value="deactivate">Deactivate</option>
             </select>
             <button
-              onClick={handleBulkApply}
-              disabled={!bulkAction}
-              className="px-4 py-1.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition disabled:opacity-50"
-            >
-              Apply
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Clear
+              onClick={handleBulkApply} disabled={!bulkAction}
+              className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-50"
+            >Apply</button>
+            <button onClick={() => setSelected(new Set())} className="text-sm text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Quick Restock Dialog */}
-      {restockProduct && (
-        <RestockDialog product={restockProduct} onClose={() => setRestockProduct(null)} />
-      )}
+      {restockProduct && <RestockDialog product={restockProduct} onClose={() => setRestockProduct(null)} />}
 
-      <div className="bg-white border rounded-xl overflow-hidden">
+      {/* ── Table ── */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  {/* P1 — Select all checkbox */}
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
                   <th className="px-4 py-3 w-10">
-                    <button onClick={toggleAll} className="text-gray-500 hover:text-primary">
+                    <button onClick={toggleAll} className="text-muted-foreground hover:text-primary transition-colors">
                       {allSelected ? (
                         <CheckSquare className="w-4 h-4 text-primary" />
                       ) : someSelected ? (
@@ -366,126 +344,115 @@ export default function AdminProductsPage() {
                       )}
                     </button>
                   </th>
-                  {/* P2 — Sortable column headers */}
-                  <th
-                    className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none"
-                    onClick={() => handleSort('name')}
-                  >
-                    Product <SortIcon col="name" />
-                  </th>
-                  <th
-                    className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none"
-                    onClick={() => handleSort('price')}
-                  >
-                    Price <SortIcon col="price" />
-                  </th>
-                  <th
-                    className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none"
-                    onClick={() => handleSort('stock')}
-                  >
-                    Stock <SortIcon col="stock" />
-                  </th>
-                  <th
-                    className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer hover:text-gray-800 select-none"
-                    onClick={() => handleSort('margin')}
-                  >
-                    Margin <SortIcon col="margin" />
-                  </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500">Actions</th>
+                  {[
+                    { key: 'name' as SortKey,   label: 'Product' },
+                    { key: 'price' as SortKey,  label: 'Price' },
+                    { key: 'stock' as SortKey,  label: 'Stock' },
+                    { key: 'margin' as SortKey, label: 'Margin' },
+                  ].map(({ key, label }) => (
+                    <th
+                      key={key}
+                      className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground select-none transition-colors"
+                      onClick={() => handleSort(key)}
+                    >
+                      {label} <SortIcon col={key} />
+                    </th>
+                  ))}
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {filtered.map((row) => {
-                  const price   = Number(row.price);
-                  const margin  = getMargin(row);
+                  const margin = getMargin(row);
                   const isSelected = selected.has(row.id);
-
                   return (
-                    <tr key={row.id} className={`border-b last:border-0 hover:bg-gray-50 ${isSelected ? 'bg-primary/5' : ''}`}>
-                      {/* P1 — Row checkbox */}
-                      <td className="px-4 py-3 w-10">
-                        <button onClick={() => toggleOne(row.id)} className="text-gray-400 hover:text-primary">
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-primary" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
+                    <tr key={row.id} className={cn('hover:bg-muted/20 transition-colors', isSelected && 'bg-primary/5')}>
+                      <td className="px-4 py-3.5 w-10">
+                        <button onClick={() => toggleOne(row.id)} className="text-muted-foreground hover:text-primary transition-colors">
+                          {isSelected
+                            ? <CheckSquare className="w-4 h-4 text-primary" />
+                            : <Square className="w-4 h-4" />}
                         </button>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           {row.imageUrl ? (
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                            <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 ring-1 ring-border">
                               <Image src={row.imageUrl} alt={row.name} fill className="object-cover" />
                             </div>
                           ) : (
-                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <Package className="w-5 h-5 text-gray-400" />
+                            <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
+                              <Package className="w-5 h-5 text-muted-foreground" />
                             </div>
                           )}
-                          <span className="font-medium">{row.name}</span>
+                          <span className="font-semibold text-foreground text-sm">{row.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium">{formatCurrency(price)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`font-medium ${
-                          row.stock <= 0 ? 'text-red-500' : row.stock <= 5 ? 'text-yellow-600' : 'text-primary'
-                        }`}>
+                      <td className="px-4 py-3.5">
+                        <span className="font-bold text-foreground text-sm">{formatCurrency(Number(row.price))}</span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={cn('font-bold text-sm', row.stock <= 0 ? 'text-destructive' : row.stock <= 5 ? 'text-warning' : 'text-foreground')}>
                           {row.stock}
                         </span>
                         {row.stock === 0 && (
-                          <span className="ml-1 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">Out</span>
+                          <span className="ml-2 text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full">Out</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          margin >= 40 ? 'bg-emerald-100 text-emerald-800' :
-                          margin >= 20 ? 'bg-amber-100 text-amber-800' :
-                          'bg-red-100 text-red-700'
-                        }`}>
+                      <td className="px-4 py-3.5">
+                        <span className={cn(
+                          'text-xs font-bold px-2.5 py-1 rounded-full border',
+                          margin >= 40 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          margin >= 20 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                        'bg-red-50 text-red-700 border-red-200',
+                        )}>
                           {margin.toFixed(0)}%
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          row.isActive ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'
-                        }`}>
+                      <td className="px-4 py-3.5">
+                        <span className={cn(
+                          'inline-block px-2.5 py-1 rounded-full text-xs font-bold border',
+                          row.isActive
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-secondary text-muted-foreground border-border',
+                        )}>
                           {row.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1.5">
-                          <Link href={`/admin/products/${row.id}/edit`}
-                            className="text-xs px-2 py-1 border rounded text-blue-600 hover:bg-blue-50 transition">
+                          <Link
+                            href={`/admin/products/${row.id}/edit`}
+                            className="text-xs px-2.5 py-1.5 border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition font-medium"
+                          >
                             Edit
                           </Link>
-                          {/* P3 — Quick Restock */}
                           <button
                             onClick={() => setRestockProduct(row)}
                             title="Quick Restock"
-                            className="text-xs px-2 py-1 border rounded text-primary hover:bg-primary/5 transition flex items-center gap-1"
+                            className="text-xs px-2.5 py-1.5 border border-border rounded-lg text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition font-medium flex items-center gap-1"
                           >
                             <RotateCcw className="w-3 h-3" />
                             Restock
                           </button>
                           <button
                             onClick={() => toggleActive(row.id, row.isActive)}
-                            className={`text-xs px-2 py-0.5 rounded border transition ${
+                            className={cn(
+                              'text-xs px-2.5 py-1.5 rounded-lg border transition font-medium',
                               row.isActive
-                                ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                                : 'border-primary/40 text-primary hover:bg-primary/5'
-                            }`}
+                                ? 'border-border text-muted-foreground hover:bg-secondary'
+                                : 'border-primary/30 text-primary hover:bg-primary/5',
+                            )}
                           >
                             {row.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                           <button
                             onClick={() => deleteProduct(row.id, row.name)}
                             title="Delete product"
-                            className="text-xs px-2 py-1 border border-red-200 rounded text-red-600 hover:bg-red-50 transition flex items-center gap-1"
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition"
                           >
-                            <Trash2 className="w-3 h-3" />
-                            Delete
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -495,8 +462,14 @@ export default function AdminProductsPage() {
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="text-center py-10 text-gray-500">
-                {search ? 'No products match your search.' : 'No products yet.'}
+              <div className="text-center py-16">
+                <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">{search ? 'No products match your search.' : 'No products yet.'}</p>
+                {!search && (
+                  <Link href="/admin/products/new" className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold text-primary hover:underline">
+                    <Plus className="w-4 h-4" /> Add your first product
+                  </Link>
+                )}
               </div>
             )}
           </div>

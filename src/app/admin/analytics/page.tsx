@@ -44,8 +44,11 @@ export default function AdminAnalyticsPage() {
 
   if (isLoading || !data) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold mb-6">Analytics</h1>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Store performance overview</p>
+        </div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
@@ -54,15 +57,18 @@ export default function AdminAnalyticsPage() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Analytics</h1>
-        <div className="flex border rounded-lg overflow-hidden text-sm">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Store performance overview</p>
+        </div>
+        <div className="flex bg-card border border-border rounded-xl overflow-hidden text-sm shadow-sm">
           {(['7d', '30d', '90d', '6m', '1y'] as TimeRange[]).map((r) => (
             <button
               key={r}
               onClick={() => setTimeRange(r)}
-              className={`px-4 py-2 transition ${timeRange === r ? 'bg-primary text-white' : 'hover:bg-gray-50'}`}
+              className={`px-3.5 py-2 transition font-medium ${timeRange === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             >
               {TIME_RANGE_LABELS[r]}
             </button>
@@ -71,68 +77,31 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {/* Key Metrics — 6 cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          {
-            label: 'Total Revenue',
-            value: formatCurrency(data.totalRevenue),
-            icon: TrendingUp,
-            color: 'text-primary',
-            pct: data.pctChange?.totalRevenue,
-          },
-          {
-            label: 'Total Orders',
-            value: data.totalOrders,
-            icon: ShoppingCart,
-            color: 'text-blue-600',
-            pct: data.pctChange?.totalOrders,
-          },
-          {
-            label: 'New Customers',
-            value: data.newCustomers,
-            icon: Users,
-            color: 'text-emerald-600',
-            pct: data.pctChange?.newCustomers,
-          },
-          {
-            label: 'Avg Order Value',
-            value: formatCurrency(data.avgOrderValue),
-            icon: Package,
-            color: 'text-amber-600',
-            pct: data.pctChange?.avgOrderValue,
-          },
-          {
-            label: 'Gross Profit',
-            value: formatCurrency(data.grossProfit ?? 0),
-            icon: DollarSign,
-            color: 'text-violet-600',
-            sub: data.profitMargin != null ? `${Number(data.profitMargin).toFixed(1)}% margin` : undefined,
-          },
-          {
-            label: 'Conversion Rate',
-            value: `${Number(data.conversionRate ?? 0).toFixed(1)}%`,
-            icon: MousePointerClick,
-            color: 'text-rose-600',
-            sub: 'orders paid / placed',
-            pct: data.pctChange?.conversionRate,
-          },
+          { label: 'Total Revenue',    value: formatCurrency(data.totalRevenue),              icon: TrendingUp,       color: 'text-primary',    pct: data.pctChange?.totalRevenue },
+          { label: 'Total Orders',     value: data.totalOrders,                               icon: ShoppingCart,     color: 'text-blue-600',   pct: data.pctChange?.totalOrders },
+          { label: 'New Customers',    value: data.newCustomers,                              icon: Users,            color: 'text-emerald-600',pct: data.pctChange?.newCustomers },
+          { label: 'Avg Order Value',  value: formatCurrency(data.avgOrderValue),             icon: Package,          color: 'text-amber-600',  pct: data.pctChange?.avgOrderValue },
+          { label: 'Gross Profit',     value: formatCurrency(data.grossProfit ?? 0),          icon: DollarSign,       color: 'text-violet-600', sub: data.profitMargin != null ? `${Number(data.profitMargin).toFixed(1)}% margin` : undefined },
+          { label: 'Conversion Rate',  value: `${Number(data.conversionRate ?? 0).toFixed(1)}%`, icon: MousePointerClick, color: 'text-rose-600', sub: 'orders paid / placed', pct: data.pctChange?.conversionRate },
         ].map(({ label, value, icon: Icon, color, sub, pct }) => {
           const isUp = pct != null && pct > 0;
           const isDown = pct != null && pct < 0;
           return (
-            <div key={label} className="bg-white border rounded-xl p-5">
-              <div className="flex items-start justify-between">
+            <div key={label} className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1 truncate">{label}</p>
-                  <p className="text-xl font-bold text-gray-900">{value}</p>
-                  {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 truncate">{label}</p>
+                  <p className="text-xl font-bold text-foreground">{value}</p>
+                  {sub && <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>}
                   {pct != null && (
-                    <p className={`text-xs font-medium mt-1 ${isUp ? 'text-emerald-600' : isDown ? 'text-red-500' : 'text-gray-400'}`}>
-                      {isUp ? '↑' : isDown ? '↓' : '→'} {Math.abs(pct).toFixed(1)}% vs prior
+                    <p className={`text-xs font-semibold mt-1 ${isUp ? 'text-emerald-600' : isDown ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {isUp ? '↑' : isDown ? '↓' : '→'} {Math.abs(pct).toFixed(1)}%
                     </p>
                   )}
                 </div>
-                <Icon className={`h-5 w-5 ${color} mt-1 shrink-0`} />
+                <Icon className={`h-4 w-4 ${color} mt-1 shrink-0`} />
               </div>
             </div>
           );
@@ -141,8 +110,8 @@ export default function AdminAnalyticsPage() {
 
       {/* Revenue Chart + Status Donut */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2 bg-white border rounded-xl p-6">
-          <h3 className="font-semibold mb-4">Revenue Trend</h3>
+        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold text-foreground mb-4">Revenue Trend</h3>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.dailyRevenue}>
@@ -152,7 +121,7 @@ export default function AdminAnalyticsPage() {
                     <stop offset="95%" stopColor="hsl(32, 100%, 50%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v: unknown) => [formatCurrency(Number(v)), 'Revenue']} />
@@ -162,9 +131,9 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
-        <div className="bg-white border rounded-xl p-6">
-          <h3 className="font-semibold mb-1">Order Status</h3>
-          <p className="text-xs text-gray-400 mb-4">Distribution</p>
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold text-foreground mb-1">Order Status</h3>
+          <p className="text-xs text-muted-foreground mb-4">Distribution</p>
           <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -183,9 +152,9 @@ export default function AdminAnalyticsPage() {
 
       {/* Profit Breakdown */}
       {(data.totalRevenue > 0 || data.estimatedCOGS > 0) && (
-        <div className="bg-white border rounded-xl p-6 mb-6">
-          <h3 className="font-semibold mb-1">Profit Breakdown</h3>
-          <p className="text-xs text-gray-400 mb-5">Revenue → COGS → Gross Profit</p>
+        <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+          <h3 className="font-semibold text-foreground mb-1">Profit Breakdown</h3>
+          <p className="text-xs text-muted-foreground mb-5">Revenue → COGS → Gross Profit</p>
           <div className="space-y-4">
             {[
               { label: 'Revenue', value: data.totalRevenue, color: 'bg-blue-500', pct: 100 },
@@ -204,13 +173,13 @@ export default function AdminAnalyticsPage() {
             ].map(({ label, value, color, pct }) => (
               <div key={label}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-medium text-gray-700">{label}</span>
+                  <span className="text-sm font-medium text-foreground">{label}</span>
                   <div className="text-right">
-                    <span className="text-sm font-bold">{formatCurrency(value)}</span>
-                    <span className="text-xs text-gray-400 ml-2">{pct.toFixed(1)}%</span>
+                    <span className="text-sm font-bold text-foreground">{formatCurrency(value)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{pct.toFixed(1)}%</span>
                   </div>
                 </div>
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-3 bg-muted/40 rounded-full overflow-hidden">
                   <div className={`h-3 rounded-full ${color} transition-all`} style={{ width: `${Math.max(pct, 0)}%` }} />
                 </div>
               </div>
@@ -230,13 +199,13 @@ export default function AdminAnalyticsPage() {
 
       {/* Online vs Offline Chart */}
       {data.onlineVsOffline && data.onlineVsOffline.length > 0 && (
-        <div className="bg-white border rounded-xl p-6 mb-6">
-          <h3 className="font-semibold mb-1">Online vs Offline Sales</h3>
-          <p className="text-xs text-gray-400 mb-4">Last 6 months</p>
+        <div className="bg-card border border-border rounded-2xl p-6 mb-6 shadow-sm">
+          <h3 className="font-semibold text-foreground mb-1">Online vs Offline Sales</h3>
+          <p className="text-xs text-muted-foreground mb-4">Last 6 months</p>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.onlineVsOffline}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v: unknown) => formatCurrency(Number(v))} />
@@ -251,8 +220,8 @@ export default function AdminAnalyticsPage() {
 
       {/* Top Products + Low Stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border rounded-xl p-6">
-          <h3 className="font-semibold mb-4">Top Products</h3>
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold text-foreground mb-4">Top Products</h3>
           {data.topProducts.length > 0 ? (
             <div className="space-y-3">
               {data.topProducts.map((p: any, i: number) => {
@@ -261,17 +230,17 @@ export default function AdminAnalyticsPage() {
                   <div key={i}>
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-3">
-                        <span className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center ${i === 0 ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center ${i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
                           {i + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-medium">{p.name}</p>
-                          <p className="text-xs text-gray-400">{p.quantity} units</p>
+                          <p className="text-sm font-medium text-foreground">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">{p.quantity} units</p>
                         </div>
                       </div>
-                      <span className="text-sm font-bold">{formatCurrency(p.revenue)}</span>
+                      <span className="text-sm font-bold text-foreground">{formatCurrency(p.revenue)}</span>
                     </div>
-                    <div className="ml-10 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div className="ml-10 h-1.5 rounded-full bg-muted/40 overflow-hidden">
                       <div className="h-full rounded-full bg-primary" style={{ width: `${(p.revenue / maxRev) * 100}%` }} />
                     </div>
                   </div>
@@ -279,18 +248,18 @@ export default function AdminAnalyticsPage() {
               })}
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-8">No confirmed sales yet</p>
+            <p className="text-center text-muted-foreground py-8">No confirmed sales yet</p>
           )}
         </div>
 
         <div className="space-y-6">
           {/* Category Chart */}
-          <div className="bg-white border rounded-xl p-6">
-            <h3 className="font-semibold mb-4">By Category</h3>
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <h3 className="font-semibold text-foreground mb-4">By Category</h3>
             <div className="h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data.categoryBreakdown} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
                   <Tooltip />
@@ -302,16 +271,16 @@ export default function AdminAnalyticsPage() {
 
           {/* Low Stock Alert */}
           {data.lowStockProducts?.length > 0 && (
-            <div className="bg-white border border-red-100 rounded-xl p-6">
+            <div className="bg-card border border-red-200 rounded-2xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <AlertTriangle className="h-4 w-4 text-red-500" />
-                <h3 className="font-semibold">Low Stock</h3>
+                <h3 className="font-semibold text-foreground">Low Stock</h3>
                 <span className="ml-auto text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">{data.lowStockProducts.length}</span>
               </div>
               <div className="space-y-2">
                 {data.lowStockProducts.slice(0, 5).map((p: any, i: number) => (
                   <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="truncate max-w-[60%]">{p.name}</span>
+                    <span className="truncate max-w-[60%] text-foreground">{p.name}</span>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.stock === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'}`}>
                       {p.stock === 0 ? 'Out of stock' : `${p.stock} left`}
                     </span>

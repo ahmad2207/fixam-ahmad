@@ -45,12 +45,15 @@ export default async function AdminReceiptsPage() {
   });
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Receipts</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Receipts</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{receiptRows.length} receipts generated</p>
+        </div>
         <Link
           href="/admin/receipts/new"
-          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition shadow-sm shadow-primary/20"
         >
           + Manual Receipt
         </Link>

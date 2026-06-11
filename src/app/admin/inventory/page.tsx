@@ -68,29 +68,27 @@ export default async function AdminInventoryPage() {
   }));
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Inventory</h1>
-
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border rounded-xl p-5">
-          <p className="text-sm text-gray-500 mb-1">Total Units</p>
-          <p className="text-2xl font-bold">{totalUnits}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-5">
-          <p className="text-sm text-gray-500 mb-1">Inventory Value</p>
-          <p className="text-2xl font-bold text-emerald-600">{formatCurrency(inventoryValue)}</p>
-        </div>
-        <div className="bg-white border border-red-100 rounded-xl p-5">
-          <p className="text-sm text-gray-500 mb-1">Out of Stock</p>
-          <p className="text-2xl font-bold text-red-600">{outOfStock}</p>
-        </div>
-        <div className="bg-white border border-amber-100 rounded-xl p-5">
-          <p className="text-sm text-gray-500 mb-1">Low Stock (&lt;10)</p>
-          <p className="text-2xl font-bold text-amber-600">{lowStock}</p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Inventory</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{productRows.length} products tracked</p>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Units',      value: totalUnits,                    color: 'text-foreground',       border: 'border-border' },
+          { label: 'Inventory Value',  value: formatCurrency(inventoryValue), color: 'text-emerald-600',     border: 'border-emerald-100' },
+          { label: 'Out of Stock',     value: outOfStock,                    color: 'text-destructive',      border: 'border-red-100' },
+          { label: 'Low Stock (<10)',  value: lowStock,                      color: 'text-amber-600',        border: 'border-amber-100' },
+        ].map(({ label, value, color, border }) => (
+          <div key={label} className={`bg-card rounded-2xl p-5 border shadow-sm ${border}`}>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div>
       <InventoryTabsClient
         products={productRows.map((r) => ({
           ...r,
@@ -107,6 +105,7 @@ export default async function AdminInventoryPage() {
         }))}
         activeReservations={serializedReservations}
       />
+      </div>
     </div>
   );
 }

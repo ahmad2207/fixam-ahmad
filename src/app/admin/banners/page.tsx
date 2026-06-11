@@ -40,7 +40,7 @@ function BannerImageUpload({ value, onChange }: { value: string; onChange: (url:
   return (
     <div
       className={`relative border-2 border-dashed rounded-xl overflow-hidden cursor-pointer transition-colors ${
-        value ? 'border-transparent' : 'border-gray-200 hover:border-primary'
+        value ? 'border-transparent' : 'border-border hover:border-primary'
       }`}
       style={{ aspectRatio: '16/6' }}
       onClick={() => fileRef.current?.click()}
@@ -65,15 +65,15 @@ function BannerImageUpload({ value, onChange }: { value: string; onChange: (url:
           </div>
         </>
       ) : isUploading ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-50">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted/40">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          <p className="text-xs text-gray-500">Uploading…</p>
+          <p className="text-xs text-muted-foreground">Uploading…</p>
         </div>
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-50">
-          <ImageIcon className="w-8 h-8 text-gray-300" />
-          <p className="text-sm font-medium text-gray-500">Click or drop a banner image</p>
-          <p className="text-xs text-gray-400">Recommended: 1600 × 600 px · JPG, PNG or GIF · max 20 MB</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted/40">
+          <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
+          <p className="text-sm font-medium text-muted-foreground">Click or drop a banner image</p>
+          <p className="text-xs text-muted-foreground/60">Recommended: 1600 × 600 px · JPG, PNG or GIF · max 20 MB</p>
         </div>
       )}
       {isUploading && value && (
@@ -102,10 +102,10 @@ function BannerFormPanel({
   const canSave = !!form.title && !!form.heading && (isCta || !!form.imageUrl);
 
   return (
-    <div className="bg-white border rounded-xl p-6 space-y-5">
+    <div className="bg-card border border-border rounded-2xl p-6 space-y-5 shadow-sm">
       {/* Banner image */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <label className="block text-sm font-semibold text-foreground mb-2">
           Banner Image{isCta ? ' (optional — overlaid on dark gradient)' : ' *'}
         </label>
         <BannerImageUpload value={form.imageUrl} onChange={(url) => set('imageUrl', url)} />
@@ -114,67 +114,67 @@ function BannerFormPanel({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Internal title */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Internal Title *</label>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Internal Title *</label>
           <input value={form.title} onChange={(e) => set('title', e.target.value)}
             placeholder="e.g. Cookware Sale Jan 2025"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
         {/* Eyebrow */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
             {isCta ? 'Eyebrow Text' : 'Badge Text'}
           </label>
           <input value={form.eyebrow} onChange={(e) => set('eyebrow', e.target.value)}
             placeholder={isCta ? 'New Collection' : '🍳 Premium Cookware'}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
         {/* Heading */}
         <div className="sm:col-span-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
             Heading * <span className="text-gray-400 font-normal normal-case">(use ↵ for line breaks)</span>
           </label>
           <textarea value={form.heading} onChange={(e) => set('heading', e.target.value)} rows={2}
             placeholder={isCta ? 'Elevate Your Kitchen Today' : 'Cook Like a\nProfessional'}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none bg-background" />
         </div>
         {/* Subheading */}
         <div className="sm:col-span-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Subheading</label>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Subheading</label>
           <input value={form.subheading} onChange={(e) => set('subheading', e.target.value)}
             placeholder="Premium stainless-steel pots, pans & sets for every kitchen"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
         {/* CTA */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">CTA Button Label</label>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">CTA Button Label</label>
           <input value={form.ctaLabel} onChange={(e) => set('ctaLabel', e.target.value)}
             placeholder="Shop Now"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">CTA Link</label>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">CTA Link</label>
           <input value={form.ctaHref} onChange={(e) => set('ctaHref', e.target.value)}
             placeholder="/products?category=cookware"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
       </div>
 
       {/* Theme — hidden for CTA which always uses dark gradient */}
       {!isCta && (
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Overlay Theme</label>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Overlay Theme</label>
           <div className="flex gap-2 flex-wrap">
             {Object.entries(BANNER_THEMES).map(([key, { label, swatch }]) => (
               <button
                 key={key} type="button"
                 onClick={() => set('theme', key)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 text-xs font-semibold transition-all ${
-                  form.theme === key ? 'border-gray-800 bg-gray-50' : 'border-gray-200 hover:border-gray-400'
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 text-xs font-semibold transition-all ${
+                  form.theme === key ? 'border-foreground bg-secondary text-foreground' : 'border-border hover:border-muted-foreground text-muted-foreground'
                 }`}
               >
                 <span className={`w-3.5 h-3.5 rounded-full ${swatch}`} />
                 {label}
-                {form.theme === key && <Check className="w-3 h-3 text-gray-700" />}
+                {form.theme === key && <Check className="w-3 h-3" />}
               </button>
             ))}
           </div>
@@ -193,13 +193,13 @@ function BannerFormPanel({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2 border-t">
+      <div className="flex gap-3 pt-2 border-t border-border">
         <button onClick={() => onSave(form)} disabled={isSaving || !canSave}
-          className="flex items-center gap-2 bg-primary text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition disabled:opacity-40">
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition disabled:opacity-40 shadow-sm shadow-primary/20">
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
           {isSaving ? 'Saving…' : 'Save Banner'}
         </button>
-        <button onClick={onCancel} className="px-5 py-2 rounded-lg text-sm font-semibold border hover:bg-gray-50 transition text-gray-600">
+        <button onClick={onCancel} className="px-5 py-2.5 rounded-xl text-sm font-semibold border border-border hover:bg-secondary transition text-muted-foreground">
           Cancel
         </button>
       </div>
@@ -310,13 +310,13 @@ export default function BannersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Banners</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage promotional banners shown on the store homepage</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Banners</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage promotional banners shown on the store homepage</p>
         </div>
         {mode === 'list' && (
           <button
             onClick={() => setMode('create')}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-primary/90 transition"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition shadow-sm shadow-primary/20"
           >
             <Plus className="w-4 h-4" /> Add Banner
           </button>
@@ -324,15 +324,15 @@ export default function BannersPage() {
       </div>
 
       {/* Type tabs */}
-      <div className="bg-white border rounded-xl p-1 flex gap-1">
+      <div className="bg-card border border-border rounded-xl p-1 flex gap-1 shadow-sm">
         {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
             className={`flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
               activeTab === tab
-                ? 'bg-primary text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
             {BANNER_TYPE_META[tab].label}
@@ -342,7 +342,7 @@ export default function BannersPage() {
 
       {/* Type hint */}
       {mode === 'list' && (
-        <p className="text-xs text-gray-400 -mt-3">{typeMeta.hint}</p>
+        <p className="text-xs text-muted-foreground -mt-3">{typeMeta.hint}</p>
       )}
 
       {/* Create form */}
@@ -389,22 +389,22 @@ export default function BannersPage() {
         <div className="space-y-3">
           {isLoading ? (
             Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="h-28 bg-gray-100 animate-pulse rounded-xl" />
+              <div key={i} className="h-28 bg-muted animate-pulse rounded-2xl" />
             ))
           ) : banners.length === 0 ? (
-            <div className="text-center py-20 border-2 border-dashed rounded-xl text-gray-400">
+            <div className="text-center py-20 border-2 border-dashed border-border rounded-2xl text-muted-foreground">
               <ImageIcon className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="font-semibold">No {typeMeta.label} banners yet</p>
-              <p className="text-sm">Click "Add Banner" to create your first one</p>
+              <p className="text-sm mt-1">Click "Add Banner" to create your first one</p>
             </div>
           ) : (
             banners.map((banner, i) => {
               const theme = BANNER_THEMES[banner.theme] ?? BANNER_THEMES.dark;
               const isCta = banner.bannerType === 'cta';
               return (
-                <div key={banner.id} className="bg-white border rounded-xl overflow-hidden flex items-stretch shadow-sm hover:shadow-md transition-shadow">
+                <div key={banner.id} className="bg-card border border-border rounded-2xl overflow-hidden flex items-stretch shadow-sm hover:shadow-md hover:border-primary/20 transition-all">
                   {/* Thumbnail */}
-                  <div className="relative w-40 sm:w-56 flex-shrink-0 bg-gray-100">
+                  <div className="relative w-40 sm:w-56 flex-shrink-0 bg-muted">
                     {isCta ? (
                       <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 flex items-center justify-center">
                         <span className="text-white/40 text-xs font-semibold uppercase tracking-wider">CTA</span>
@@ -425,14 +425,14 @@ export default function BannersPage() {
                   <div className="flex-1 flex items-center gap-4 px-4 py-3 min-w-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-bold text-sm text-gray-900 truncate">{banner.title}</p>
-                        <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${banner.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                        <p className="font-bold text-sm text-foreground truncate">{banner.title}</p>
+                        <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${banner.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground border-border'}`}>
                           {banner.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{banner.heading.replace('\n', ' ')}</p>
+                      <p className="text-xs text-muted-foreground truncate">{banner.heading.replace('\n', ' ')}</p>
                       {banner.ctaLabel && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">CTA: {banner.ctaLabel} → {banner.ctaHref}</p>
+                        <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">CTA: {banner.ctaLabel} → {banner.ctaHref}</p>
                       )}
                     </div>
 
@@ -440,11 +440,11 @@ export default function BannersPage() {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <div className="flex flex-col gap-0.5">
                         <button onClick={() => moveUp(i)} disabled={i === 0}
-                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-20 transition">
+                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-20 transition">
                           <ChevronUp className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => moveDown(i)} disabled={i === banners.length - 1}
-                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 disabled:opacity-20 transition">
+                          className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-20 transition">
                           <ChevronDown className="w-3.5 h-3.5" />
                         </button>
                       </div>
