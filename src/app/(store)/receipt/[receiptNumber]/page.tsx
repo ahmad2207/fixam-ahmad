@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { receipts, storeSettings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { FileText, MapPin, Globe } from 'lucide-react';
+import { FileText, MapPin, Phone, Globe } from 'lucide-react';
 
 interface Props {
   params: Promise<{ receiptNumber: string }>;
@@ -54,23 +54,23 @@ export default async function PublicReceiptPage({ params }: Props) {
         <div className="bg-primary px-8 pt-7 pb-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                  <span className="text-white font-black text-sm leading-none">
-                    {storeName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <span className="text-white font-black text-2xl tracking-[0.15em]">
-                  {storeName.toUpperCase()}
-                </span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt={storeName} className="h-9 w-auto mb-1.5 brightness-0 invert" />
               <p className="text-white/60 text-xs font-medium">{storeName} Ltd.</p>
             </div>
             <div className="text-right text-xs text-white/60 space-y-0.5 mt-0.5">
-              <div className="flex items-center justify-end gap-1.5">
-                <MapPin className="h-3 w-3" />
-                <span>{storeAddress}</span>
-              </div>
+              {storeAddress && (
+                <div className="flex items-center justify-end gap-1.5">
+                  <MapPin className="h-3 w-3" />
+                  <span>{storeAddress}</span>
+                </div>
+              )}
+              {storePhone && (
+                <div className="flex items-center justify-end gap-1.5">
+                  <Phone className="h-3 w-3" />
+                  <span>{storePhone}</span>
+                </div>
+              )}
               <div className="flex items-center justify-end gap-1.5">
                 <Globe className="h-3 w-3" />
                 <span>fixam.africa</span>

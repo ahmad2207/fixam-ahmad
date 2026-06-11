@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useReceipt } from '@/hooks/useReceipts';
+import { useStoreSetting } from '@/hooks/useStoreSettings';
 import { formatCurrency } from '@/lib/utils';
 import { ArrowLeft, Share2, Copy, MessageCircle, Mail, Printer, FileText, MapPin, Phone, Globe } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,11 +11,23 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import ThermalReceiptPreview from '@/components/admin/ThermalReceiptPreview';
 
+interface GeneralSettings {
+  store_name: string;
+  store_address: string;
+  store_phone: string;
+  store_email: string;
+}
+
 export default function AdminReceiptDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: receipt, isLoading } = useReceipt(id);
+  const { data: settings } = useStoreSetting<GeneralSettings>('general');
   const [showThermal, setShowThermal] = useState(false);
+
+  const storeAddress = settings?.store_address || 'Abuja, FCT, Nigeria';
+  const storePhone   = settings?.store_phone   || '';
+  const storeEmail   = settings?.store_email   || '';
 
   const getPublicUrl = () => `${window.location.origin}/receipt/${receipt?.receiptNumber}`;
 
@@ -120,19 +133,21 @@ export default function AdminReceiptDetailPage() {
         <div className="bg-primary px-8 pt-7 pb-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                  <span className="text-white font-black text-sm leading-none">F</span>
-                </div>
-                <span className="text-white font-black text-2xl tracking-[0.15em]">FIXAM</span>
-              </div>
-              <p className="text-primary-foreground/70 text-xs font-medium">Fixam Africa Ltd.</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="Fixam" className="h-9 w-auto mb-1.5 brightness-0 invert" />
+              <p className="text-white/60 text-xs font-medium">Fixam Africa Ltd.</p>
             </div>
-            <div className="text-right text-xs text-primary-foreground/70 space-y-0.5 mt-0.5">
+            <div className="text-right text-xs text-white/60 space-y-0.5 mt-0.5">
               <div className="flex items-center justify-end gap-1.5">
                 <MapPin className="h-3 w-3" />
-                <span>Abuja, Nigeria</span>
+                <span>{storeAddress}</span>
               </div>
+              {storePhone && (
+                <div className="flex items-center justify-end gap-1.5">
+                  <Phone className="h-3 w-3" />
+                  <span>{storePhone}</span>
+                </div>
+              )}
               <div className="flex items-center justify-end gap-1.5">
                 <Globe className="h-3 w-3" />
                 <span>fixam.africa</span>
@@ -237,8 +252,8 @@ export default function AdminReceiptDetailPage() {
         {/* Footer */}
         <div className="flex items-center justify-between px-8 py-4 border-t border-gray-100 bg-gray-50">
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fixam Africa</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">fixam.africa</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Fixam Africa Ltd.</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">{storeEmail || storePhone || storeAddress}</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] text-gray-400">Thank you for your business</p>
@@ -254,6 +269,8 @@ export default function AdminReceiptDetailPage() {
       {showThermal && (
         <ThermalReceiptPreview
           receipt={receipt}
+          storeAddress={storeAddress}
+          storePhone={storePhone}
           onClose={() => setShowThermal(false)}
         />
       )}

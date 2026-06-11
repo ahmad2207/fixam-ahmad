@@ -28,10 +28,12 @@ interface ThermalReceipt {
 
 interface Props {
   receipt: ThermalReceipt;
+  storeAddress?: string;
+  storePhone?: string;
   onClose: () => void;
 }
 
-function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string {
+function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl: string, storeAddress: string, storePhone: string): string {
   const rows = items
     .map(
       (item) =>
@@ -66,9 +68,10 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
   </head><body>
     <div style="width:80mm;padding:4mm;box-sizing:border-box">
       <div style="text-align:center;margin-bottom:4px">
-        <div style="font-size:17px;font-weight:900;letter-spacing:3px">FIXAM</div>
+        <img src="${logoUrl}" alt="Fixam" style="height:28px;width:auto;display:block;margin:0 auto 3px" />
         <div style="font-size:9px;font-weight:700">Fixam Africa Ltd.</div>
-        <div style="font-size:9px">Abuja, Nigeria</div>
+        <div style="font-size:9px">${storeAddress}</div>
+        ${storePhone ? `<div style="font-size:9px">${storePhone}</div>` : ''}
         <div style="font-size:9px">fixam.africa</div>
       </div>
       <div style="border-top:1px dashed #000;margin:4px 0"></div>
@@ -100,12 +103,13 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
   </body></html>`;
 }
 
-export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
+export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, FCT, Nigeria', storePhone = '', onClose }: Props) {
   let items: ThermalItem[] = [];
   try { items = JSON.parse(receipt.items); } catch { items = []; }
 
   const handlePrintThermal = () => {
-    const html = buildThermalHtml(receipt, items);
+    const logoUrl = `${window.location.origin}/logo.png`;
+    const html = buildThermalHtml(receipt, items, logoUrl, storeAddress, storePhone);
     const w = window.open('', '_blank', 'width=340,height=700');
     if (!w) return;
     w.document.write(html);
@@ -134,10 +138,12 @@ export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
           >
             <div style={{ padding: '4mm' }}>
               {/* Store header */}
-              <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-                <div style={{ fontSize: '17px', fontWeight: 900, letterSpacing: '3px' }}>FIXAM</div>
+              <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Fixam" style={{ height: '28px', width: 'auto', display: 'block', margin: '0 auto 3px' }} />
                 <div style={{ fontSize: '9px', fontWeight: 700 }}>Fixam Africa Ltd.</div>
-                <div style={{ fontSize: '9px' }}>Abuja, Nigeria</div>
+                <div style={{ fontSize: '9px' }}>{storeAddress}</div>
+                {storePhone && <div style={{ fontSize: '9px' }}>{storePhone}</div>}
                 <div style={{ fontSize: '9px' }}>fixam.africa</div>
               </div>
               <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
