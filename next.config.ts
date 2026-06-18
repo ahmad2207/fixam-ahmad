@@ -1,7 +1,11 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
-  images: {
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+images: {
     // Images are served from Supabase CDN / DigitalOcean Spaces CDN which already
     // handle optimisation and caching. Disabling Next.js optimisation bypasses the
     // remotePatterns check that Turbopack's image-optimizer worker fails to load.

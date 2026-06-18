@@ -7,20 +7,25 @@ import Link from 'next/link';
 import ReceiptsClient, { type ReceiptRow } from './ReceiptsClient';
 
 export default async function AdminReceiptsPage() {
-  const rows = await db
-    .select({
-      id: receipts.id,
-      receiptNumber: receipts.receiptNumber,
-      customerName: receipts.customerName,
-      customerEmail: receipts.customerEmail,
-      type: receipts.type,
-      total: receipts.total,
-      paymentStatus: receipts.paymentStatus,
-      items: receipts.items,
-      createdAt: receipts.createdAt,
-    })
-    .from(receipts)
-    .orderBy(desc(receipts.createdAt));
+  let rows: any[] = [];
+  try {
+    rows = await db
+      .select({
+        id: receipts.id,
+        receiptNumber: receipts.receiptNumber,
+        customerName: receipts.customerName,
+        customerEmail: receipts.customerEmail,
+        type: receipts.type,
+        total: receipts.total,
+        paymentStatus: receipts.paymentStatus,
+        items: receipts.items,
+        createdAt: receipts.createdAt,
+      })
+      .from(receipts)
+      .orderBy(desc(receipts.createdAt));
+  } catch (err) {
+    console.error('[AdminReceiptsPage] DB error:', err);
+  }
 
   const receiptRows: ReceiptRow[] = rows.map((r) => {
     let itemCount = 0;

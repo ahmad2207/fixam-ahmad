@@ -9,7 +9,7 @@ import {
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useSession, signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
@@ -23,9 +23,12 @@ export function StoreHeader() {
   const { itemCount } = useCart();
   const { items: wishlistItems } = useWishlist();
   const { data: session } = useSession();
+  const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+
+  useEffect(() => setMounted(true), []);
   const router = useRouter();
 
   const isAdmin = (session?.user as any)?.role === 'admin';
@@ -97,7 +100,7 @@ export function StoreHeader() {
               {/* Wishlist — desktop */}
               <Link href="/wishlist" className="hidden lg:flex relative items-center justify-center w-10 h-10 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
                 <Heart className="h-5 w-5" />
-                {wishlistItems.length > 0 && (
+                {mounted && wishlistItems.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-bold">
                     {wishlistItems.length > 9 ? '9+' : wishlistItems.length}
                   </span>
@@ -107,7 +110,7 @@ export function StoreHeader() {
               {/* Cart */}
               <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-primary/10 hover:text-primary transition-colors">
                 <ShoppingCart className="h-5 w-5" />
-                {itemCount > 0 && (
+                {mounted && itemCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-bold animate-scale-in">
                     {itemCount > 9 ? '9+' : itemCount}
                   </span>
