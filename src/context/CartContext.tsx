@@ -20,7 +20,8 @@ type CartAction =
   | { type: 'ADD_ITEM'; item: CartItem }
   | { type: 'REMOVE_ITEM'; productId: string; variation?: string | null }
   | { type: 'UPDATE_QUANTITY'; productId: string; variation?: string | null; quantity: number }
-  | { type: 'CLEAR' };
+  | { type: 'CLEAR' }
+  | { type: 'HYDRATE'; items: CartItem[] };
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -59,6 +60,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
     case 'CLEAR':
       return { items: [] };
+    case 'HYDRATE':
+      return { items: action.items };
     default:
       return state;
   }
@@ -77,15 +80,20 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] }, (initial) => {
-    if (typeof window === 'undefined') return initial;
+  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+
+  // Load from localStorage after hydration to avoid server/client mismatch
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('fixam_cart');
-      return saved ? JSON.parse(saved) : initial;
+      if (saved) {
+        const parsed = JSON.parse(saved) as CartState;
+        if (parsed?.items?.length) dispatch({ type: 'HYDRATE', items: parsed.items });
+      }
     } catch {
-      return initial;
+      // ignore
     }
-  });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('fixam_cart', JSON.stringify(state));

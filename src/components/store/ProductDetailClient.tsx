@@ -234,7 +234,7 @@ function ReviewsSection({ productId, initialReviews }: { productId: string; init
                     <Stars rating={review.rating} />
                   </div>
                 </div>
-                <span className="text-xs text-gray-400">{format(new Date(review.createdAt), 'MMM d, yyyy')}</span>
+                <span className="text-xs text-gray-400" suppressHydrationWarning>{format(new Date(review.createdAt), 'MMM d, yyyy')}</span>
               </div>
               {review.title && <p className="font-semibold text-sm mb-1">{review.title}</p>}
               {review.body && <p className="text-sm text-gray-600 leading-relaxed">{review.body}</p>}
