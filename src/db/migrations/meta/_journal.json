@@ -92,6 +92,13 @@
       "when": 1780809174690,
       "tag": "0012_aspiring_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1750636800000,
+      "tag": "0013_recovery_sync",
+      "breakpoints": true
     }
   ]
 }
