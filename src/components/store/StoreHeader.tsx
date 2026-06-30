@@ -27,7 +27,7 @@ interface GeneralSettings {
   whatsapp_number?: string;
 }
 
-interface Category { id: number; name: string; slug: string; }
+interface Category { id: string; name: string; slug: string; }
 
 const CATEGORY_ICONS: Record<string, string> = {
   cookware:   '🍳',
