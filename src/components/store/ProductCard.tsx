@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Bell } from 'lucide-react';
 import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { formatCurrency } from '@/lib/utils';
 import { AddToCartDialog } from './AddToCartDialog';
+import { NotifyMeModal } from './NotifyMeModal';
 
 interface Product {
   id: string;
@@ -26,7 +27,8 @@ interface Product {
 export function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart();
   const { toggle, has } = useWishlist();
-  const [showDialog, setShowDialog] = useState(false);
+  const [showDialog,      setShowDialog     ] = useState(false);
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
   const isWishlisted = has(product.id);
   const inStock = product.stock > 0;
 
@@ -45,7 +47,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <>
       <Link href={`/products/${product.slug}`} className="group block h-full">
-        <div className="h-full bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
+        <div className="h-full bg-white overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
 
           {/* Square image — object-cover, no padding, fills completely */}
           <div className="relative aspect-square bg-gray-50 overflow-hidden">
@@ -81,54 +83,58 @@ export function ProductCard({ product }: { product: Product }) {
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggle(product.id); }}
               className={`absolute top-1.5 right-1.5 z-10 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow-sm transition-all duration-200
-                ${isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100'}`}
+                ${isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100'}`}
             >
               <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-red-500' : ''}`} />
             </button>
           </div>
 
-          {/* Info section — tight like Temu */}
-          <div className="flex-1 flex flex-col p-2 pb-2.5">
-            <h3 className="text-[11px] leading-snug text-gray-700 line-clamp-2 min-h-[2.2rem]">
+          {/* Info section */}
+          <div className="flex-1 flex flex-col px-2.5 pt-2 pb-2.5 gap-1.5">
+            <h3 className="text-[13px] font-bold leading-snug text-gray-800 line-clamp-2">
               {product.name}
             </h3>
 
-            {/* Rating */}
-            {product.rating && (product.reviewsCount ?? 0) >= 3 && (
-              <div className="flex items-center gap-1 mt-1">
-                <div className="flex items-center">
-                  {[1, 2, 3, 4, 5].map((s) => (
-                    <Star
-                      key={s}
-                      className={`h-2.5 w-2.5 ${s <= Math.round(product.rating!) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'}`}
-                    />
-                  ))}
-                </div>
-                {product.reviewsCount ? (
-                  <span className="text-[10px] text-gray-400">{product.reviewsCount.toLocaleString()}</span>
-                ) : null}
+            {/* Rating — black stars, count right-aligned */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-px">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className="h-3 w-3 fill-gray-900 text-gray-900" />
+                ))}
               </div>
-            )}
+              {product.reviewsCount ? (
+                <span className="text-[10px] text-gray-400">{product.reviewsCount.toLocaleString()}</span>
+              ) : null}
+            </div>
 
-            {/* Price row — pushed to bottom */}
-            <div className="flex items-center justify-between mt-auto pt-1.5 gap-1">
-              <div className="min-w-0 flex items-baseline gap-1 flex-wrap">
-                <span className="text-sm font-bold text-primary leading-none">
+            {/* Price + cart — full-width */}
+            <div className="flex items-center justify-between gap-1">
+              <div className="min-w-0">
+                <span className="text-lg font-black text-primary leading-none">
                   {formatCurrency(price)}
                 </span>
                 {compareAt > price && (
-                  <span className="text-[10px] text-gray-400 line-through leading-none">
+                  <span className="text-xs text-gray-400 line-through leading-none ml-1">
                     {formatCurrency(compareAt)}
                   </span>
                 )}
               </div>
-              <button
-                disabled={!inStock}
-                onClick={handleAddToCart}
-                className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary hover:bg-primary/90 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
-              </button>
+              {inStock ? (
+                <button
+                  onClick={handleAddToCart}
+                  className="flex-shrink-0 p-0.5 text-gray-900 hover:text-primary transition-colors"
+                >
+                  <ShoppingCart className="h-6 w-6" />
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowNotifyModal(true); }}
+                  title="Notify me when available"
+                  className="flex-shrink-0 p-0.5 text-amber-500 hover:text-amber-400 transition-colors"
+                >
+                  <Bell className="h-6 w-6" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -141,6 +147,13 @@ export function ProductCard({ product }: { product: Product }) {
         productImage={product.imageUrl}
         quantity={1}
         price={price}
+      />
+      <NotifyMeModal
+        open={showNotifyModal}
+        onOpenChange={setShowNotifyModal}
+        productId={product.id}
+        productName={product.name}
+        productImage={product.imageUrl}
       />
     </>
   );

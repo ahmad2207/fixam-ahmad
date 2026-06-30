@@ -548,7 +548,7 @@ function ProductsInner() {
 
       {/* ── BREADCRUMB ── */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2.5">
+        <div className="container mx-auto px-4 lg:px-12 py-2.5">
           <div className="flex items-center gap-1.5 text-xs text-gray-500">
             <Link href="/" className="hover:text-primary transition-colors">Home</Link>
             <span>/</span>
@@ -559,7 +559,7 @@ function ProductsInner() {
 
       {/* ── CATEGORY PILLS ── */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-4 lg:px-12">
           <div className="flex items-center gap-2 overflow-x-auto py-3 [&::-webkit-scrollbar]:hidden">
             <button
               onClick={() => { setSelectedCategories([]); setCurrentPage(1); }}
@@ -597,7 +597,7 @@ function ProductsInner() {
       </div>
 
       {/* ── MAIN LAYOUT ── */}
-      <main className="container mx-auto px-4 py-4">
+      <main className="container mx-auto px-4 lg:px-12 py-4">
         <div className="flex flex-col lg:flex-row gap-4">
 
           {/* Sidebar — Desktop */}
@@ -822,7 +822,7 @@ export default function ProductsPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-gray-100">
-          <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 lg:px-12 py-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-stretch">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="bg-white rounded-xl p-3">

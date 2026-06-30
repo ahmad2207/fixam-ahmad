@@ -109,14 +109,14 @@ export default function AccountPage() {
 
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2.5 flex items-center gap-1.5 text-xs text-gray-500">
+        <div className="container mx-auto px-4 lg:px-12 py-2.5 flex items-center gap-1.5 text-xs text-gray-500">
           <Link href="/" className="hover:text-primary">Home</Link>
           <span>/</span>
           <span className="text-gray-800 font-semibold">My Account</span>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4 max-w-4xl">
+      <div className="container mx-auto px-4 lg:px-12 py-4 max-w-4xl">
         <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4 items-start">
 
           {/* ── SIDEBAR ── */}

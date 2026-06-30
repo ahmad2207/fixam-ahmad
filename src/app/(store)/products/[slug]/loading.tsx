@@ -5,7 +5,7 @@ export default function ProductDetailLoading() {
 
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2.5 flex items-center gap-2">
+        <div className="container mx-auto px-4 lg:px-12 py-2.5 flex items-center gap-2">
           {[80, 60, 120].map((w, i) => (
             <div key={i} className="flex items-center gap-2">
               {i > 0 && <div className="w-1 h-1 rounded-full bg-gray-200" />}
@@ -15,7 +15,7 @@ export default function ProductDetailLoading() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 lg:px-12 py-4">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_460px] xl:grid-cols-[1fr_500px] gap-4">
 
           {/* Image gallery */}

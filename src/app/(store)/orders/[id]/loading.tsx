@@ -3,14 +3,14 @@ export default function OrderDetailLoading() {
   return (
     <div className="min-h-screen bg-gray-100 pb-8 animate-pulse">
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2.5 flex gap-2">
+        <div className="container mx-auto px-4 lg:px-12 py-2.5 flex gap-2">
           {[40, 8, 60, 8, 80].map((w, i) => (
             <div key={i} className={`h-3 bg-gray-200 rounded-full`} style={{ width: w }} />
           ))}
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4 max-w-2xl space-y-3">
+      <div className="container mx-auto px-4 lg:px-12 py-4 max-w-2xl space-y-3">
 
         {/* Status hero */}
         <div className="h-[160px] bg-white rounded-2xl shadow-sm" />

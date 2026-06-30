@@ -22,6 +22,7 @@ export const products = pgTable('products', {
   rating: numeric('rating', { precision: 3, scale: 2 }).notNull().default('0'),
   reviewsCount: integer('reviews_count').notNull().default(0),
   isFeatured: boolean('is_featured').default(false).notNull(),
+  isPromo: boolean('is_promo').default(false).notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   weight: numeric('weight', { precision: 8, scale: 3 }),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

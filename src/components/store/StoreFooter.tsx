@@ -131,7 +131,7 @@ export function StoreFooter() {
           TRUST STRIP — orange, bold, brand-first
       ══════════════════════════════════════ */}
       <div className="bg-primary">
-        <div className="container mx-auto px-4 py-5">
+        <div className="container mx-auto px-4 lg:px-12 py-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-5 gap-x-4">
             {[
               { icon: Banknote,   title: 'Pay on Delivery',  sub: 'Cash at your door' },
@@ -157,7 +157,7 @@ export function StoreFooter() {
           NEWSLETTER — distinct mid-section
       ══════════════════════════════════════ */}
       <div className="bg-[#1e1208]">
-        <div className="container mx-auto px-4 py-10 lg:py-12">
+        <div className="container mx-auto px-4 lg:px-12 py-10 lg:py-12">
           <div className="flex flex-col lg:flex-row items-center gap-6 lg:gap-16">
             <div className="text-center lg:text-left lg:flex-1">
               <p className="text-[11px] font-black text-primary uppercase tracking-[0.25em] mb-2">Newsletter</p>
@@ -214,7 +214,7 @@ export function StoreFooter() {
           MAIN FOOTER BODY
       ══════════════════════════════════════ */}
       <div className="bg-[#150e07]">
-        <div className="container mx-auto px-4 pt-14 pb-8">
+        <div className="container mx-auto px-4 lg:px-12 pt-14 pb-8">
 
           <div className="grid grid-cols-2 md:grid-cols-12 gap-10 md:gap-6 mb-12">
 

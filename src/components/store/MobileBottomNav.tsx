@@ -14,6 +14,8 @@ export function MobileBottomNav() {
   const { data: session } = useSession();
 
   if (pathname.startsWith('/admin')) return null;
+  // Product detail page has its own sticky Add-to-Cart / Buy Now bar
+  if (pathname.startsWith('/products/') && pathname !== '/products') return null;
 
   const navItems = [
     { icon: Home,         label: 'Home',    href: '/',                              badge: 0 },

@@ -36,6 +36,7 @@ export default function EditProductPage() {
     sku: '',
     stock: '0',
     isFeatured: false,
+    isPromo: false,
     isActive: true,
     tags: '',
   });
@@ -59,6 +60,7 @@ export default function EditProductPage() {
           sku: product.sku ?? '',
           stock: String(product.stock ?? 0),
           isFeatured: product.isFeatured ?? false,
+          isPromo: product.isPromo ?? false,
           isActive: product.isActive ?? true,
           tags: (product.tags ?? []).join(', '),
         });
@@ -164,6 +166,7 @@ export default function EditProductPage() {
         sku: form.sku || null,
         stock: parseInt(form.stock) || 0,
         isFeatured: form.isFeatured,
+        isPromo: form.isPromo,
         isActive: form.isActive,
         imageUrl: images[0] ?? null,
         images: images.slice(1),
@@ -278,7 +281,7 @@ export default function EditProductPage() {
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-5">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} className="w-4 h-4 accent-primary" />
               <span className="text-sm font-medium">Active</span>
@@ -286,6 +289,13 @@ export default function EditProductPage() {
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="isFeatured" checked={form.isFeatured} onChange={handleChange} className="w-4 h-4 accent-primary" />
               <span className="text-sm font-medium">Featured on homepage</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="isPromo" checked={form.isPromo} onChange={handleChange} className="w-4 h-4 accent-orange-500" />
+              <span className="text-sm font-medium">
+                Promo product
+                <span className="ml-1.5 text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Promo</span>
+              </span>
             </label>
           </div>
         </div>

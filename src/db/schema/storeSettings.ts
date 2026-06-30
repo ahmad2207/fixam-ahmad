@@ -26,6 +26,7 @@ export const storeSettings = pgTable('store_settings', {
   whatsappNumber: text('whatsapp_number'),
   youtubeUrl:    text('youtube_url'),
   tiktokUrl:     text('tiktok_url'),
+  flashSaleEnd:  timestamp('flash_sale_end', { mode: 'date' }),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 });

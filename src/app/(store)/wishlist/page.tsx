@@ -43,7 +43,7 @@ export default function WishlistPage() {
     return (
       <div className="min-h-screen bg-gray-100">
         <div className="bg-white border-b border-gray-200">
-          <div className="container mx-auto px-4 py-2.5 flex items-center gap-1.5 text-xs text-gray-500">
+          <div className="container mx-auto px-4 lg:px-12 py-2.5 flex items-center gap-1.5 text-xs text-gray-500">
             <Link href="/" className="hover:text-primary">Home</Link>
             <span>/</span>
             <span className="text-gray-800 font-semibold">Wishlist</span>
@@ -76,14 +76,14 @@ export default function WishlistPage() {
 
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2.5 flex items-center gap-1.5 text-xs text-gray-500">
+        <div className="container mx-auto px-4 lg:px-12 py-2.5 flex items-center gap-1.5 text-xs text-gray-500">
           <Link href="/" className="hover:text-primary">Home</Link>
           <span>/</span>
           <span className="text-gray-800 font-semibold">My Wishlist</span>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 lg:px-12 py-4">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">

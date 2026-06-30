@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Download, Package } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, ChevronRight, Download, Loader2, Package } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface ProductRow {
@@ -36,13 +36,27 @@ interface Reservation {
   productName: string | null;
 }
 
+interface WaitlistItem {
+  id: string;
+  productId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  notifiedAt: string | null;
+  createdAt: string;
+  productName: string | null;
+  productImage: string | null;
+  productSlug: string | null;
+}
+
 interface Props {
   products: ProductRow[];
   batches: BatchRow[];
   activeReservations: Reservation[];
+  waitlist: WaitlistItem[];
 }
 
-type ViewMode = 'all-batches' | 'by-product' | 'low-stock';
+type ViewMode = 'all-batches' | 'by-product' | 'low-stock' | 'waitlist';
 
 function StockHealthBar({ stock }: { stock: number }) {
   const isOut = stock === 0;
@@ -111,9 +125,11 @@ function exportCSV(products: ProductRow[], batches: BatchRow[]) {
   URL.revokeObjectURL(url);
 }
 
-export function InventoryTabsClient({ products, batches, activeReservations }: Props) {
+export function InventoryTabsClient({ products, batches, activeReservations, waitlist }: Props) {
   const [view, setView] = useState<ViewMode>('by-product');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [notifying, setNotifying] = useState<Set<string>>(new Set());
+  const [notifiedIds, setNotifiedIds] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -124,6 +140,21 @@ export function InventoryTabsClient({ products, batches, activeReservations }: P
     });
 
   const lowStockProducts = useMemo(() => products.filter((p) => p.stock < 10), [products]);
+  const pendingWaitlist  = useMemo(() => waitlist.filter((w) => !w.notifiedAt && !notifiedIds.has(w.id)), [waitlist, notifiedIds]);
+
+  const markNotified = async (id: string) => {
+    setNotifying(prev => new Set(prev).add(id));
+    try {
+      await fetch('/api/admin/stock-notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      setNotifiedIds(prev => new Set(prev).add(id));
+    } finally {
+      setNotifying(prev => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
 
   const batchesByProduct = useMemo(() => {
     const map: Record<string, BatchRow[]> = {};
@@ -135,10 +166,11 @@ export function InventoryTabsClient({ products, batches, activeReservations }: P
     return map;
   }, [batches]);
 
-  const tabs: { id: ViewMode; label: string; count?: number }[] = [
-    { id: 'by-product', label: 'By Product', count: products.length },
+  const tabs: { id: ViewMode; label: string; count?: number; alert?: boolean }[] = [
+    { id: 'by-product',  label: 'By Product',  count: products.length },
     { id: 'all-batches', label: 'All Batches', count: batches.length },
-    { id: 'low-stock', label: 'Low Stock', count: lowStockProducts.length },
+    { id: 'low-stock',   label: 'Low Stock',   count: lowStockProducts.length },
+    { id: 'waitlist',    label: 'Waitlist',     count: pendingWaitlist.length, alert: pendingWaitlist.length > 0 },
   ];
 
   return (
@@ -157,7 +189,9 @@ export function InventoryTabsClient({ products, batches, activeReservations }: P
               {t.label}
               {t.count !== undefined && (
                 <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                  view === t.id ? 'bg-primary/10 text-primary' : 'bg-gray-200 text-gray-500'
+                  t.alert && view !== t.id
+                    ? 'bg-violet-100 text-violet-700 font-bold'
+                    : view === t.id ? 'bg-primary/10 text-primary' : 'bg-gray-200 text-gray-500'
                 }`}>
                   {t.count}
                 </span>
@@ -386,6 +420,95 @@ export function InventoryTabsClient({ products, batches, activeReservations }: P
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Waitlist View */}
+      {view === 'waitlist' && (
+        <div className="bg-white border rounded-xl overflow-hidden">
+          {waitlist.length === 0 ? (
+            <div className="text-center py-14">
+              <BellOff className="mx-auto h-8 w-8 text-gray-300 mb-3" />
+              <p className="text-gray-600 font-medium">No waitlist entries yet.</p>
+              <p className="text-sm text-gray-400 mt-1">Customers will appear here when they sign up for out-of-stock alerts.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Product</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Customer</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Contact</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Signed Up</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {waitlist.map((w) => {
+                    const isNotified = !!w.notifiedAt || notifiedIds.has(w.id);
+                    const isBusy    = notifying.has(w.id);
+                    return (
+                      <tr key={w.id} className={`border-b last:border-0 ${isNotified ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            {w.productImage ? (
+                              <div className="relative w-8 h-8 rounded overflow-hidden shrink-0">
+                                <Image src={w.productImage} alt={w.productName ?? ''} fill className="object-cover" />
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 bg-gray-100 rounded flex items-center justify-center shrink-0">
+                                <Package className="w-3.5 h-3.5 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-medium truncate max-w-[160px]">{w.productName ?? '—'}</p>
+                              {w.productSlug && (
+                                <Link href={`/products/${w.productSlug}`} target="_blank"
+                                  className="text-[11px] text-primary hover:underline">View →</Link>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-medium">{w.name}</td>
+                        <td className="px-4 py-3">
+                          <p className="text-gray-700">{w.email}</p>
+                          {w.phone && <p className="text-xs text-gray-400">{w.phone}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                          {new Date(w.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-4 py-3">
+                          {isNotified ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                              <Bell className="h-3 w-3" /> Notified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {!isNotified && (
+                            <button
+                              onClick={() => markNotified(w.id)}
+                              disabled={isBusy}
+                              className="flex items-center gap-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-60 px-3 py-1.5 rounded-md transition"
+                            >
+                              {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                              {isBusy ? 'Sending…' : 'Send Email'}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

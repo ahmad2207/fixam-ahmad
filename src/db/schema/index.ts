@@ -20,3 +20,4 @@ export * from './passwordResetTokens';
 export * from './newsletterSubscribers';
 export * from './banners';
 export * from './contactMessages';
+export * from './stockNotifications';

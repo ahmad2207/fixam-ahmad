@@ -58,7 +58,7 @@ export default async function ContactPage() {
 
       {/* ── BREADCRUMB ── */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2.5">
+        <div className="container mx-auto px-4 lg:px-12 py-2.5">
           <div className="flex items-center gap-1.5 text-xs text-gray-500">
             <Link href="/" className="hover:text-primary transition-colors">Home</Link>
             <span>/</span>
@@ -69,7 +69,7 @@ export default async function ContactPage() {
 
       {/* ── HERO ── */}
       <section className="bg-white border-b border-gray-100">
-        <div className="container mx-auto px-4 py-12 lg:py-16 text-center">
+        <div className="container mx-auto px-4 lg:px-12 py-12 lg:py-16 text-center">
           <span className="inline-block bg-primary/10 text-primary text-xs font-extrabold uppercase tracking-widest px-4 py-1.5 rounded-full mb-4">
             We'd love to hear from you
           </span>
@@ -83,7 +83,7 @@ export default async function ContactPage() {
       </section>
 
       {/* ── CONTACT INFO CARDS ── */}
-      <section className="container mx-auto px-4 -mt-4 relative z-10">
+      <section className="container mx-auto px-4 lg:px-12 -mt-4 relative z-10">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 mt-8">
           {infoCards.map(({ icon: Icon, label, value, href, action, color }) => (
             <a
@@ -107,7 +107,7 @@ export default async function ContactPage() {
       </section>
 
       {/* ── MAIN CONTENT ── */}
-      <section className="container mx-auto px-4 pb-12">
+      <section className="container mx-auto px-4 lg:px-12 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6">
 
           {/* ── FORM ── */}
