@@ -94,6 +94,8 @@ export default async function ProductPage({ params }: Props) {
         variations:     p.variations ?? undefined,
         specifications: (p.specifications as Record<string, string> | null) ?? undefined,
         category:       row.category,
+        isPromo:        p.isPromo,
+        promoEndsAt:    p.promoEndsAt ? p.promoEndsAt.toISOString() : null,
       }}
       reviews={productReviews}
       relatedProducts={relatedProducts}

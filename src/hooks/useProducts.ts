@@ -17,6 +17,8 @@ export interface Product {
   variations: { name: string; options: string[] }[];
   tags: string[];
   isFeatured: boolean;
+  isPromo: boolean;
+  promoEndsAt: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

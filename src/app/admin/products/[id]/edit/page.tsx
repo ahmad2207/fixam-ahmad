@@ -37,6 +37,7 @@ export default function EditProductPage() {
     stock: '0',
     isFeatured: false,
     isPromo: false,
+    promoEndsAt: '',
     isActive: true,
     tags: '',
   });
@@ -61,6 +62,7 @@ export default function EditProductPage() {
           stock: String(product.stock ?? 0),
           isFeatured: product.isFeatured ?? false,
           isPromo: product.isPromo ?? false,
+          promoEndsAt: product.promoEndsAt ? new Date(product.promoEndsAt).toISOString().slice(0, 16) : '',
           isActive: product.isActive ?? true,
           tags: (product.tags ?? []).join(', '),
         });
@@ -167,6 +169,7 @@ export default function EditProductPage() {
         stock: parseInt(form.stock) || 0,
         isFeatured: form.isFeatured,
         isPromo: form.isPromo,
+        promoEndsAt: form.promoEndsAt ? new Date(form.promoEndsAt).toISOString() : null,
         isActive: form.isActive,
         imageUrl: images[0] ?? null,
         images: images.slice(1),
@@ -298,6 +301,20 @@ export default function EditProductPage() {
               </span>
             </label>
           </div>
+
+          {form.isPromo && (
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Promo ends at</label>
+              <input
+                type="datetime-local"
+                name="promoEndsAt"
+                value={form.promoEndsAt}
+                onChange={handleChange}
+                className="w-full border border-orange-200 rounded-xl px-3 py-2.5 text-sm bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-300/40 focus:border-orange-400 transition-all"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">A countdown timer will appear on the product card until this time.</p>
+            </div>
+          )}
         </div>
 
         {/* Images */}

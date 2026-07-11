@@ -22,14 +22,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json();
 
-  const [updated] = await db
-    .update(products)
-    .set({ ...body, updatedAt: new Date() })
-    .where(eq(products.id, id))
-    .returning();
+  const { promoEndsAt, ...rest } = body;
 
-  if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json(updated);
+  try {
+    const [updated] = await db
+      .update(products)
+      .set({
+        ...rest,
+        promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, id))
+      .returning();
+
+    if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(updated);
+  } catch (err: any) {
+    console.error('PATCH /api/admin/products/[id]:', err);
+    return NextResponse.json({ error: err.message ?? 'Update failed' }, { status: 500 });
+  }
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {

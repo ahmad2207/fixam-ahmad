@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -11,7 +11,7 @@ import { formatCurrency } from '@/lib/utils';
 import {
   ShoppingCart, Heart, Star, Truck, Shield, RotateCcw,
   Zap, Minus, Plus, Edit2, Trash2, ArrowRight, ChevronLeft, ChevronRight,
-  BadgeCheck, Banknote, CircleCheckBig, CreditCard, Bell,
+  BadgeCheck, Banknote, CircleCheckBig, CreditCard, Bell, Flame,
 } from 'lucide-react';
 import { AddToCartDialog } from './AddToCartDialog';
 import { NotifyMeModal } from './NotifyMeModal';
@@ -30,6 +30,8 @@ interface Product {
   variations?: { name: string; options: string[] }[] | null;
   specifications?: Record<string, string> | null;
   category?: { id: string; name: string; slug: string } | null;
+  isPromo?: boolean;
+  promoEndsAt?: string | null;
 }
 interface Review {
   id: string; userId: string | null; rating: number;
@@ -42,6 +44,66 @@ interface RelatedProduct {
   compareAtPrice?: string | null; imageUrl?: string | null;
   stock: number; isFeatured?: boolean;
   rating?: string | null; reviewsCount?: number | null; categoryName?: string | null;
+}
+
+/* ─── Promo countdown ─── */
+function PromoTimer({ endsAt }: { endsAt: string }) {
+  const [mounted, setMounted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
+  const [progress, setProgress] = useState(1);
+
+  useEffect(() => {
+    setMounted(true);
+    const end = new Date(endsAt).getTime();
+    const key = `promo_start_${end}`;
+    let start = parseInt(sessionStorage.getItem(key) ?? '0', 10);
+    if (!start || start >= end) {
+      start = Date.now();
+      sessionStorage.setItem(key, String(start));
+    }
+    const total = end - start;
+    const tick = () => {
+      const diff = end - Date.now();
+      if (diff <= 0) { setTimeLeft({ d: 0, h: 0, m: 0, s: 0, expired: true }); setProgress(0); return; }
+      setTimeLeft({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+        expired: false,
+      });
+      setProgress(Math.max(0, Math.min(1, diff / total)));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [endsAt]);
+
+  if (!mounted || timeLeft.expired) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const time = timeLeft.d > 0
+    ? `${timeLeft.d}d ${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`
+    : `${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`;
+  const pct = Math.round(progress * 100);
+
+  return (
+    <div className="flex flex-col gap-1.5 p-3 bg-orange-50 border border-orange-100 rounded-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Flame className="h-4 w-4 text-orange-500" />
+          <span className="text-sm font-bold text-orange-600">Sale ends in</span>
+        </div>
+        <span className="text-sm font-black text-gray-700 tabular-nums">{time}</span>
+      </div>
+      <div className="relative h-2.5 w-full rounded-full bg-orange-100 overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-orange-500"
+          style={{ width: `${pct}%`, transition: 'width 1s linear' }}
+        />
+      </div>
+      <span className="text-xs text-gray-400">{pct}% time remaining</span>
+    </div>
+  );
 }
 
 /* ─── Stars ─── */
@@ -519,6 +581,13 @@ export function ProductDetailClient({
                 <p className="text-xs text-green-600 font-semibold mt-1">You save {formatCurrency(compareAt - price)}</p>
               )}
             </div>
+
+            {/* Promo countdown */}
+            {product.isPromo && product.promoEndsAt && (
+              <div className="px-5 py-2 border-b border-gray-100">
+                <PromoTimer endsAt={product.promoEndsAt} />
+              </div>
+            )}
 
             {/* Variations */}
             {(product.variations?.length ?? 0) > 0 && (

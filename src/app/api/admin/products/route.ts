@@ -50,12 +50,18 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const slug = body.slug || slugify(body.name);
+  const { promoEndsAt, ...rest } = body;
+  const slug = rest.slug || slugify(rest.name);
 
-  const [product] = await db
-    .insert(products)
-    .values({ ...body, slug })
-    .returning();
+  try {
+    const [product] = await db
+      .insert(products)
+      .values({ ...rest, slug, promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null })
+      .returning();
 
-  return NextResponse.json(product, { status: 201 });
+    return NextResponse.json(product, { status: 201 });
+  } catch (err: any) {
+    console.error('POST /api/admin/products:', err);
+    return NextResponse.json({ error: err.message ?? 'Create failed' }, { status: 500 });
+  }
 }

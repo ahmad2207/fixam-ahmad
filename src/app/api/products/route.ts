@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
       variations: products.variations,
       tags: products.tags,
       isFeatured: products.isFeatured,
+      isPromo: products.isPromo,
+      promoEndsAt: products.promoEndsAt,
       isActive: products.isActive,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,

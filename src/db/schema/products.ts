@@ -23,6 +23,7 @@ export const products = pgTable('products', {
   reviewsCount: integer('reviews_count').notNull().default(0),
   isFeatured: boolean('is_featured').default(false).notNull(),
   isPromo: boolean('is_promo').default(false).notNull(),
+  promoEndsAt: timestamp('promo_ends_at', { mode: 'date' }),
   isActive: boolean('is_active').default(true).notNull(),
   weight: numeric('weight', { precision: 8, scale: 3 }),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

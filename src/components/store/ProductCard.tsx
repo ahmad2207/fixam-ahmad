@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, ShoppingCart, Star, Bell } from 'lucide-react';
-import { useState } from 'react';
+import { Heart, ShoppingCart, Star, Bell, Flame } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { formatCurrency } from '@/lib/utils';
@@ -19,9 +19,86 @@ interface Product {
   imageUrl?: string | null;
   stock: number;
   isFeatured?: boolean;
+  isPromo?: boolean;
+  promoEndsAt?: string | Date | null;
   categoryName?: string | null;
   rating?: number | null;
   reviewsCount?: number | null;
+}
+
+function PromoTimer({ endsAt }: { endsAt: string | Date }) {
+  const [mounted, setMounted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
+  const [progress, setProgress] = useState(1);
+
+  useEffect(() => {
+    setMounted(true);
+    const end = new Date(endsAt).getTime();
+
+    // Persist first-seen time so progress drains consistently across renders
+    const key = `promo_start_${end}`;
+    let start = parseInt(sessionStorage.getItem(key) ?? '0', 10);
+    if (!start || start >= end) {
+      start = Date.now();
+      sessionStorage.setItem(key, String(start));
+    }
+    const total = end - start;
+
+    const tick = () => {
+      const now = Date.now();
+      const diff = end - now;
+      if (diff <= 0) {
+        setTimeLeft({ d: 0, h: 0, m: 0, s: 0, expired: true });
+        setProgress(0);
+        return;
+      }
+      setTimeLeft({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+        expired: false,
+      });
+      setProgress(Math.max(0, Math.min(1, diff / total)));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [endsAt]);
+
+  if (!mounted || timeLeft.expired) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const time = timeLeft.d > 0
+    ? `${timeLeft.d}d ${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`
+    : `${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`;
+
+  const pct = Math.round(progress * 100);
+
+  return (
+    <div className="flex flex-col gap-1">
+      {/* Label row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <Flame className="h-3 w-3 text-orange-500" />
+          <span className="text-[10px] font-bold text-orange-500">Sale ends in</span>
+        </div>
+        <span className="text-[10px] font-black text-gray-600 tabular-nums">{time}</span>
+      </div>
+
+      {/* Temu-style pill bar */}
+      <div className="relative h-2 w-full rounded-full bg-orange-100 overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 rounded-full bg-orange-500"
+          style={{ width: `${pct}%`, transition: 'width 1s linear' }}
+        />
+      </div>
+
+      {/* Bottom label */}
+      <span className="text-[9px] text-gray-400 font-medium">
+        {pct}% time remaining
+      </span>
+    </div>
+  );
 }
 
 export function ProductCard({ product }: { product: Product }) {
@@ -94,6 +171,11 @@ export function ProductCard({ product }: { product: Product }) {
             <h3 className="text-[13px] font-bold leading-snug text-gray-800 line-clamp-2">
               {product.name}
             </h3>
+
+            {/* Per-product promo countdown */}
+            {product.isPromo && product.promoEndsAt && (
+              <PromoTimer endsAt={product.promoEndsAt} />
+            )}
 
             {/* Rating — black stars, count right-aligned */}
             <div className="flex items-center justify-between">

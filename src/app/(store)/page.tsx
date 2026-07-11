@@ -2,7 +2,6 @@ import { db } from '@/lib/db';
 import { products, categories, orderItems } from '@/db/schema';
 import { eq, and, desc, asc, count, sql, gt } from 'drizzle-orm';
 import { ProductCard } from '@/components/store/ProductCard';
-import { FlashSaleTimer } from '@/components/store/FlashSaleTimer';
 import { HeroProductCarousel } from '@/components/store/HeroProductCarousel';
 import { ProductPageSlider } from '@/components/store/ProductPageSlider';
 import { getActiveBanners } from '@/lib/serverBanners';
@@ -39,6 +38,7 @@ const productFields = {
   stock: products.stock,
   isFeatured: products.isFeatured,
   isPromo: products.isPromo,
+  promoEndsAt: products.promoEndsAt,
   isActive: products.isActive,
   rating: products.rating,
   reviewsCount: products.reviewsCount,
@@ -147,7 +147,6 @@ export default async function HomePage() {
               <span className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-4 py-2 shadow-md shadow-orange-200/70 font-black text-sm tracking-wide uppercase">
                 Combo Deals
               </span>
-              <FlashSaleTimer />
             </div>
             <Link
               href="/combo-deals"

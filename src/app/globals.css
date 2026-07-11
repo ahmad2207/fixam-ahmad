@@ -37,6 +37,11 @@
   --radius: 0.75rem;
 }
 
+@keyframes shine {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
 @layer base {
   :root {
     --background: 30 30% 98%;
