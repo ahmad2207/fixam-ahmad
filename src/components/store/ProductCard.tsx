@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, ShoppingCart, Star, Bell, Flame } from 'lucide-react';
+import { Heart, ShoppingCart, Star, Bell, Flame, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -21,6 +21,7 @@ interface Product {
   isFeatured?: boolean;
   isPromo?: boolean;
   promoEndsAt?: string | Date | null;
+  restockAt?: string | Date | null;
   categoryName?: string | null;
   rating?: number | null;
   reviewsCount?: number | null;
@@ -101,6 +102,50 @@ function PromoTimer({ endsAt }: { endsAt: string | Date }) {
   );
 }
 
+function RestockTimer({ restockAt }: { restockAt: string | Date }) {
+  const [mounted, setMounted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0, arrived: false });
+
+  useEffect(() => {
+    setMounted(true);
+    const end = new Date(restockAt).getTime();
+
+    const tick = () => {
+      const diff = end - Date.now();
+      if (diff <= 0) {
+        setTimeLeft({ d: 0, h: 0, m: 0, s: 0, arrived: true });
+        return;
+      }
+      setTimeLeft({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+        arrived: false,
+      });
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [restockAt]);
+
+  if (!mounted || timeLeft.arrived) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const time = timeLeft.d > 0
+    ? `${timeLeft.d}d ${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`
+    : `${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`;
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1">
+        <Clock className="h-3 w-3 text-blue-500" />
+        <span className="text-[10px] font-bold text-blue-500">Back in stock in</span>
+      </div>
+      <span className="text-[10px] font-black text-gray-600 tabular-nums">{time}</span>
+    </div>
+  );
+}
+
 export function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart();
   const { toggle, has } = useWishlist();
@@ -168,13 +213,18 @@ export function ProductCard({ product }: { product: Product }) {
 
           {/* Info section */}
           <div className="flex-1 flex flex-col px-2.5 pt-2 pb-2.5 gap-1.5">
-            <h3 className="text-[13px] font-bold leading-snug text-gray-800 line-clamp-2">
+            <h3 className="text-[13px] font-normal leading-snug text-gray-800 line-clamp-2">
               {product.name}
             </h3>
 
             {/* Per-product promo countdown */}
             {product.isPromo && product.promoEndsAt && (
               <PromoTimer endsAt={product.promoEndsAt} />
+            )}
+
+            {/* Restock countdown */}
+            {!inStock && product.restockAt && (
+              <RestockTimer restockAt={product.restockAt} />
             )}
 
             {/* Rating — black stars, count right-aligned */}
@@ -192,7 +242,7 @@ export function ProductCard({ product }: { product: Product }) {
             {/* Price + cart — full-width */}
             <div className="flex items-center justify-between gap-1">
               <div className="min-w-0">
-                <span className="text-lg font-black text-primary leading-none">
+                <span className="text-lg font-semibold text-primary leading-none">
                   {formatCurrency(price)}
                 </span>
                 {compareAt > price && (

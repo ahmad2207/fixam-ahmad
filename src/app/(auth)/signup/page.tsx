@@ -8,10 +8,10 @@ import { signIn } from 'next-auth/react';
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, ShoppingBag, Truck, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
-const inputCls = 'w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white placeholder:text-gray-400 transition-all';
+const inputCls = 'w-full border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white placeholder:text-gray-400 transition-all';
 
 const GoogleIcon = () => (
-  <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
+  <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24">
     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
@@ -56,21 +56,21 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="h-screen bg-gray-100 flex overflow-hidden">
 
       {/* ── BRAND PANEL — desktop only ── */}
       <div className="hidden lg:flex flex-1 relative overflow-hidden items-end">
         <Image src="/hero-kitchen.png" alt="" fill className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/40 to-gray-900/20" />
         <div className="relative z-10 p-12 text-white">
-          <Image src="/logo.png" alt="Fixam Africa" width={140} height={56} className="h-14 w-auto mb-8 brightness-0 invert" />
-          <h2 className="text-4xl font-black leading-tight mb-4">
+          <Image src="/logo.png" alt="Fixam Africa" width={130} height={52} className="h-12 w-auto mb-6 brightness-0 invert" />
+          <h2 className="text-4xl font-black leading-tight mb-3">
             Join Fixam<br />Africa Today
           </h2>
-          <p className="text-white/75 text-base mb-8 max-w-xs">
+          <p className="text-white/75 text-sm mb-6 max-w-xs">
             Create a free account and start shopping premium kitchen products. Pay on delivery available!
           </p>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {[
               { icon: ShoppingBag, text: '500+ premium products' },
               { icon: Truck,       text: 'Fast nationwide delivery' },
@@ -88,80 +88,81 @@ export default function SignupPage() {
       </div>
 
       {/* ── FORM SIDE ── */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 overflow-y-auto">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="w-full max-w-sm">
 
-          <div className="bg-white rounded-2xl shadow-sm p-7 sm:p-9">
+          <div className="bg-white rounded-2xl shadow-sm p-6">
 
-            {/* Logo */}
-            <div className="text-center mb-6">
-              <Link href="/" className="inline-block mb-5">
-                <Image src="/logo.png" alt="Fixam Africa" width={120} height={48} className="h-12 w-auto mx-auto" />
+            {/* Logo + heading */}
+            <div className="text-center mb-4">
+              <Link href="/" className="inline-block mb-2.5">
+                <Image src="/logo.png" alt="Fixam Africa" width={90} height={36} className="h-9 w-auto mx-auto" />
               </Link>
-              <h1 className="text-2xl font-extrabold text-gray-900">Create your account</h1>
-              <p className="text-sm text-gray-500 mt-1">Start shopping quality kitchenware</p>
+              <h1 className="text-xl font-extrabold text-gray-900">Create your account</h1>
+              <p className="text-xs text-gray-500 mt-0.5">Start shopping quality kitchenware</p>
             </div>
 
             {/* Google first */}
             <button
               type="button"
               onClick={() => signIn('google', { callbackUrl: '/' })}
-              className="w-full h-12 flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 rounded-xl font-semibold text-sm text-gray-700 transition-all mb-5"
+              className="w-full h-10 flex items-center justify-center gap-2.5 border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 rounded-lg font-semibold text-sm text-gray-700 transition-all mb-3"
             >
               <GoogleIcon />
               Sign up with Google
             </button>
 
-            <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center gap-3 mb-3">
               <div className="flex-1 h-px bg-gray-200" />
               <span className="text-xs text-gray-400 font-medium">or with email</span>
               <div className="flex-1 h-px bg-gray-200" />
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-2.5">
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Full Name</label>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Full Name</label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" required className={`${inputCls} pl-10`} />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" required className={`${inputCls} pl-9`} />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Email</label>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required className={`${inputCls} pl-10`} />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required className={`${inputCls} pl-9`} />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" required className={`${inputCls} pl-10 pr-11`} />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="6+ chars" required className={`${inputCls} pl-9 pr-9`} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
+                      {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5">Confirm Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required className={`${inputCls} pl-10 pr-11`} />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wide mb-1">Confirm</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input type={showConfirmPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required className={`${inputCls} pl-9 pr-9`} />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
+                      {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black text-base rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-60 mt-2"
+                className="w-full h-10 bg-primary hover:bg-primary/90 text-white font-black text-sm rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-60 !mt-3"
               >
                 {isLoading ? 'Creating account…' : (
                   <><span>Create Account</span><ArrowRight className="h-4 w-4" /></>
@@ -169,7 +170,7 @@ export default function SignupPage() {
               </button>
             </form>
 
-            <p className="text-center text-sm text-gray-500 mt-5">
+            <p className="text-center text-xs text-gray-500 mt-3">
               Already have an account?{' '}
               <Link href="/login" className="text-primary font-bold hover:underline">Sign in</Link>
             </p>

@@ -50,13 +50,18 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { promoEndsAt, ...rest } = body;
+  const { promoEndsAt, restockAt, ...rest } = body;
   const slug = rest.slug || slugify(rest.name);
 
   try {
     const [product] = await db
       .insert(products)
-      .values({ ...rest, slug, promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null })
+      .values({
+        ...rest,
+        slug,
+        promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
+        restockAt: restockAt ? new Date(restockAt) : null,
+      })
       .returning();
 
     return NextResponse.json(product, { status: 201 });

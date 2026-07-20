@@ -11,7 +11,7 @@ import { formatCurrency } from '@/lib/utils';
 import {
   ShoppingCart, Heart, Star, Truck, Shield, RotateCcw,
   Zap, Minus, Plus, Edit2, Trash2, ArrowRight, ChevronLeft, ChevronRight,
-  BadgeCheck, Banknote, CircleCheckBig, CreditCard, Bell, Flame,
+  BadgeCheck, Banknote, CircleCheckBig, CreditCard, Bell, Flame, Clock,
 } from 'lucide-react';
 import { AddToCartDialog } from './AddToCartDialog';
 import { NotifyMeModal } from './NotifyMeModal';
@@ -32,6 +32,7 @@ interface Product {
   category?: { id: string; name: string; slug: string } | null;
   isPromo?: boolean;
   promoEndsAt?: string | null;
+  restockAt?: string | null;
 }
 interface Review {
   id: string; userId: string | null; rating: number;
@@ -102,6 +103,49 @@ function PromoTimer({ endsAt }: { endsAt: string }) {
         />
       </div>
       <span className="text-xs text-gray-400">{pct}% time remaining</span>
+    </div>
+  );
+}
+
+/* ─── Restock countdown ─── */
+function RestockTimer({ restockAt }: { restockAt: string }) {
+  const [mounted, setMounted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState({ d: 0, h: 0, m: 0, s: 0, arrived: false });
+
+  useEffect(() => {
+    setMounted(true);
+    const end = new Date(restockAt).getTime();
+    const tick = () => {
+      const diff = end - Date.now();
+      if (diff <= 0) { setTimeLeft({ d: 0, h: 0, m: 0, s: 0, arrived: true }); return; }
+      setTimeLeft({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+        arrived: false,
+      });
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [restockAt]);
+
+  if (!mounted || timeLeft.arrived) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const time = timeLeft.d > 0
+    ? `${timeLeft.d}d ${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`
+    : `${pad(timeLeft.h)}:${pad(timeLeft.m)}:${pad(timeLeft.s)}`;
+
+  return (
+    <div className="flex flex-col gap-1.5 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-blue-500" />
+          <span className="text-sm font-bold text-blue-600">Back in stock in</span>
+        </div>
+        <span className="text-sm font-black text-gray-700 tabular-nums">{time}</span>
+      </div>
     </div>
   );
 }
@@ -432,7 +476,9 @@ export function ProductDetailClient({
               {allImages.length > 1 && (
                 <div className="flex flex-col gap-1.5 p-1.5 border-r border-gray-100 overflow-y-auto [&::-webkit-scrollbar]:hidden flex-shrink-0 w-[70px]">
                   {allImages.map((img, i) => (
-                    <button key={i} onClick={() => setActiveImage(i)}
+                    <button key={i}
+                      onMouseEnter={() => setActiveImage(i)}
+                      onClick={() => setActiveImage(i)}
                       className={`relative w-[54px] h-[54px] flex-shrink-0 overflow-hidden border-2 transition-all ${
                         i === activeImage ? 'border-primary' : 'border-gray-100 hover:border-gray-300'
                       }`}>
@@ -635,6 +681,13 @@ export function ProductDetailClient({
                 </div>
               )}
             </div>
+
+            {/* Restock countdown */}
+            {!inStock && product.restockAt && (
+              <div className="px-5 py-2 border-b border-gray-100">
+                <RestockTimer restockAt={product.restockAt} />
+              </div>
+            )}
 
             {/* CTA buttons */}
             <div className="px-5 py-2 space-y-2 border-b border-gray-100">

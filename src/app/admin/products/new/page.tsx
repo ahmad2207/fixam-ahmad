@@ -35,6 +35,7 @@ export default function NewProductPage() {
     isFeatured: false,
     isPromo: false,
     promoEndsAt: '',
+    restockAt: '',
     isActive: true,
     tags: '',
   });
@@ -127,6 +128,7 @@ export default function NewProductPage() {
         isFeatured: form.isFeatured,
         isPromo: form.isPromo,
         promoEndsAt: form.promoEndsAt ? new Date(form.promoEndsAt).toISOString() : null,
+        restockAt: form.restockAt ? new Date(form.restockAt).toISOString() : null,
         isActive: form.isActive,
         imageUrl: images[0] ?? null,
         images: images.slice(1),
@@ -219,6 +221,18 @@ export default function NewProductPage() {
               <input name="stock" type="number" min="0" value={form.stock} onChange={handleChange}
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Restock date</label>
+            <input
+              type="datetime-local"
+              name="restockAt"
+              value={form.restockAt}
+              onChange={handleChange}
+              className="w-full border border-blue-200 rounded-xl px-3 py-2.5 text-sm bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:border-blue-400 transition-all"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">If set, customers see a countdown to this date while stock is 0.</p>
           </div>
 
           <div>

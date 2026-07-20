@@ -19,6 +19,7 @@ export interface Product {
   isFeatured: boolean;
   isPromo: boolean;
   promoEndsAt: string | null;
+  restockAt: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

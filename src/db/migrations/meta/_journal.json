@@ -113,6 +113,20 @@
       "when": 1783641600000,
       "tag": "0015_promo_ends_at",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1752451200000,
+      "tag": "0016_fix_accounts_pk",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784111827214,
+      "tag": "0017_restock_at",
+      "breakpoints": true
     }
   ]
 }

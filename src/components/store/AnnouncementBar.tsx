@@ -10,7 +10,7 @@ export function AnnouncementBar() {
   return (
     <div
       className="h-[40px] flex items-center justify-center gap-4 px-4 select-none overflow-hidden"
-      style={{ backgroundColor: '#16a34a' }}
+      style={{ backgroundColor: '#0a8800' }}
     >
       {/* Heading */}
       <span className="text-xs font-extrabold text-white tracking-wide whitespace-nowrap">

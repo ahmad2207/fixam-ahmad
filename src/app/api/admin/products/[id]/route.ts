@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json();
 
-  const { promoEndsAt, ...rest } = body;
+  const { promoEndsAt, restockAt, ...rest } = body;
 
   try {
     const [updated] = await db
@@ -30,6 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .set({
         ...rest,
         promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
+        restockAt: restockAt ? new Date(restockAt) : null,
         updatedAt: new Date(),
       })
       .where(eq(products.id, id))

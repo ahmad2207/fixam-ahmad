@@ -24,6 +24,7 @@ export const products = pgTable('products', {
   isFeatured: boolean('is_featured').default(false).notNull(),
   isPromo: boolean('is_promo').default(false).notNull(),
   promoEndsAt: timestamp('promo_ends_at', { mode: 'date' }),
+  restockAt: timestamp('restock_at', { mode: 'date' }),
   isActive: boolean('is_active').default(true).notNull(),
   weight: numeric('weight', { precision: 8, scale: 3 }),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),

@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { products, categories, orderItems } from '@/db/schema';
 import { eq, and, desc, asc, count, sql, gt } from 'drizzle-orm';
-import { ProductCard } from '@/components/store/ProductCard';
+import { LoadMoreProducts } from '@/components/store/LoadMoreProducts';
 import { HeroProductCarousel } from '@/components/store/HeroProductCarousel';
 import { ProductPageSlider } from '@/components/store/ProductPageSlider';
 import { getActiveBanners } from '@/lib/serverBanners';
@@ -39,6 +39,7 @@ const productFields = {
   isFeatured: products.isFeatured,
   isPromo: products.isPromo,
   promoEndsAt: products.promoEndsAt,
+  restockAt: products.restockAt,
   isActive: products.isActive,
   rating: products.rating,
   reviewsCount: products.reviewsCount,
@@ -46,6 +47,22 @@ const productFields = {
 } as const;
 
 const PRODUCTS_PER_CATEGORY = 6;
+
+// Deterministic per-day shuffle so "Daily Picks" order changes every day
+// without needing a cron job — same seed all day, new seed tomorrow.
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const result = [...arr];
+  let s = seed;
+  const rand = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 function BannerImage({ src, alt, className }: { src: string; alt: string; className: string }) {
   if (src.toLowerCase().endsWith('.gif')) {
@@ -90,7 +107,7 @@ export default async function HomePage() {
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(and(eq(products.isActive, true), gt(products.stock, 0)))
       .orderBy(desc(products.createdAt))
-      .limit(24),
+      .limit(24), // first page — LoadMoreProducts fetches subsequent pages
 
     // Categories with product counts
     db
@@ -136,6 +153,10 @@ export default async function HomePage() {
 
   const ctaBanner = ctaBanners[0] ?? null;
 
+  const today = new Date();
+  const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const dailyPicks = seededShuffle(recommendedProducts, daySeed).slice(0, 10);
+
   return (
     <div className="min-h-screen bg-gray-100">
 
@@ -144,7 +165,7 @@ export default async function HomePage() {
         <div className="container mx-auto px-4 lg:px-12">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pb-3 mb-4 border-b-2 border-amber-500">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-4 py-2 shadow-md shadow-orange-200/70 font-black text-sm tracking-wide uppercase">
+              <span className="bg-amber-500 text-white px-4 py-2 shadow-md shadow-orange-200/70 font-black text-sm tracking-wide uppercase">
                 Combo Deals
               </span>
             </div>
@@ -167,9 +188,9 @@ export default async function HomePage() {
       </section>
 
       {/* ── DAILY PICKS ── */}
-      {recommendedProducts.length > 0 && (
+      {dailyPicks.length > 0 && (
         <div className="mt-3">
-          <HeroProductCarousel products={recommendedProducts.slice(0, 10) as any} />
+          <HeroProductCarousel products={dailyPicks as any} />
         </div>
       )}
 
@@ -338,11 +359,7 @@ export default async function HomePage() {
           </div>
 
           {recommendedProducts.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-stretch">
-              {recommendedProducts.map((product) => (
-                <ProductCard key={product.id} product={product as any} />
-              ))}
-            </div>
+            <LoadMoreProducts initialProducts={recommendedProducts as any} />
           ) : (
             <div className="text-center py-16">
               <p className="text-gray-400">No products available yet — check back soon!</p>

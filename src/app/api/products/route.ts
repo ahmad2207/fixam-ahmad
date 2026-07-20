@@ -9,6 +9,9 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search');
   const featured = searchParams.get('featured') === 'true';
   const ids = searchParams.get('ids');
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+  const limit = Math.min(48, Math.max(1, parseInt(searchParams.get('limit') ?? '0', 10)));
+  const paginated = limit > 0;
 
   const conditions = [eq(products.isActive, true)];
   if (ids) {
@@ -19,7 +22,7 @@ export async function GET(req: NextRequest) {
   if (featured) conditions.push(eq(products.isFeatured, true));
   if (search) conditions.push(ilike(products.name, `%${search}%`));
 
-  const rows = await db
+  let query = db
     .select({
       id: products.id,
       name: products.name,
@@ -37,6 +40,7 @@ export async function GET(req: NextRequest) {
       isFeatured: products.isFeatured,
       isPromo: products.isPromo,
       promoEndsAt: products.promoEndsAt,
+      restockAt: products.restockAt,
       isActive: products.isActive,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
@@ -53,9 +57,15 @@ export async function GET(req: NextRequest) {
     .leftJoin(reviews, eq(products.id, reviews.productId))
     .where(and(...conditions))
     .groupBy(products.id, categories.id, categories.name, categories.slug)
-    .orderBy(desc(products.createdAt));
+    .orderBy(desc(products.createdAt)) as any;
 
-  const result = rows.map((r) => ({
+  if (paginated) {
+    query = query.limit(limit).offset((page - 1) * limit);
+  }
+
+  const rows = await query;
+
+  const result = rows.map((r: any) => ({
     ...r,
     rating: r.rating ? Math.round(Number(r.rating) * 10) / 10 : 0,
     reviewsCount: Number(r.reviewsCount),
