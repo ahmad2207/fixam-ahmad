@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
+      const { error } = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL!,
         to: email,
         subject: 'Reset your Fixam password',
@@ -50,6 +50,11 @@ export async function POST(req: NextRequest) {
           </div>
         `,
       });
+      // resend.emails.send() resolves (never throws) on API-level failures like an
+      // unverified sending domain, so the error must be checked explicitly here.
+      if (error) {
+        console.error('[forgot-password] email error:', error);
+      }
     } catch (err) {
       console.error('[forgot-password] email error:', err);
     }
