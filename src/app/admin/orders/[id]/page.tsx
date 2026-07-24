@@ -19,7 +19,7 @@ import {
 const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  flutterwave:   'Flutterwave',
+  paystack:      'Paystack',
   pod:           'Pay on Delivery',
   cash:          'Cash',
   bank_transfer: 'Bank Transfer',
@@ -419,11 +419,11 @@ export default function AdminOrderDetailPage() {
               {order.paymentTransactions!.map((txn) => (
                 <div key={txn.id} className="px-6 py-4 flex items-center justify-between gap-4 text-sm">
                   <div className="min-w-0">
-                    {txn.flutterwaveTxRef && (
-                      <p className="font-mono text-xs text-gray-500 truncate">{txn.flutterwaveTxRef}</p>
+                    {txn.paystackReference && (
+                      <p className="font-mono text-xs text-gray-500 truncate">{txn.paystackReference}</p>
                     )}
-                    {txn.flutterwaveTransactionId && (
-                      <p className="text-xs text-gray-400">TX ID: {txn.flutterwaveTransactionId}</p>
+                    {txn.paystackTransactionId && (
+                      <p className="text-xs text-gray-400">TX ID: {txn.paystackTransactionId}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(txn.createdAt).toLocaleDateString('en-NG', {

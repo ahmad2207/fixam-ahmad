@@ -6,31 +6,23 @@ import { eq } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
   try {
-    const { transaction_id, tx_ref } = await req.json();
+    const { reference } = await req.json();
 
-    if (!transaction_id || !tx_ref) {
-      return NextResponse.json({ error: 'Missing transaction_id or tx_ref' }, { status: 400 });
+    if (!reference) {
+      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    // Verify with Flutterwave
+    // Verify with Paystack
     const verifyRes = await fetch(
-      `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
       {
-        headers: { Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}` },
+        headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
       },
     );
     const verifyData = await verifyRes.json();
 
-    if (verifyData.status !== 'success' || verifyData.data.status !== 'successful') {
-      await db
-        .update(paymentTransactions)
-        .set({ status: 'failed', rawResponse: JSON.stringify(verifyData) })
-        .where(eq(paymentTransactions.flutterwaveTxRef, tx_ref));
-      return NextResponse.json({ error: 'Payment verification failed' }, { status: 402 });
-    }
-
     const txn = await db.query.paymentTransactions.findFirst({
-      where: eq(paymentTransactions.flutterwaveTxRef, tx_ref),
+      where: eq(paymentTransactions.paystackReference, reference),
     });
 
     if (!txn?.checkoutId) {
@@ -40,6 +32,18 @@ export async function POST(req: NextRequest) {
     // Idempotency: if already successful, return existing order
     if (txn.status === 'successful' && txn.orderId) {
       return NextResponse.json({ success: true, orderId: txn.orderId });
+    }
+
+    const isSuccessful = verifyData.status && verifyData.data?.status === 'success';
+    // Amount is in kobo on Paystack's side; compare against the amount we recorded.
+    const amountMatches = isSuccessful && verifyData.data.amount === Math.round(Number(txn.amount) * 100);
+
+    if (!isSuccessful || !amountMatches) {
+      await db
+        .update(paymentTransactions)
+        .set({ status: 'failed', rawResponse: JSON.stringify(verifyData) })
+        .where(eq(paymentTransactions.paystackReference, reference));
+      return NextResponse.json({ error: 'Payment verification failed' }, { status: 402 });
     }
 
     const checkout = await db.query.pendingCheckouts.findFirst({
@@ -58,6 +62,7 @@ export async function POST(req: NextRequest) {
         userId: checkout.userId ?? null,
         guestEmail: checkout.guestEmail,
         status: 'confirmed',
+        paymentMethod: 'paystack',
         paymentStatus: 'paid',
         saleType: 'online',
         subtotal: checkout.subtotal,
@@ -88,10 +93,10 @@ export async function POST(req: NextRequest) {
       .set({
         status: 'successful',
         orderId: order.id,
-        flutterwaveTransactionId: String(transaction_id),
+        paystackTransactionId: String(verifyData.data.id),
         rawResponse: JSON.stringify(verifyData),
       })
-      .where(eq(paymentTransactions.flutterwaveTxRef, tx_ref));
+      .where(eq(paymentTransactions.paystackReference, reference));
 
     // Generate receipt
     const receiptNumber = await generateReceiptNumber();

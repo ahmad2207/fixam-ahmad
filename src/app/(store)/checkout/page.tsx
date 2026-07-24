@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
-import { useFlutterwavePayment } from '@/hooks/useFlutterwavePayment';
+import { usePaystackPayment } from '@/hooks/usePaystackPayment';
 import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -54,7 +54,7 @@ function F({ label, req, children, wide }: { label: string; req?: boolean; child
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, clearCart, itemCount } = useCart();
-  const { initiatePayment, isLoading: flwLoading, error: flwError } = useFlutterwavePayment();
+  const { initiatePayment, isLoading: paystackLoading, error: paystackError } = usePaystackPayment();
   const { data: session } = useSession();
   const { data: storeSettings } = useStoreSetting<{ whatsapp_number?: string }>('general');
 
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
 
   const finalDeliveryFee = deliveryResult?.fee ?? 0;
   const grandTotal = subtotal + finalDeliveryFee;
-  const isLoading = flwLoading || podLoading;
+  const isLoading = paystackLoading || podLoading;
 
   useEffect(() => {
     if (!session?.user) return;
@@ -465,7 +465,7 @@ export default function CheckoutPage() {
                             <p className={`text-sm font-black ${paymentMethod === 'pod' ? 'text-white' : 'text-gray-800'}`}>Pay on Delivery</p>
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${paymentMethod === 'pod' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>Popular</span>
                           </div>
-                          <p className={`text-xs ${paymentMethod === 'pod' ? 'text-white/60' : 'text-gray-400'}`}>Cash at your door · no upfront payment</p>
+                          <p className={`text-xs ${paymentMethod === 'pod' ? 'text-white/60' : 'text-gray-400'}`}>No upfront payment</p>
                         </div>
                         <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pod' ? 'border-white' : 'border-gray-300'}`}>
                           {paymentMethod === 'pod' && <div className="w-2 h-2 rounded-full bg-white" />}
@@ -475,7 +475,7 @@ export default function CheckoutPage() {
                   </div>
 
                   {/* Errors */}
-                  {(stockErrors.length > 0 || flwError) && (
+                  {(stockErrors.length > 0 || paystackError) && (
                     <div className="p-4 space-y-2">
                       {stockErrors.map((err, i) => (
                         <div key={i} className="flex items-start gap-2 text-xs text-red-600 bg-red-50 rounded-lg p-2.5">
@@ -483,10 +483,10 @@ export default function CheckoutPage() {
                           <span><strong>{err.name}</strong>: {err.available === 0 ? 'Out of stock' : `Only ${err.available} left`}</span>
                         </div>
                       ))}
-                      {flwError && (
+                      {paystackError && (
                         <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 rounded-lg p-2.5">
                           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                          <span>{flwError}</span>
+                          <span>{paystackError}</span>
                         </div>
                       )}
                     </div>

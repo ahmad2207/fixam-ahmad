@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useFlutterwavePayment } from '@/hooks/useFlutterwavePayment';
+import { usePaystackPayment } from '@/hooks/usePaystackPayment';
 import { CircleCheckBig, XCircle, Loader2, ShoppingBag, ArrowRight, Package } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,27 +11,22 @@ import { toast } from 'sonner';
 function PaymentCallbackInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { verifyPayment } = useFlutterwavePayment();
+  const { verifyPayment } = usePaystackPayment();
   const [state, setState] = useState<'verifying' | 'success' | 'failed'>('verifying');
   const [cancelled, setCancelled] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    const paymentStatus = searchParams.get('status');
-    const transactionId = searchParams.get('transaction_id');
-    const txRef = searchParams.get('tx_ref');
+    const reference = searchParams.get('reference') ?? searchParams.get('trxref');
 
-    if (paymentStatus === 'cancelled') {
+    if (!reference) {
       setCancelled(true);
       setState('failed');
       toast.error('Payment cancelled. No charges were made.');
       return;
     }
 
-    const isSuccessful = paymentStatus === 'successful' || paymentStatus === 'completed';
-    if (!isSuccessful || !transactionId || !txRef) { setState('failed'); return; }
-
-    verifyPayment(transactionId, txRef).then((result) => {
+    verifyPayment(reference).then((result) => {
       if (result?.success) {
         setOrderId(result.orderId ?? null);
         setState('success');

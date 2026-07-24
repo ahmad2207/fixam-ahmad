@@ -12,8 +12,8 @@ export default async function AdminTransactionsPage() {
     .select({
       id: paymentTransactions.id,
       orderId: paymentTransactions.orderId,
-      flutterwaveTxRef: paymentTransactions.flutterwaveTxRef,
-      flutterwaveTransactionId: paymentTransactions.flutterwaveTransactionId,
+      paystackReference: paymentTransactions.paystackReference,
+      paystackTransactionId: paymentTransactions.paystackTransactionId,
       amount: paymentTransactions.amount,
       currency: paymentTransactions.currency,
       status: paymentTransactions.status,

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { pendingCheckouts, paymentTransactions } from '@/db/schema';
-import { createStockReservations } from '@/lib/inventory';
+import { createStockReservations, releaseStockReservations } from '@/lib/inventory';
 import { auth } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,54 +36,57 @@ export async function POST(req: NextRequest) {
     // Reserve stock (FIFO)
     await createStockReservations(checkout.id, 30);
 
-    // Generate tx ref
-    const txRef = `FXM-${checkout.id.slice(0, 8)}-${Date.now()}`;
+    // Generate tx reference
+    const reference = `FXM-${checkout.id.slice(0, 8)}-${Date.now()}`;
 
     // Log payment transaction
     await db.insert(paymentTransactions).values({
       checkoutId: checkout.id,
-      flutterwaveTxRef: txRef,
+      paystackReference: reference,
       amount: String(total),
       currency: 'NGN',
       status: 'initiated',
+      customerName,
+      customerEmail,
     });
 
-    // Build Flutterwave payment link
-    const flwPayload = {
-      tx_ref: txRef,
-      amount: total,
+    // Build Paystack payment link (amount is in kobo)
+    const paystackPayload = {
+      email: customerEmail || 'guest@fixamafrica.com',
+      amount: Math.round(Number(total) * 100),
       currency: 'NGN',
-      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
-      customer: {
-        email: customerEmail || 'guest@fixamafrica.com',
-        name: customerName || 'Guest',
-        phone_number: customerPhone || '',
-      },
-      customizations: {
-        title: 'Fixam Africa',
-        description: `Order #${checkout.id.slice(0, 8)}`,
+      reference,
+      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`,
+      metadata: {
+        checkout_id: checkout.id,
+        customer_name: customerName || 'Guest',
+        customer_phone: customerPhone || '',
       },
     };
 
-    const flwRes = await fetch('https://api.flutterwave.com/v3/payments', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(flwPayload),
-    });
+    try {
+      const psRes = await fetch('https://api.paystack.co/transaction/initialize', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paystackPayload),
+      });
 
-    const flwData = await flwRes.json();
+      const psData = await psRes.json();
 
-    if (flwData.status !== 'success') {
-      // Release reservations on FLW failure
-      const { releaseStockReservations } = await import('@/lib/inventory');
+      if (!psData.status) {
+        await releaseStockReservations(checkout.id);
+        return NextResponse.json({ error: 'Payment initiation failed' }, { status: 502 });
+      }
+
+      return NextResponse.json({ link: psData.data.authorization_url, checkoutId: checkout.id, reference });
+    } catch (err) {
+      // Release reservations on any Paystack call failure, including network errors
       await releaseStockReservations(checkout.id);
-      return NextResponse.json({ error: 'Payment initiation failed' }, { status: 502 });
+      throw err;
     }
-
-    return NextResponse.json({ link: flwData.data.link, checkoutId: checkout.id, txRef });
   } catch (err: any) {
     console.error('[payment/init]', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

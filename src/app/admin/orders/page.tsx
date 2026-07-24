@@ -20,7 +20,7 @@ type StatusTab = (typeof STATUS_TABS)[number];
 
 const PAYMENT_METHOD_OPTIONS = [
   { value: '', label: 'All Methods' },
-  { value: 'flutterwave', label: 'Flutterwave' },
+  { value: 'paystack', label: 'Paystack' },
   { value: 'pod', label: 'Pay on Delivery' },
   { value: 'cash', label: 'Cash' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
@@ -44,7 +44,7 @@ const PAYMENT_STATUS_STYLES: Record<string, string> = {
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  flutterwave:   'Flutterwave',
+  paystack:      'Paystack',
   pod:           'Pay on Delivery',
   cash:          'Cash',
   bank_transfer: 'Bank Transfer',

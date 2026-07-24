@@ -103,7 +103,7 @@ export async function deductPOSInventory(
 }
 
 // ─── Create Stock Reservations ─────────────────────────────────────────────
-// FIFO-locks inventory for a pending checkout (called before Flutterwave redirect).
+// FIFO-locks inventory for a pending checkout (called before Paystack redirect).
 export async function createStockReservations(
   checkoutId: string,
   ttlMinutes: number = 30,

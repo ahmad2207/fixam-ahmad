@@ -13,7 +13,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-type PaymentMethod = 'cash' | 'bank_transfer' | 'card_pos' | 'flutterwave';
+type PaymentMethod = 'cash' | 'bank_transfer' | 'card_pos' | 'paystack';
 type DiscountType  = 'percent' | 'fixed';
 
 interface CartItem {
@@ -41,7 +41,7 @@ const PAYMENT_METHODS: {
   { value: 'cash',          label: 'Cash',         Icon: Banknote,   activeCls: 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-1 ring-emerald-200' },
   { value: 'bank_transfer', label: 'Bank Transfer', Icon: Building2,  activeCls: 'bg-blue-50 text-blue-700 border-blue-300 ring-1 ring-blue-200' },
   { value: 'card_pos',      label: 'Card POS',      Icon: CreditCard, activeCls: 'bg-violet-50 text-violet-700 border-violet-300 ring-1 ring-violet-200' },
-  { value: 'flutterwave',   label: 'Flutterwave',   Icon: Zap,        activeCls: 'bg-orange-50 text-primary border-primary/40 ring-1 ring-primary/20' },
+  { value: 'paystack',      label: 'Paystack',      Icon: Zap,        activeCls: 'bg-orange-50 text-primary border-primary/40 ring-1 ring-primary/20' },
 ];
 
 const QUICK_CASH = [500, 1000, 2000, 5000, 10000, 20000, 50000];

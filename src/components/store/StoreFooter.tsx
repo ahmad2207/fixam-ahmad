@@ -134,9 +134,9 @@ export function StoreFooter() {
         <div className="container mx-auto px-4 lg:px-12 py-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-y-5 gap-x-4">
             {[
-              { icon: Banknote,   title: 'Pay on Delivery',  sub: 'Cash at your door' },
+              { icon: Banknote,   title: 'Pay on Delivery',  sub: '' },
               { icon: Truck,      title: 'Fast Delivery',    sub: 'Abuja 24–48h · Nationwide 2–5 days' },
-              { icon: RotateCcw,  title: '7-Day Returns',    sub: 'Hassle-free guarantee' },
+              { icon: RotateCcw,  title: '30-Day Returns',   sub: 'Hassle-free guarantee' },
               { icon: Shield,     title: '100% Genuine',     sub: 'Authentic products only' },
             ].map(({ icon: Icon, title, sub }) => (
               <div key={title} className="flex items-center gap-3">
@@ -145,7 +145,7 @@ export function StoreFooter() {
                 </div>
                 <div>
                   <p className="text-sm font-black text-white leading-tight">{title}</p>
-                  <p className="text-[11px] text-white/70 leading-tight mt-0.5">{sub}</p>
+                  {sub && <p className="text-[11px] text-white/70 leading-tight mt-0.5">{sub}</p>}
                 </div>
               </div>
             ))}
@@ -315,7 +315,6 @@ export function StoreFooter() {
                   </div>
                   <div>
                     <p className="text-sm font-black text-white leading-none">Pay on Delivery</p>
-                    <p className="text-[11px] text-white/40 mt-1">Cash at your doorstep</p>
                   </div>
                 </div>
 
@@ -325,7 +324,7 @@ export function StoreFooter() {
                   </div>
                   <div>
                     <p className="text-sm font-black text-white leading-none">Online Payment</p>
-                    <p className="text-[11px] text-white/40 mt-1">Powered by Flutterwave · Secure</p>
+                    <p className="text-[11px] text-white/40 mt-1">Powered by Paystack · Secure</p>
                   </div>
                 </div>
 
