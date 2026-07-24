@@ -417,7 +417,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { icon: Truck,      title: 'Fast Delivery',     desc: 'Nationwide delivery' },
-              { icon: Banknote,   title: 'Pay on Delivery',  desc: 'Cash at your doorstep' },
+              { icon: Banknote,   title: 'Pay on Delivery',  desc: '' },
               { icon: Shield,     title: 'Secure Checkout',  desc: '100% protected' },
               { icon: RotateCcw,  title: '30-Day Returns',   desc: 'Hassle-free returns' },
             ].map(({ icon: Icon, title, desc }) => (
@@ -427,7 +427,7 @@ export default async function HomePage() {
                 </div>
                 <div>
                   <p className="font-bold text-xs sm:text-sm text-gray-800">{title}</p>
-                  <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">{desc}</p>
+                  {desc && <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">{desc}</p>}
                 </div>
               </div>
             ))}

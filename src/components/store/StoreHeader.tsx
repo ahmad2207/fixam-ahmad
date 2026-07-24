@@ -105,7 +105,7 @@ export function StoreHeader({ categories = [] }: { categories?: Category[] }) {
 
             <div className="flex flex-1 items-center justify-center gap-2 px-5 whitespace-nowrap">
               <span className="text-base leading-none">🔄</span>
-              <span className="font-semibold">7-Day Return Policy</span>
+              <span className="font-semibold">30-Day Return Policy</span>
             </div>
 
             <div className="flex flex-1 relative h-full overflow-hidden min-w-[190px]">

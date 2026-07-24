@@ -549,7 +549,7 @@ export function ProductDetailClient({
               {[
                 { icon: BadgeCheck, label: 'Genuine',       color: 'text-primary' },
                 { icon: Shield,     label: 'Secure',        color: 'text-blue-500' },
-                { icon: RotateCcw,  label: '7-Day Returns', color: 'text-green-500' },
+                { icon: RotateCcw,  label: '30-Day Returns', color: 'text-green-500' },
               ].map(({ icon: Icon, label, color }) => (
                 <div key={label} className="flex flex-col items-center justify-center gap-1 py-3">
                   <Icon className={`h-4 w-4 ${color}`} />
@@ -570,7 +570,6 @@ export function ProductDetailClient({
                 </div>
                 <div className="min-w-0">
                   <p className="text-[11px] font-black text-white leading-none">Pay on Delivery</p>
-                  <p className="text-[10px] text-gray-400 leading-none mt-0.5">Cash at your door</p>
                 </div>
               </div>
               <div className="flex flex-1 items-center gap-2 px-4 py-2.5">
@@ -578,7 +577,7 @@ export function ProductDetailClient({
                   <RotateCcw className="h-3.5 w-3.5 text-orange-400" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black text-white leading-none">7-Day Returns</p>
+                  <p className="text-[11px] font-black text-white leading-none">30-Day Returns</p>
                   <p className="text-[10px] text-gray-400 leading-none mt-0.5">Hassle-free policy</p>
                 </div>
               </div>
