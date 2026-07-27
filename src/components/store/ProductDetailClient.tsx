@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useStoreSetting } from '@/hooks/useStoreSettings';
+import { isVideoUrl } from '@/lib/media';
 
 /* ─── Types ─── */
 interface Product {
@@ -397,7 +398,7 @@ export function ProductDetailClient({
   const price = Number(product.price);
   const compareAt = Number(product.compareAtPrice ?? 0);
   const discount = compareAt > price ? Math.round(((compareAt - price) / compareAt) * 100) : 0;
-  const allImages = [product.imageUrl, ...(product.images ?? [])].filter(Boolean) as string[];
+  const allImages = [product.imageUrl, ...(product.images ?? [])].filter(Boolean).filter((u) => !isVideoUrl(u as string)) as string[];
   const variationString = Object.values(selectedVariations).filter(Boolean).join(' / ') || null;
   const avgRating = initialReviews.length
     ? initialReviews.reduce((s, r) => s + r.rating, 0) / initialReviews.length
