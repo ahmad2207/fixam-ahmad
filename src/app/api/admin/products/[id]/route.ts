@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { deleteFromSpaces } from '@/lib/spaces';
+import { isBarcodeUniqueViolation } from '@/lib/barcode';
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,6 +40,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json(updated);
   } catch (err: any) {
+    if (isBarcodeUniqueViolation(err)) {
+      return NextResponse.json({ error: 'This barcode is already used by another product.' }, { status: 409 });
+    }
     console.error('PATCH /api/admin/products/[id]:', err);
     return NextResponse.json({ error: err.message ?? 'Update failed' }, { status: 500 });
   }

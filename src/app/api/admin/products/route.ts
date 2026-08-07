@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { products, categories } from '@/db/schema';
 import { desc, lt, eq } from 'drizzle-orm';
+import { insertProductWithBarcode } from '@/lib/barcode-server';
+import { isBarcodeUniqueViolation } from '@/lib/barcode';
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -54,18 +56,18 @@ export async function POST(req: NextRequest) {
   const slug = rest.slug || slugify(rest.name);
 
   try {
-    const [product] = await db
-      .insert(products)
-      .values({
-        ...rest,
-        slug,
-        promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
-        restockAt: restockAt ? new Date(restockAt) : null,
-      })
-      .returning();
+    const product = await insertProductWithBarcode({
+      ...rest,
+      slug,
+      promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
+      restockAt: restockAt ? new Date(restockAt) : null,
+    });
 
     return NextResponse.json(product, { status: 201 });
   } catch (err: any) {
+    if (isBarcodeUniqueViolation(err)) {
+      return NextResponse.json({ error: 'This barcode is already used by another product.' }, { status: 409 });
+    }
     console.error('POST /api/admin/products:', err);
     return NextResponse.json({ error: err.message ?? 'Create failed' }, { status: 500 });
   }

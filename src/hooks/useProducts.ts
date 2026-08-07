@@ -14,6 +14,7 @@ export interface Product {
   images: string[];
   stock: number;
   sku: string | null;
+  barcode: string | null;
   variations: { name: string; options: string[] }[];
   tags: string[];
   isFeatured: boolean;

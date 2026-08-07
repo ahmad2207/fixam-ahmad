@@ -53,6 +53,7 @@ type SuggestProduct = {
   slug: string;
   price: string | number;
   imageUrl?: string | null;
+  barcode?: string | null;
   category?: { id: string; name: string; slug: string } | null;
 };
 
@@ -80,7 +81,9 @@ function ProductSearchBar({
   const suggestions = useMemo<SuggestProduct[]>(() => {
     const q = inputValue.trim().toLowerCase();
     if (!q) return [];
-    return products.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 6);
+    return products
+      .filter((p) => p.name.toLowerCase().includes(q) || (p.barcode ?? '').toLowerCase().includes(q))
+      .slice(0, 6);
   }, [products, inputValue]);
 
   const showDrop = open && (suggestions.length > 0 || inputValue.trim().length > 0);
@@ -142,7 +145,7 @@ function ProductSearchBar({
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none z-10" />
         <input
           ref={inputRef}
-          placeholder="Search products…"
+          placeholder="Search by name or barcode…"
           value={inputValue}
           onChange={(e) => {
             setInputValue(e.target.value);
@@ -409,7 +412,9 @@ function ProductsInner() {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
-        (p) => p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q)
+        (p) => p.name.toLowerCase().includes(q)
+          || (p.description ?? '').toLowerCase().includes(q)
+          || (p.barcode ?? '').toLowerCase().includes(q)
       );
     }
     if (selectedCategories.length) {

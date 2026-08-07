@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import { useCategories } from '@/hooks/useCategories';
 import { ImageUpload } from '@/components/admin/ImageUpload';
+import BarcodeSvg from '@/components/admin/BarcodeSvg';
+import BarcodeScannerModal from '@/components/admin/BarcodeScannerModal';
+import BarcodeLabelPreview from '@/components/admin/BarcodeLabelPreview';
 import { toast } from 'sonner';
 import {
   Plus, Trash2, Sparkles, Info, Image as ImageIcon, Layers,
-  ClipboardList, CheckCircle2, Star, Megaphone,
+  ClipboardList, CheckCircle2, Star, Megaphone, ScanLine, RefreshCw, Printer,
 } from 'lucide-react';
 
 export interface Variation {
@@ -27,6 +30,7 @@ export interface ProductFormValues {
   costPrice: string;
   categoryId: string;
   sku: string;
+  barcode: string;
   stock: string;
   isFeatured: boolean;
   isPromo: boolean;
@@ -47,6 +51,7 @@ const DEFAULT_VALUES: ProductFormValues = {
   costPrice: '',
   categoryId: '',
   sku: '',
+  barcode: '',
   stock: '0',
   isFeatured: false,
   isPromo: false,
@@ -128,6 +133,9 @@ interface ProductFormProps {
 export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSubmit }: ProductFormProps) {
   const { data: categories = [] } = useCategories();
   const [aiLoading, setAiLoading] = useState(false);
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [showLabelPreview, setShowLabelPreview] = useState(false);
 
   const [form, setForm] = useState(() => ({ ...DEFAULT_VALUES, ...initialValues }));
 
@@ -147,6 +155,21 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
       ...p,
       variations: p.variations.map((item, idx) => (idx === i ? { ...item, [field]: val } : item)),
     }));
+
+  const handleGenerateBarcode = async () => {
+    setBarcodeLoading(true);
+    try {
+      const res = await fetch('/api/admin/products/generate-barcode', { method: 'POST' });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Generation failed');
+      const data = await res.json();
+      setForm((p) => ({ ...p, barcode: data.barcode }));
+      toast.success('Barcode generated');
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setBarcodeLoading(false);
+    }
+  };
 
   const addSpec = () => setForm((p) => ({ ...p, specs: [...p.specs, { key: '', value: '' }] }));
   const removeSpec = (i: number) => setForm((p) => ({ ...p, specs: p.specs.filter((_, idx) => idx !== i) }));
@@ -211,6 +234,7 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
       costPrice: form.costPrice || '0',
       categoryId: form.categoryId || null,
       sku: form.sku || null,
+      barcode: form.barcode.trim() || null,
       stock: parseInt(form.stock) || 0,
       isFeatured: form.isFeatured,
       isPromo: form.isPromo,
@@ -230,6 +254,7 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-5 pb-4">
 
       {/* Basic Info */}
@@ -311,6 +336,49 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
               <input name="tags" value={form.tags} onChange={handleChange} placeholder="comma-separated"
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
             </div>
+          </div>
+
+          {/* Barcode */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Barcode</label>
+            <div className="flex gap-2">
+              <input
+                name="barcode" value={form.barcode} onChange={handleChange} maxLength={48}
+                placeholder="Scan the carton, or leave blank to auto-generate on save"
+                className="flex-1 border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+              />
+              <button
+                type="button" onClick={() => setShowScanner(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 transition-all flex-shrink-0"
+                title="Scan with camera"
+              >
+                <ScanLine className="h-4 w-4" /> Scan
+              </button>
+              <button
+                type="button" onClick={handleGenerateBarcode} disabled={barcodeLoading}
+                className="flex items-center gap-1.5 px-3 py-2.5 border border-border rounded-xl text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 transition-all flex-shrink-0 disabled:opacity-50"
+                title="Generate a unique code"
+              >
+                <RefreshCw className={`h-4 w-4 ${barcodeLoading ? 'animate-spin' : ''}`} /> Generate
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              If the product already has a barcode on its packaging, scan or type it in. Otherwise we&apos;ll generate a unique one automatically when you save.
+            </p>
+
+            {form.barcode.trim() && (
+              <div className="mt-3 flex items-center gap-4 flex-wrap">
+                <div className="border border-border rounded-xl px-3 py-2 bg-white inline-block">
+                  <BarcodeSvg value={form.barcode.trim()} height={36} fontSize={11} />
+                </div>
+                <button
+                  type="button" onClick={() => setShowLabelPreview(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Print label
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2.5 pt-1">
@@ -472,5 +540,22 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
         </button>
       </div>
     </form>
+
+    {showScanner && (
+      <BarcodeScannerModal
+        onDetected={(code) => { setForm((p) => ({ ...p, barcode: code })); setShowScanner(false); toast.success('Barcode scanned'); }}
+        onClose={() => setShowScanner(false)}
+      />
+    )}
+
+    {showLabelPreview && form.barcode.trim() && (
+      <BarcodeLabelPreview
+        productName={form.name || 'Product'}
+        price={Number(form.price) || 0}
+        barcode={form.barcode.trim()}
+        onClose={() => setShowLabelPreview(false)}
+      />
+    )}
+    </>
   );
 }

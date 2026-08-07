@@ -19,6 +19,7 @@ export default async function AdminInventoryPage() {
         price: products.price,
         costPrice: products.costPrice,
         isActive: products.isActive,
+        barcode: products.barcode,
         categoryName: categories.name,
       })
       .from(products)

@@ -33,7 +33,9 @@ export default function NewReceiptPage() {
   const suggestions = useMemo(() => {
     if (!search.trim()) return [];
     const q = search.toLowerCase();
-    return products.filter((p) => p.isActive && p.name.toLowerCase().includes(q)).slice(0, 8);
+    return products
+      .filter((p) => p.isActive && (p.name.toLowerCase().includes(q) || (p.barcode ?? '').toLowerCase().includes(q)))
+      .slice(0, 8);
   }, [products, search]);
 
   const addItem = (product: typeof products[0]) => {
@@ -118,7 +120,7 @@ export default function NewReceiptPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search and add products…"
+            placeholder="Search by name or barcode, and add products…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background"

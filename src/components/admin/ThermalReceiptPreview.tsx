@@ -4,14 +4,14 @@ import { X, Printer } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 
-interface ThermalItem {
+export interface ThermalItem {
   product_name: string;
   variation?: string;
   quantity: number;
   price: string | number;
 }
 
-interface ThermalReceipt {
+export interface ThermalReceipt {
   receiptNumber: string;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -33,7 +33,7 @@ interface Props {
   onClose: () => void;
 }
 
-function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl: string, storeAddress: string, storePhone: string): string {
+export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl: string, storeAddress: string, storePhone: string): string {
   const rows = items
     .map(
       (item) =>
@@ -60,6 +60,7 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl
   const dateStr = format(new Date(receipt.createdAt), 'dd/MM/yyyy HH:mm');
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Receipt-${receipt.receiptNumber}</title>
     <style>
       body{margin:0;padding:0;font-family:"Courier New",Courier,monospace;font-size:11px;color:#000}
       @page{size:80mm auto;margin:0}
@@ -103,19 +104,31 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl
   </body></html>`;
 }
 
+/**
+ * Builds and immediately prints a thermal receipt in a popup window — shared by
+ * this component's own "Print Thermal" button and by the POS page, which
+ * triggers it automatically right after a sale completes.
+ */
+export function printThermalReceipt(
+  receipt: ThermalReceipt,
+  items: ThermalItem[],
+  storeAddress = 'Abuja, FCT, Nigeria',
+  storePhone = '',
+) {
+  const logoUrl = `${window.location.origin}/logo.png`;
+  const html = buildThermalHtml(receipt, items, logoUrl, storeAddress, storePhone);
+  const w = window.open('', '_blank', 'width=340,height=700');
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { w.focus(); w.print(); w.close(); }, 300);
+}
+
 export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, FCT, Nigeria', storePhone = '', onClose }: Props) {
   let items: ThermalItem[] = [];
   try { items = JSON.parse(receipt.items); } catch { items = []; }
 
-  const handlePrintThermal = () => {
-    const logoUrl = `${window.location.origin}/logo.png`;
-    const html = buildThermalHtml(receipt, items, logoUrl, storeAddress, storePhone);
-    const w = window.open('', '_blank', 'width=340,height=700');
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => { w.focus(); w.print(); w.close(); }, 300);
-  };
+  const handlePrintThermal = () => printThermalReceipt(receipt, items, storeAddress, storePhone);
 
   const dateStr = format(new Date(receipt.createdAt), 'dd/MM/yyyy HH:mm');
 

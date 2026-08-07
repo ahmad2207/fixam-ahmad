@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bell, BellOff, ChevronDown, ChevronRight, Download, Loader2, Package } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, ChevronRight, Download, Loader2, Package, Search, Camera, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import BarcodeScannerModal from './BarcodeScannerModal';
 
 interface ProductRow {
   id: string;
@@ -14,6 +15,7 @@ interface ProductRow {
   price: string;
   costPrice: string;
   isActive: boolean;
+  barcode: string | null;
   categoryName: string | null;
 }
 
@@ -130,6 +132,8 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [notifying, setNotifying] = useState<Set<string>>(new Set());
   const [notifiedIds, setNotifiedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   const toggle = (id: string) =>
     setExpanded((prev) => {
@@ -139,7 +143,13 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
       return next;
     });
 
-  const lowStockProducts = useMemo(() => products.filter((p) => p.stock < 10), [products]);
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => p.name.toLowerCase().includes(q) || (p.barcode ?? '').toLowerCase().includes(q));
+  }, [products, search]);
+
+  const lowStockProducts = useMemo(() => filteredProducts.filter((p) => p.stock < 10), [filteredProducts]);
   const pendingWaitlist  = useMemo(() => waitlist.filter((w) => !w.notifiedAt && !notifiedIds.has(w.id)), [waitlist, notifiedIds]);
 
   const markNotified = async (id: string) => {
@@ -167,7 +177,7 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
   }, [batches]);
 
   const tabs: { id: ViewMode; label: string; count?: number; alert?: boolean }[] = [
-    { id: 'by-product',  label: 'By Product',  count: products.length },
+    { id: 'by-product',  label: 'By Product',  count: filteredProducts.length },
     { id: 'all-batches', label: 'All Batches', count: batches.length },
     { id: 'low-stock',   label: 'Low Stock',   count: lowStockProducts.length },
     { id: 'waitlist',    label: 'Waitlist',     count: pendingWaitlist.length, alert: pendingWaitlist.length > 0 },
@@ -207,6 +217,39 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
           Export CSV
         </button>
       </div>
+
+      {/* Search — filters By Product / Low Stock by name or barcode */}
+      {(view === 'by-product' || view === 'low-stock') && (
+        <div className="flex gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or barcode…"
+              className="w-full pl-9 pr-8 h-9 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 bg-white"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowScanner(true)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 h-9 border rounded-lg text-sm font-medium text-gray-500 hover:text-primary hover:border-primary/40 bg-white transition"
+            title="No handheld scanner? Scan with a device camera instead."
+          >
+            <Camera className="w-4 h-4" />
+            <span className="hidden sm:inline">Camera</span>
+          </button>
+        </div>
+      )}
 
       {/* All Batches View */}
       {view === 'all-batches' && (
@@ -282,14 +325,13 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => {
+                {filteredProducts.map((p) => {
                   const pBatches = batchesByProduct[p.id] ?? [];
                   const isOpen = expanded.has(p.id);
                   const invValue = pBatches.reduce((s, b) => s + b.quantityAvailable * Number(b.costPrice), 0);
                   return (
-                    <>
+                    <Fragment key={p.id}>
                       <tr
-                        key={p.id}
                         onClick={() => pBatches.length > 0 && toggle(p.id)}
                         className={`border-b hover:bg-gray-50 ${pBatches.length > 0 ? 'cursor-pointer' : ''}`}
                       >
@@ -356,12 +398,14 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                           <td />
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   );
                 })}
-                {products.length === 0 && (
+                {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center py-10 text-gray-500">No products found.</td>
+                    <td colSpan={8} className="text-center py-10 text-gray-500">
+                      {search ? 'No products match your search.' : 'No products found.'}
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -376,8 +420,10 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
           {lowStockProducts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-3">✅</div>
-              <p className="text-gray-600 font-medium">All products are well stocked!</p>
-              <p className="text-sm text-gray-400 mt-1">No products below 10 units.</p>
+              <p className="text-gray-600 font-medium">
+                {search ? 'No low-stock products match your search.' : 'All products are well stocked!'}
+              </p>
+              {!search && <p className="text-sm text-gray-400 mt-1">No products below 10 units.</p>}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -560,6 +606,13 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
             </table>
           </div>
         </div>
+      )}
+
+      {showScanner && (
+        <BarcodeScannerModal
+          onDetected={(code) => { setSearch(code); setShowScanner(false); }}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, categories, reviews } from '@/db/schema';
-import { eq, and, ilike, desc, avg, count, sql, inArray } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, avg, count, sql, inArray } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -10,7 +10,12 @@ export async function GET(req: NextRequest) {
   const featured = searchParams.get('featured') === 'true';
   const ids = searchParams.get('ids');
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
-  const limit = Math.min(48, Math.max(1, parseInt(searchParams.get('limit') ?? '0', 10)));
+  // No `limit` param at all means "fetch everything" (used by the POS, the storefront's
+  // client-side-filtered browse page, wishlist, etc). Only clamp to [1, 48] when a limit
+  // was actually requested — `Math.max(1, 0)` previously turned "no limit" into "limit 1".
+  const limitParam = searchParams.get('limit');
+  const parsedLimit = limitParam !== null ? parseInt(limitParam, 10) : NaN;
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(48, parsedLimit) : 0;
   const paginated = limit > 0;
 
   const conditions = [eq(products.isActive, true)];
@@ -20,7 +25,7 @@ export async function GET(req: NextRequest) {
   }
   if (categoryId) conditions.push(eq(products.categoryId, categoryId));
   if (featured) conditions.push(eq(products.isFeatured, true));
-  if (search) conditions.push(ilike(products.name, `%${search}%`));
+  if (search) conditions.push(or(ilike(products.name, `%${search}%`), ilike(products.barcode, `%${search}%`))!);
 
   let query = db
     .select({
@@ -35,6 +40,7 @@ export async function GET(req: NextRequest) {
       images: products.images,
       stock: products.stock,
       sku: products.sku,
+      barcode: products.barcode,
       variations: products.variations,
       tags: products.tags,
       isFeatured: products.isFeatured,

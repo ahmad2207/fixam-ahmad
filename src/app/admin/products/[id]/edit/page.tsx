@@ -27,6 +27,7 @@ export default function EditProductPage() {
           costPrice: product.costPrice ?? '',
           categoryId: product.categoryId ?? '',
           sku: product.sku ?? '',
+          barcode: product.barcode ?? '',
           stock: String(product.stock ?? 0),
           isFeatured: product.isFeatured ?? false,
           isPromo: product.isPromo ?? false,

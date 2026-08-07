@@ -15,6 +15,7 @@ export const products = pgTable('products', {
   images: jsonb('images').$type<string[]>().default([]),
   stock: integer('stock').notNull().default(0),
   sku: text('sku').unique(),
+  barcode: text('barcode').unique(),
   status: text('status').notNull().default('active'),
   variations: jsonb('variations').$type<{ name: string; options: string[] }[]>().default([]),
   specifications: jsonb('specifications'),

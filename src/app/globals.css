@@ -338,6 +338,63 @@
     opacity: 1;
     transform: translateY(0);
   }
+
+  /* ── POS receipt motif ──────────────────────────────────────────────
+     The order rail on /admin/pos is designed to read as a receipt that's
+     actively printing: a monospaced ledger, a perforated tear-line where
+     the header meets the itemized body, and a torn top edge framing the
+     finished ticket on the Sale Complete screen. */
+  .font-receipt {
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  /* A row of small punched holes — the tear-line between a ticket's header
+     stub and its itemized body. */
+  .pos-perforation {
+    height: 14px;
+    flex-shrink: 0;
+    background-color: hsl(var(--accent));
+    background-image: radial-gradient(circle at 7px 7px, hsl(var(--card)) 3.5px, transparent 4px);
+    background-size: 14px 14px;
+    background-repeat: repeat-x;
+  }
+
+  /* A torn top edge — as if just pulled off the printer roll. Apply to a
+     `position: relative` element with a little extra top margin for the lip. */
+  .pos-torn-top {
+    position: relative;
+  }
+
+  .pos-torn-top::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10px;
+    height: 11px;
+    background-color: hsl(var(--card));
+    background-image: radial-gradient(circle at 7px 11px, hsl(var(--background)) 7px, transparent 7.5px);
+    background-size: 14px 11px;
+    background-repeat: repeat-x;
+    pointer-events: none;
+  }
+
+  /* New line advancing onto the receipt tape (cart line added). */
+  .animate-print-line {
+    animation: printLineIn 0.22s ease-out both;
+  }
+
+  /* Confirms a scanned barcode matched a product on the shelf. */
+  .animate-scan-flash {
+    animation: scanFlash 0.7s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-print-line,
+    .animate-scan-flash {
+      animation: none;
+    }
+  }
 }
 
 ::-webkit-scrollbar {
@@ -402,4 +459,15 @@
 @keyframes kenBurns {
   0%, 100% { transform: scale(1.05) translateX(0); }
   50% { transform: scale(1.1) translateX(-1%); }
+}
+
+@keyframes printLineIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scanFlash {
+  0%   { box-shadow: 0 0 0 0 hsl(var(--success) / 0.55); }
+  70%  { box-shadow: 0 0 0 10px hsl(var(--success) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
 }

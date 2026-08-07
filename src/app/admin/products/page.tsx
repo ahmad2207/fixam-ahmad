@@ -7,12 +7,14 @@ import {
   Search, Package, ArrowUpDown, ArrowUp, ArrowDown,
   RotateCcw, Trash2, CheckSquare, Square, MinusSquare,
   Plus, TrendingUp, AlertTriangle, X, Edit2, Eye, EyeOff,
-  Filter,
+  Filter, Printer, Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import BarcodeLabelPreview from '@/components/admin/BarcodeLabelPreview';
+import BarcodeScannerModal from '@/components/admin/BarcodeScannerModal';
 
 interface AdminProduct {
   id: string;
@@ -25,6 +27,7 @@ interface AdminProduct {
   isActive: boolean;
   isFeatured: boolean;
   imageUrl: string | null;
+  barcode: string | null;
   createdAt: string;
 }
 
@@ -145,11 +148,16 @@ export default function AdminProductsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [restockProduct, setRestockProduct] = useState<AdminProduct | null>(null);
+  const [labelProduct, setLabelProduct] = useState<AdminProduct | null>(null);
   const [bulkAction, setBulkAction] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   const filtered = useMemo(() => {
     let list = products ?? [];
-    if (search) list = list.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.barcode ?? '').toLowerCase().includes(q));
+    }
     if (statusFilter === 'active')       list = list.filter((p) => p.isActive);
     if (statusFilter === 'inactive')     list = list.filter((p) => !p.isActive);
     if (statusFilter === 'out-of-stock') list = list.filter((p) => p.stock <= 0);
@@ -207,6 +215,24 @@ export default function AdminProductsPage() {
       qc.invalidateQueries({ queryKey: ['admin-products-list'] });
       toast.success('Product deleted');
     } catch { toast.error('Failed to delete product'); }
+  };
+
+  const openLabel = async (product: AdminProduct) => {
+    if (product.barcode) { setLabelProduct(product); return; }
+    // Products created before barcodes existed have none yet — generate + persist one now.
+    try {
+      const genRes = await fetch('/api/admin/products/generate-barcode', { method: 'POST' });
+      if (!genRes.ok) throw new Error();
+      const { barcode } = await genRes.json();
+      const patchRes = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ barcode }),
+      });
+      if (!patchRes.ok) throw new Error();
+      qc.invalidateQueries({ queryKey: ['admin-products-list'] });
+      setLabelProduct({ ...product, barcode });
+    } catch {
+      toast.error('Failed to generate a barcode for this product');
+    }
   };
 
   const toggleActive = async (id: string, current: boolean) => {
@@ -277,10 +303,18 @@ export default function AdminProductsPage() {
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="search" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
+            placeholder="Search by name or barcode…"
             className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-card"
           />
         </div>
+        <button
+          onClick={() => setShowScanner(true)}
+          className="flex items-center gap-1.5 px-3.5 py-2.5 border border-border rounded-xl text-sm font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 bg-card transition"
+          title="No handheld scanner? Scan with a device camera instead."
+        >
+          <Camera className="w-4 h-4" />
+          <span className="hidden sm:inline">Camera</span>
+        </button>
         <div className="flex items-center gap-1 bg-muted/60 border border-border rounded-xl p-1">
           <Filter className="w-3.5 h-3.5 text-muted-foreground ml-1.5 flex-shrink-0" />
           {STATUS_FILTERS.map((f) => (
@@ -310,6 +344,20 @@ export default function AdminProductsPage() {
       </div>
 
       {restockProduct && <RestockDialog product={restockProduct} onClose={() => setRestockProduct(null)} />}
+      {labelProduct && (
+        <BarcodeLabelPreview
+          productName={labelProduct.name}
+          price={Number(labelProduct.price)}
+          barcode={labelProduct.barcode ?? ''}
+          onClose={() => setLabelProduct(null)}
+        />
+      )}
+      {showScanner && (
+        <BarcodeScannerModal
+          onDetected={(code) => { setSearch(code); setShowScanner(false); }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
       {/* ── Table ── */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -422,6 +470,10 @@ export default function AdminProductsPage() {
                           <button onClick={() => setRestockProduct(row)}
                             className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition" title="Quick Restock">
                             <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => openLabel(row)}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition" title="Print barcode label">
+                            <Printer className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => toggleActive(row.id, row.isActive)}
                             className={cn('p-2 rounded-lg transition', row.isActive ? 'text-muted-foreground hover:text-amber-600 hover:bg-amber-50' : 'text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50')}

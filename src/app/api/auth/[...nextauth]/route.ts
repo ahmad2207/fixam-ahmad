@@ -1,6 +1,13 @@
 import { NextRequest } from 'next/server';
 import { handlers } from '@/lib/auth';
 
+// This catch-all route must never be treated as statically analyzable — every
+// request is inherently dynamic (session cookies, OAuth callbacks, CSRF
+// tokens). Without this, the dev server's background static-path analysis
+// pass can crash its worker pool on this route, which then makes
+// /api/auth/session start returning 500s until the server is restarted.
+export const dynamic = 'force-dynamic';
+
 const { GET: authGet, POST } = handlers;
 
 export async function GET(req: NextRequest) {
