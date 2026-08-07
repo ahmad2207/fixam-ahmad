@@ -309,10 +309,10 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => step === 2 && setStep(1)}
-                className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${step === 1 ? 'text-gray-900' : 'text-emerald-600 cursor-pointer hover:underline'}`}
+                className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${step === 1 ? 'text-gray-900' : 'text-brand-green-600 cursor-pointer hover:underline'}`}
               >
                 <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center flex-shrink-0 ${
-                  step > 1 ? 'bg-emerald-500 text-white' : 'bg-gray-900 text-white'
+                  step > 1 ? 'bg-brand-green-500 text-white' : 'bg-gray-900 text-white'
                 }`}>
                   {step > 1 ? <CheckCircle2 className="h-3 w-3" /> : '1'}
                 </span>
@@ -391,9 +391,9 @@ export default function CheckoutPage() {
                     </div>
 
                     {deliveryResult && (
-                      <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                        <span className="text-xs font-bold text-emerald-700">{formatCurrency(finalDeliveryFee)} delivery · {deliveryResult.label}</span>
+                      <div className="mt-3 flex items-center gap-2 bg-brand-green-50 border border-brand-green-100 rounded-lg px-3 py-2">
+                        <CheckCircle2 className="h-4 w-4 text-brand-green-500 flex-shrink-0" />
+                        <span className="text-xs font-bold text-brand-green-700">{formatCurrency(finalDeliveryFee)} delivery · {deliveryResult.label}</span>
                       </div>
                     )}
                   </div>
@@ -417,15 +417,15 @@ export default function CheckoutPage() {
 
                 {/* Delivery recap */}
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 mb-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-4 w-4 text-emerald-600" />
+                  <div className="w-8 h-8 rounded-lg bg-brand-green-50 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-4 w-4 text-brand-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Delivering to</p>
                     <p className="text-sm font-bold text-gray-800 truncate">{form.fullName}</p>
                     <p className="text-xs text-gray-400 truncate">
                       {form.state}{form.abujaZone ? ` · ${form.abujaZone}` : ''}
-                      {deliveryResult && <span className="text-emerald-600 font-semibold"> · {formatCurrency(finalDeliveryFee)}</span>}
+                      {deliveryResult && <span className="text-brand-green-600 font-semibold"> · {formatCurrency(finalDeliveryFee)}</span>}
                     </p>
                   </div>
                   <button type="button" onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline">Edit</button>
@@ -455,7 +455,7 @@ export default function CheckoutPage() {
 
                       <button type="button" onClick={() => setPaymentMethod('pod')}
                         className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all text-left ${
-                          paymentMethod === 'pod' ? 'border-emerald-600 bg-emerald-600' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                          paymentMethod === 'pod' ? 'border-brand-green-600 bg-brand-green-600' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
                         }`}>
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${paymentMethod === 'pod' ? 'bg-white/15' : 'bg-gray-200'}`}>
                           <Banknote className={`h-4 w-4 ${paymentMethod === 'pod' ? 'text-white' : 'text-gray-500'}`} />
@@ -463,7 +463,7 @@ export default function CheckoutPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className={`text-sm font-black ${paymentMethod === 'pod' ? 'text-white' : 'text-gray-800'}`}>Pay on Delivery</p>
-                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${paymentMethod === 'pod' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>Popular</span>
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${paymentMethod === 'pod' ? 'bg-white/20 text-white' : 'bg-brand-green-100 text-brand-green-700'}`}>Popular</span>
                           </div>
                           <p className={`text-xs ${paymentMethod === 'pod' ? 'text-white/60' : 'text-gray-400'}`}>No upfront payment</p>
                         </div>
@@ -562,10 +562,10 @@ export default function CheckoutPage() {
                     className="w-full flex items-center justify-center gap-2 h-11 rounded-xl text-sm font-black text-white bg-gray-900 hover:bg-gray-800 transition-all active:scale-[0.98]"
                   >
                     <Lock className="h-3.5 w-3.5" />
-                    Pay Online
+                    Continue to Payment
                   </button>
                   <p className="text-[10px] text-gray-400 text-center">
-                    WhatsApp — chat &amp; pay your way &nbsp;·&nbsp; Pay Online — card, bank, USSD
+                    WhatsApp — chat &amp; pay your way &nbsp;·&nbsp; Continue to Payment — pay online or on delivery
                   </p>
                 </div>
               ) : (
@@ -575,7 +575,7 @@ export default function CheckoutPage() {
                     form="payment-form"
                     disabled={isLoading || !deliveryResult}
                     className={`w-full h-11 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50 text-white ${
-                      paymentMethod === 'pod' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-900 hover:bg-gray-800'
+                      paymentMethod === 'pod' ? 'bg-brand-green-600 hover:bg-brand-green-700' : 'bg-gray-900 hover:bg-gray-800'
                     }`}
                   >
                     {isLoading ? (
@@ -628,7 +628,7 @@ export default function CheckoutPage() {
               onClick={handleDeliveryNext as any}
               className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-xl text-sm font-black text-white bg-gray-900"
             >
-              <Lock className="h-3.5 w-3.5" /> Pay Online
+              <Lock className="h-3.5 w-3.5" /> Continue
             </button>
           </div>
         ) : (
@@ -641,7 +641,7 @@ export default function CheckoutPage() {
               onClick={handleSubmit as any}
               disabled={isLoading || !deliveryResult}
               className={`flex items-center gap-1.5 h-11 px-5 rounded-xl text-sm font-black text-white disabled:opacity-50 ${
-                paymentMethod === 'pod' ? 'bg-emerald-600' : 'bg-gray-900'
+                paymentMethod === 'pod' ? 'bg-brand-green-600' : 'bg-gray-900'
               }`}
             >
               {isLoading ? 'Processing…' : paymentMethod === 'pod' ? 'Place Order' : `Pay ${formatCurrency(grandTotal)}`}

@@ -79,7 +79,7 @@ export function NotifyMeModal({ open, onOpenChange, productId, productName, prod
         <div className="px-5 py-5">
           {success ? (
             <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+              <CheckCircle2 className="h-12 w-12 text-brand-green-500" />
               <p className="font-bold text-gray-900">You're on the list!</p>
               <p className="text-sm text-gray-500">We'll notify you at <span className="font-medium text-gray-700">{email}</span> as soon as this product is back in stock.</p>
               <button

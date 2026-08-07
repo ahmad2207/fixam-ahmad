@@ -9,8 +9,7 @@ const ITEMS = [
 export function AnnouncementBar() {
   return (
     <div
-      className="h-[40px] flex items-center justify-center gap-4 px-4 select-none overflow-hidden"
-      style={{ backgroundColor: '#0a8800' }}
+      className="h-[40px] flex items-center justify-center gap-4 px-4 select-none overflow-hidden bg-brand-green-600"
     >
       {/* Heading */}
       <span className="text-xs font-extrabold text-white tracking-wide whitespace-nowrap">

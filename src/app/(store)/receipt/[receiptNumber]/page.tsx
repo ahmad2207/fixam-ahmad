@@ -168,11 +168,11 @@ export default async function PublicReceiptPage({ params }: Props) {
 
           {/* ── Payment status banner ── */}
           {isPaid && (
-            <div className="mx-6 mb-5 flex items-center gap-3.5 bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-3.5">
-              <CheckCircle2 className="h-6 w-6 text-emerald-500 flex-shrink-0" />
+            <div className="mx-6 mb-5 flex items-center gap-3.5 bg-brand-green-50 border border-brand-green-100 rounded-xl px-5 py-3.5">
+              <CheckCircle2 className="h-6 w-6 text-brand-green-500 flex-shrink-0" />
               <div>
-                <p className="text-sm font-bold text-emerald-800 leading-none">Payment Received</p>
-                <p className="text-xs text-emerald-600 mt-0.5">This receipt confirms full payment</p>
+                <p className="text-sm font-bold text-brand-green-800 leading-none">Payment Received</p>
+                <p className="text-xs text-brand-green-600 mt-0.5">This receipt confirms full payment</p>
               </div>
             </div>
           )}

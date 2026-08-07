@@ -725,7 +725,7 @@ function ProductsInner() {
                 {inStockOnly && (
                   <button
                     onClick={() => setInStockOnly(false)}
-                    className="flex items-center gap-1 bg-green-100 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    className="flex items-center gap-1 bg-brand-green-100 text-brand-green-700 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
                   >
                     In Stock Only <X className="h-3 w-3" />
                   </button>

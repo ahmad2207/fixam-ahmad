@@ -56,7 +56,7 @@ function StatusBadge({ status }: { status: string }) {
     confirmed:  'bg-blue-50 text-blue-700 border-blue-200',
     processing: 'bg-orange-50 text-orange-700 border-orange-200',
     shipped:    'bg-indigo-50 text-indigo-700 border-indigo-200',
-    delivered:  'bg-green-50 text-green-700 border-green-200',
+    delivered:  'bg-brand-green-50 text-brand-green-700 border-brand-green-200',
     cancelled:  'bg-red-50 text-red-600 border-red-200',
     refunded:   'bg-gray-100 text-gray-600 border-gray-200',
   };
@@ -137,23 +137,23 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
         {/* ── PAYMENT CALLBACK BANNER ── */}
         {isCallback && (
           <div className={`rounded-2xl p-4 mb-4 flex items-start gap-3 ${
-            cbStatus === 'successful' ? 'bg-green-50 border border-green-200'
+            cbStatus === 'successful' ? 'bg-brand-green-50 border border-brand-green-200'
             : cbStatus === 'cancelled' ? 'bg-red-50 border border-red-200'
             : 'bg-amber-50 border border-amber-200'
           }`}>
             {cbStatus === 'successful'
-              ? <CircleCheckBig className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+              ? <CircleCheckBig className="h-5 w-5 text-brand-green-600 flex-shrink-0 mt-0.5" />
               : cbStatus === 'cancelled'
               ? <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
               : <Loader2 className="h-5 w-5 text-amber-600 animate-spin flex-shrink-0 mt-0.5" />
             }
             <div>
-              <p className={`font-bold text-sm ${cbStatus === 'successful' ? 'text-green-700' : cbStatus === 'cancelled' ? 'text-red-600' : 'text-amber-700'}`}>
+              <p className={`font-bold text-sm ${cbStatus === 'successful' ? 'text-brand-green-700' : cbStatus === 'cancelled' ? 'text-red-600' : 'text-amber-700'}`}>
                 {cbStatus === 'successful' ? 'Payment Successful!'
                 : cbStatus === 'cancelled' ? 'Payment Cancelled'
                 : 'Confirming Payment…'}
               </p>
-              <p className={`text-xs mt-0.5 ${cbStatus === 'successful' ? 'text-green-600' : cbStatus === 'cancelled' ? 'text-red-500' : 'text-amber-600'}`}>
+              <p className={`text-xs mt-0.5 ${cbStatus === 'successful' ? 'text-brand-green-600' : cbStatus === 'cancelled' ? 'text-red-500' : 'text-amber-600'}`}>
                 {cbStatus === 'successful' ? 'Your payment has been processed. Your order is now being prepared.'
                 : cbStatus === 'cancelled' ? 'Your payment was cancelled. You can pay again from your orders.'
                 : 'We\'re confirming your payment. This may take a moment…'}
@@ -165,25 +165,25 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
         {/* ── ORDER STATUS HERO ── */}
         <div className={`rounded-2xl p-6 text-center mb-3 ${
           isCancelled ? 'bg-red-50 border border-red-200'
-          : isPaid || isPod ? 'bg-green-50 border border-green-200'
+          : isPaid || isPod ? 'bg-brand-green-50 border border-brand-green-200'
           : 'bg-amber-50 border border-amber-200'
         }`}>
           <div className={`w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center ${
             isCancelled ? 'bg-red-100'
-            : isPaid || isPod ? 'bg-green-100'
+            : isPaid || isPod ? 'bg-brand-green-100'
             : 'bg-amber-100'
           }`}>
             {isCancelled
               ? <XCircle className="h-7 w-7 text-red-500" />
               : isPaid
-              ? <CircleCheckBig className="h-7 w-7 text-green-600" />
+              ? <CircleCheckBig className="h-7 w-7 text-brand-green-600" />
               : isPod
-              ? <Banknote className="h-7 w-7 text-green-600" />
+              ? <Banknote className="h-7 w-7 text-brand-green-600" />
               : <Clock className="h-7 w-7 text-amber-600" />
             }
           </div>
           <h1 className={`text-xl font-extrabold mb-1 ${
-            isCancelled ? 'text-red-700' : isPaid || isPod ? 'text-green-700' : 'text-amber-700'
+            isCancelled ? 'text-red-700' : isPaid || isPod ? 'text-brand-green-700' : 'text-amber-700'
           }`}>
             {isCancelled ? 'Order Cancelled'
             : isPaid ? 'Order Confirmed!'
@@ -191,7 +191,7 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
             : 'Awaiting Payment'}
           </h1>
           <p className={`text-sm ${
-            isCancelled ? 'text-red-600' : isPaid || isPod ? 'text-green-600' : 'text-amber-600'
+            isCancelled ? 'text-red-600' : isPaid || isPod ? 'text-brand-green-600' : 'text-amber-600'
           }`}>
             {isCancelled
               ? 'This order has been cancelled.'
@@ -216,7 +216,7 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
             <div className="flex flex-col items-end gap-1.5">
               <StatusBadge status={order.status} />
               <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                isPaid ? 'bg-green-50 text-green-700 border-green-200'
+                isPaid ? 'bg-brand-green-50 text-brand-green-700 border-brand-green-200'
                 : isPod ? 'bg-amber-50 text-amber-700 border-amber-200'
                 : 'bg-gray-100 text-gray-500 border-gray-200'
               }`}>

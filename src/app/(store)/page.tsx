@@ -21,10 +21,10 @@ const CATEGORY_META: Record<string, {
   cookware:   { icon: '🍳', desc: 'Pots & pans',        gradient: 'from-orange-50 to-amber-100',   hoverBorder: 'group-hover:border-orange-300',  image: '/cookware.png'   },
   cutlery:    { icon: '🔪', desc: 'Knives & blades',     gradient: 'from-blue-50 to-sky-100',       hoverBorder: 'group-hover:border-blue-300',    image: '/cutlery.png'    },
   appliances: { icon: '⚡', desc: 'Kitchen gadgets',     gradient: 'from-violet-50 to-purple-100',  hoverBorder: 'group-hover:border-violet-300',  image: '/Appliances.png' },
-  storage:    { icon: '🗄️', desc: 'Jars & containers',  gradient: 'from-green-50 to-emerald-100',  hoverBorder: 'group-hover:border-green-300',   image: '/storage.png'    },
+  storage:    { icon: '🗄️', desc: 'Jars & containers',  gradient: 'from-brand-green-50 to-brand-green-100',  hoverBorder: 'group-hover:border-brand-green-300',   image: '/storage.png'    },
   bakeware:   { icon: '🧁', desc: 'Trays & moulds',      gradient: 'from-pink-50 to-rose-100',      hoverBorder: 'group-hover:border-pink-300',    image: '/bakeware.png'   },
   utensils:   { icon: '🥄', desc: 'Spoons & spatulas',   gradient: 'from-yellow-50 to-amber-100',   hoverBorder: 'group-hover:border-yellow-300',  image: '/utensils.png'   },
-  seasonal:   { icon: '🌿', desc: 'Seasonal picks',      gradient: 'from-teal-50 to-emerald-100',   hoverBorder: 'group-hover:border-teal-300'                            },
+  seasonal:   { icon: '🌿', desc: 'Seasonal picks',      gradient: 'from-teal-50 to-brand-green-100',   hoverBorder: 'group-hover:border-teal-300'                            },
 };
 
 const productFields = {

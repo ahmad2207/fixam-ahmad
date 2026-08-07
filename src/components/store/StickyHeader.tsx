@@ -43,10 +43,7 @@ export function StickyHeader({ categories }: Props) {
       <StoreHeader categories={categories} />
 
       {/* Trust badge strip */}
-      <div
-        className="border-b overflow-x-auto [&::-webkit-scrollbar]:hidden"
-        style={{ backgroundColor: '#0a8800', borderColor: '#086e00' }}
-      >
+      <div className="border-b border-brand-green-700 bg-brand-green-600 overflow-x-auto [&::-webkit-scrollbar]:hidden">
         <div className="container mx-auto px-4 lg:px-12">
           <div className="flex items-center justify-center h-10 gap-0 min-w-max lg:min-w-0 lg:w-full">
             <span className="font-black text-white text-[11px] sm:text-xs tracking-widest uppercase whitespace-nowrap border-r border-white/30 pr-5">

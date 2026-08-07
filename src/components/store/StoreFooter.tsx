@@ -171,8 +171,8 @@ export function StoreFooter() {
 
             <div className="w-full lg:max-w-[420px]">
               {subscribed ? (
-                <div className="flex items-center gap-3 bg-emerald-500/15 border border-emerald-500/25 rounded-2xl px-5 py-4">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-3 bg-brand-green-500/15 border border-brand-green-500/25 rounded-2xl px-5 py-4">
+                  <div className="w-9 h-9 rounded-xl bg-brand-green-500 flex items-center justify-center flex-shrink-0">
                     <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><polyline points="20 6 9 17 4 12" /></svg>
                   </div>
                   <div>
@@ -310,8 +310,8 @@ export function StoreFooter() {
 
               <div className="space-y-3">
                 <div className="flex items-center gap-3.5 bg-white/5 border border-white/8 rounded-2xl px-4 py-3.5 hover:border-white/15 transition-colors">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                    <Banknote className="h-5 w-5 text-emerald-400" />
+                  <div className="w-10 h-10 rounded-xl bg-brand-green-500/20 border border-brand-green-500/20 flex items-center justify-center flex-shrink-0">
+                    <Banknote className="h-5 w-5 text-brand-green-400" />
                   </div>
                   <div>
                     <p className="text-sm font-black text-white leading-none">Pay on Delivery</p>

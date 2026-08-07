@@ -35,6 +35,20 @@
   --color-sidebar-border: hsl(var(--sidebar-border));
   --color-sidebar-ring: hsl(var(--sidebar-ring));
   --radius: 0.75rem;
+
+  /* Brand green — every green on the site is a shade of this one hue (the
+     "Why choose Fixam?" bar's #0a8800), so bg-brand-green-50 through -900
+     replace the ad-hoc Tailwind green and emerald classes used before. */
+  --color-brand-green-50: hsl(var(--brand-green-50));
+  --color-brand-green-100: hsl(var(--brand-green-100));
+  --color-brand-green-200: hsl(var(--brand-green-200));
+  --color-brand-green-300: hsl(var(--brand-green-300));
+  --color-brand-green-400: hsl(var(--brand-green-400));
+  --color-brand-green-500: hsl(var(--brand-green-500));
+  --color-brand-green-600: hsl(var(--brand-green-600));
+  --color-brand-green-700: hsl(var(--brand-green-700));
+  --color-brand-green-800: hsl(var(--brand-green-800));
+  --color-brand-green-900: hsl(var(--brand-green-900));
 }
 
 @keyframes shine {
@@ -71,6 +85,21 @@
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
+
+    /* Brand green scale — anchored on the "Why choose Fixam?" bar's #0a8800
+       (116 100% 26.7%, kept at -600) so every green on the storefront is a
+       tint/shade of that one hue, instead of a mix of Tailwind's green-* and
+       emerald-* families. */
+    --brand-green-50: 116 55% 95%;
+    --brand-green-100: 116 60% 89%;
+    --brand-green-200: 116 65% 78%;
+    --brand-green-300: 116 70% 65%;
+    --brand-green-400: 116 80% 50%;
+    --brand-green-500: 116 90% 38%;
+    --brand-green-600: 115.6 100% 26.7%;
+    --brand-green-700: 116 100% 22%;
+    --brand-green-800: 116 95% 18%;
+    --brand-green-900: 116 90% 15%;
 
     --warning: 45 93% 47%;
     --warning-foreground: 25 30% 12%;

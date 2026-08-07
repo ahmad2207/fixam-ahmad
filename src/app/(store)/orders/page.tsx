@@ -15,7 +15,7 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   confirmed:  { label: 'Confirmed',  cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
   processing: { label: 'Processing', cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
   shipped:    { label: 'Shipped',    cls: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
-  delivered:  { label: 'Delivered',  cls: 'bg-green-50 text-green-700 border border-green-200' },
+  delivered:  { label: 'Delivered',  cls: 'bg-brand-green-50 text-brand-green-700 border border-brand-green-200' },
   cancelled:  { label: 'Cancelled',  cls: 'bg-red-50 text-red-600 border border-red-200' },
   refunded:   { label: 'Refunded',   cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
 };
@@ -108,7 +108,7 @@ export default async function OrdersPage() {
                         {/* Payment badge */}
                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${
                           isPaid
-                            ? 'bg-green-50 text-green-700 border border-green-200'
+                            ? 'bg-brand-green-50 text-brand-green-700 border border-brand-green-200'
                             : isPod
                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
                             : 'bg-gray-100 text-gray-500 border border-gray-200'

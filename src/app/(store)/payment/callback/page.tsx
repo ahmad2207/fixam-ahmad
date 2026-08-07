@@ -71,8 +71,8 @@ function PaymentCallbackInner() {
       <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-sm p-10 max-w-sm w-full text-center">
           {/* Success animation */}
-          <div className="w-20 h-20 rounded-full bg-green-50 border-4 border-green-100 flex items-center justify-center mx-auto mb-5">
-            <CircleCheckBig className="h-10 w-10 text-green-500" />
+          <div className="w-20 h-20 rounded-full bg-brand-green-50 border-4 border-brand-green-100 flex items-center justify-center mx-auto mb-5">
+            <CircleCheckBig className="h-10 w-10 text-brand-green-500" />
           </div>
 
           <h1 className="text-2xl font-black text-gray-900 mb-2">Payment Confirmed!</h1>
@@ -82,7 +82,7 @@ function PaymentCallbackInner() {
 
           {/* Progress bar */}
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-6">
-            <div className="h-full bg-green-500 rounded-full animate-pulse" style={{ width: '70%' }} />
+            <div className="h-full bg-brand-green-500 rounded-full animate-pulse" style={{ width: '70%' }} />
           </div>
 
           <div className="flex flex-col gap-2">

@@ -371,8 +371,8 @@ function StockBadge({ stock }: { stock: number }) {
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-green-50 text-green-600 border border-green-200">
-      <span className="w-1.5 h-1.5 bg-green-500 animate-pulse" />In Stock
+    <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-brand-green-50 text-brand-green-600 border border-brand-green-200">
+      <span className="w-1.5 h-1.5 bg-brand-green-500 animate-pulse" />In Stock
     </span>
   );
 }
@@ -550,7 +550,7 @@ export function ProductDetailClient({
               {[
                 { icon: BadgeCheck, label: 'Genuine',       color: 'text-primary' },
                 { icon: Shield,     label: 'Secure',        color: 'text-blue-500' },
-                { icon: RotateCcw,  label: '30-Day Returns', color: 'text-green-500' },
+                { icon: RotateCcw,  label: '30-Day Returns', color: 'text-brand-green-500' },
               ].map(({ icon: Icon, label, color }) => (
                 <div key={label} className="flex flex-col items-center justify-center gap-1 py-3">
                   <Icon className={`h-4 w-4 ${color}`} />
@@ -624,7 +624,7 @@ export function ProductDetailClient({
                 )}
               </div>
               {discount > 0 && (
-                <p className="text-xs text-green-600 font-semibold mt-1">You save {formatCurrency(compareAt - price)}</p>
+                <p className="text-xs text-brand-green-600 font-semibold mt-1">You save {formatCurrency(compareAt - price)}</p>
               )}
             </div>
 
@@ -724,7 +724,7 @@ export function ProductDetailClient({
                 <span><span className="font-semibold text-gray-700">Abuja:</span> 24–48 hrs &nbsp;·&nbsp; <span className="font-semibold text-gray-700">Nationwide:</span> 2–5 days</span>
               </div>
               <div className="flex gap-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-brand-green-700 bg-brand-green-50 border border-brand-green-100 px-2.5 py-1.5">
                   <Banknote className="h-3.5 w-3.5" /> Pay on Delivery
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-orange-700 bg-orange-50 border border-orange-100 px-2.5 py-1.5">

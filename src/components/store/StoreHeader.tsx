@@ -99,7 +99,7 @@ export function StoreHeader({ categories = [] }: { categories?: Category[] }) {
             </div>
 
             <div className="flex flex-1 items-center justify-center gap-2 px-5 whitespace-nowrap">
-              <MessageCircle className="h-3.5 w-3.5 text-green-400 flex-shrink-0" />
+              <MessageCircle className="h-3.5 w-3.5 text-brand-green-400 flex-shrink-0" />
               <span className="font-semibold">Checkout on WhatsApp</span>
             </div>
 
