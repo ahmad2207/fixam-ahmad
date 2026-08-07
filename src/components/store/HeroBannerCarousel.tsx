@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -96,14 +96,51 @@ export function HeroBannerCarousel() {
 
   const s = slides[Math.min(current, slides.length - 1)];
 
+  // ── Swipe / drag support (mouse + touch, via Pointer Events) ──
+  const SWIPE_THRESHOLD = 40; // px
+  const dragState = useRef<{ pointerId: number; startX: number; startY: number; dragging: boolean } | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (slides.length <= 1) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragState.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, dragging: false };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const state = dragState.current;
+    if (!state || state.pointerId !== e.pointerId) return;
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+    if (!state.dragging) {
+      if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+      state.dragging = true;
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    }
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    const state = dragState.current;
+    if (!state) return;
+    if (state.dragging) {
+      const dx = e.clientX - state.startX;
+      if (dx <= -SWIPE_THRESHOLD) next();
+      else if (dx >= SWIPE_THRESHOLD) prev();
+    }
+    dragState.current = null;
+  };
+
   return (
     <div
       className="relative overflow-hidden rounded-2xl shadow-md"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
     >
       {/* ── SLIDE ── */}
-      <div className="relative h-[260px] sm:h-[340px] lg:h-[360px] bg-white overflow-hidden">
+      <div className="relative h-[260px] sm:h-[340px] lg:h-[360px] bg-white overflow-hidden touch-pan-y">
 
         {/* Banner image — use plain <img> for GIFs so animation plays */}
         {s.image.toLowerCase().endsWith('.gif') ? (
@@ -172,14 +209,14 @@ export function HeroBannerCarousel() {
       {slides.length > 1 && (
         <>
           <button onClick={prev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all z-20 hover:scale-110"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-gray-900/70 hover:bg-primary border-2 border-white/80 rounded-full flex items-center justify-center shadow-lg transition-all z-20 hover:scale-110"
             aria-label="Previous slide">
-            <ChevronLeft className="h-4 w-4 text-gray-800" />
+            <ChevronLeft className="h-5 w-5 text-white" strokeWidth={2.5} />
           </button>
           <button onClick={next}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all z-20 hover:scale-110"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-gray-900/70 hover:bg-primary border-2 border-white/80 rounded-full flex items-center justify-center shadow-lg transition-all z-20 hover:scale-110"
             aria-label="Next slide">
-            <ChevronRight className="h-4 w-4 text-gray-800" />
+            <ChevronRight className="h-5 w-5 text-white" strokeWidth={2.5} />
           </button>
         </>
       )}
