@@ -112,16 +112,6 @@ export function mergeDeliveryConfig(dbConfig: Partial<DeliveryConfig> | null | u
   };
 }
 
-let activeConfig: DeliveryConfig = getDefaultDeliveryConfig();
-
-export function setActiveDeliveryConfig(config: DeliveryConfig) {
-  activeConfig = config;
-}
-
-export function getActiveDeliveryConfig(): DeliveryConfig {
-  return activeConfig;
-}
-
 export const ABUJA_ZONES = DEFAULT_ABUJA_ZONES;
 
 export const INTERSTATE_STATES: Record<string, string[]> = {
@@ -137,13 +127,13 @@ export const ALL_INTERSTATE_STATES = Object.values(INTERSTATE_STATES).flat();
 export const ALL_STATES = ['FCT - Abuja', ...ALL_INTERSTATE_STATES].sort();
 
 export function getAbujaZoneNames(config?: DeliveryConfig): string[] {
-  return Object.keys((config || activeConfig).abuja_zones);
+  return Object.keys((config || getDefaultDeliveryConfig()).abuja_zones);
 }
 
 export const ABUJA_ZONE_NAMES = Object.keys(DEFAULT_ABUJA_ZONES);
 
 export function getAbujaAreas(zone: string, config?: DeliveryConfig): string[] {
-  return (config || activeConfig).abuja_zones[zone]?.areas || [];
+  return (config || getDefaultDeliveryConfig()).abuja_zones[zone]?.areas || [];
 }
 
 export function detectAbujaZone(
@@ -152,7 +142,7 @@ export function detectAbujaZone(
   config?: DeliveryConfig,
 ): { zone: string; area: string } | null {
   const haystack = `${streetAddress} ${city}`.toLowerCase();
-  const zones = (config || activeConfig).abuja_zones;
+  const zones = (config || getDefaultDeliveryConfig()).abuja_zones;
   for (const [zoneName, { areas }] of Object.entries(zones)) {
     for (const area of areas) {
       if (haystack.includes(area.toLowerCase())) {
@@ -164,7 +154,7 @@ export function detectAbujaZone(
 }
 
 function getInterstateFee(subtotal: number, config?: DeliveryConfig): number {
-  const tiers = (config || activeConfig).interstate_tiers;
+  const tiers = (config || getDefaultDeliveryConfig()).interstate_tiers;
   const sorted = [...tiers].sort((a, b) => b.minSubtotal - a.minSubtotal);
   for (const tier of sorted) {
     if (subtotal >= tier.minSubtotal) return tier.fee;
@@ -173,7 +163,7 @@ function getInterstateFee(subtotal: number, config?: DeliveryConfig): number {
 }
 
 function getAbujaFee(zone: string, config?: DeliveryConfig): number | null {
-  return (config || activeConfig).abuja_zones[zone]?.fee ?? null;
+  return (config || getDefaultDeliveryConfig()).abuja_zones[zone]?.fee ?? null;
 }
 
 export interface DeliveryFeeResult {

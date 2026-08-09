@@ -9,6 +9,7 @@ import {
 } from '@/db/schema';
 import { eq, and, gt, asc, sql, inArray } from 'drizzle-orm';
 import { calculateDeliveryFee } from '@/lib/deliveryFees';
+import { getDeliveryConfigFromDb } from '@/lib/deliveryConfigServer';
 
 // ─── Validate & Price Checkout Items ───────────────────────────────────────
 // The client can only choose WHAT to buy — never at what price. This
@@ -88,7 +89,8 @@ export async function priceCheckoutItems(
     throw new Error('Delivery state is required');
   }
 
-  const { fee: deliveryFee } = calculateDeliveryFee(shippingState, subtotal, abujaZone);
+  const deliveryConfig = await getDeliveryConfigFromDb();
+  const { fee: deliveryFee } = calculateDeliveryFee(shippingState, subtotal, abujaZone, deliveryConfig);
   const total = subtotal + deliveryFee;
 
   return { items, subtotal, deliveryFee, total };

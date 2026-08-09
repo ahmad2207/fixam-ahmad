@@ -10,9 +10,9 @@ import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
 import {
   ALL_STATES,
-  ABUJA_ZONE_NAMES,
   getAbujaAreas,
   calculateDeliveryFee,
+  getDefaultDeliveryConfig,
 } from '@/lib/deliveryFees';
 import { toast } from 'sonner';
 import {
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useStoreSetting } from '@/hooks/useStoreSettings';
+import { useStoreDeliveryConfig } from '@/hooks/useDeliveryConfig';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -57,6 +58,10 @@ export default function CheckoutPage() {
   const { initiatePayment, isLoading: paystackLoading, error: paystackError } = usePaystackPayment();
   const { data: session } = useSession();
   const { data: storeSettings } = useStoreSetting<{ whatsapp_number?: string }>('general');
+  const { data: deliveryConfig } = useStoreDeliveryConfig();
+  // Falls back to hardcoded defaults until the admin-configured schedule
+  // loads, so the form never blocks on this fetch.
+  const effectiveDeliveryConfig = deliveryConfig ?? getDefaultDeliveryConfig();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'pod'>('online');
@@ -82,14 +87,17 @@ export default function CheckoutPage() {
     ['FCT - Abuja', 'Abuja', 'FCT', 'Federal Capital Territory'].includes(form.state),
   [form.state]);
 
-  const abujaAreas = useMemo(() => getAbujaAreas(form.abujaZone), [form.abujaZone]);
+  const abujaAreas = useMemo(
+    () => getAbujaAreas(form.abujaZone, effectiveDeliveryConfig),
+    [form.abujaZone, effectiveDeliveryConfig],
+  );
 
   const deliveryResult = useMemo(() => {
     if (!form.state) return null;
     const state = isAbuja ? 'FCT - Abuja' : form.state;
     if (isAbuja && !form.abujaZone) return null;
-    return calculateDeliveryFee(state, subtotal, isAbuja ? form.abujaZone : undefined);
-  }, [form.state, form.abujaZone, subtotal, isAbuja]);
+    return calculateDeliveryFee(state, subtotal, isAbuja ? form.abujaZone : undefined, effectiveDeliveryConfig);
+  }, [form.state, form.abujaZone, subtotal, isAbuja, effectiveDeliveryConfig]);
 
   const finalDeliveryFee = deliveryResult?.fee ?? 0;
   const grandTotal = subtotal + finalDeliveryFee;
@@ -278,7 +286,7 @@ export default function CheckoutPage() {
       {isAbuja && (
         <>
           <F label="Area Council / Zone" req>
-            <SearchableSelect options={ABUJA_ZONE_NAMES} value={form.abujaZone}
+            <SearchableSelect options={Object.keys(effectiveDeliveryConfig.abuja_zones)} value={form.abujaZone}
               onChange={v => setForm(p => ({ ...p, abujaZone: v, abujaArea: '' }))}
               placeholder="Select zone" searchPlaceholder="Search zone…" />
           </F>
