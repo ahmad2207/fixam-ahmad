@@ -148,6 +148,13 @@
       "when": 1786265005826,
       "tag": "0020_reapply_accounts_pk",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786266418698,
+      "tag": "0021_payment_notification_columns",
+      "breakpoints": true
     }
   ]
 }
