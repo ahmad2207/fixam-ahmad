@@ -345,7 +345,7 @@ function ProductsInner() {
   const [currentPage,         setCurrentPage]         = useState(1);
   const [inStockOnly,         setInStockOnly]         = useState(false);
 
-  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: products = [], isLoading: productsLoading, isError: productsError, refetch: refetchProducts } = useProducts();
 
   useEffect(() => {
     const urlSearch = searchParams.get('search') ?? '';
@@ -744,6 +744,20 @@ function ProductsInner() {
                     <Skeleton className="h-4 w-1/3" />
                   </div>
                 ))}
+              </div>
+            ) : productsError ? (
+              <div className="bg-white rounded-xl shadow-sm text-center py-20 px-8">
+                <div className="text-5xl mb-4">⚠️</div>
+                <p className="text-lg font-bold text-gray-800 mb-2">Couldn't load products</p>
+                <p className="text-sm text-gray-500 mb-6">
+                  Something went wrong on our end. Please try again.
+                </p>
+                <button
+                  onClick={() => refetchProducts()}
+                  className="bg-primary text-white font-bold text-sm px-6 py-2.5 rounded-full hover:bg-primary/90 transition-colors"
+                >
+                  Try Again
+                </button>
               </div>
             ) : filteredProducts.length > 0 ? (
               <>

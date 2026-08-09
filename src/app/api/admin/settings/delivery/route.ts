@@ -12,6 +12,11 @@ async function getOrCreateSettings() {
 }
 
 export async function GET() {
+  const session = await auth();
+  if ((session?.user as any)?.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const row = await getOrCreateSettings();
   const config = mergeDeliveryConfig(row.deliveryConfig as Partial<DeliveryConfig> | null);
   return NextResponse.json(config);

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Heart, ShoppingCart, Trash2, ArrowRight } from 'lucide-react';
+import { Heart, ShoppingCart, Trash2, ArrowRight, AlertCircle } from 'lucide-react';
 import { useWishlist } from '@/context/WishlistContext';
 import { useCart } from '@/context/CartContext';
 import { useSession } from 'next-auth/react';
@@ -12,11 +12,12 @@ import { toast } from 'sonner';
 
 export default function WishlistPage() {
   const { data: session } = useSession();
-  const { items: wishlistIds, toggle, isLoading: wishlistLoading } = useWishlist();
-  const { data: allProducts = [], isLoading: productsLoading } = useProducts();
+  const { items: wishlistIds, toggle, isLoading: wishlistLoading, isError: wishlistError } = useWishlist();
+  const { data: allProducts = [], isLoading: productsLoading, isError: productsError } = useProducts();
   const { addItem } = useCart();
 
   const isLoading = wishlistLoading || productsLoading;
+  const isError = wishlistError || productsError;
   const wishlistProducts = allProducts.filter((p) => wishlistIds.includes(p.id));
 
   const handleAddAll = () => {
@@ -117,6 +118,24 @@ export default function WishlistPage() {
                 <Skeleton className="h-4 w-1/3" />
               </div>
             ))}
+          </div>
+
+        /* Fetch failed */
+        ) : isError ? (
+          <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+            <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5">
+              <AlertCircle className="h-10 w-10 text-red-400" />
+            </div>
+            <h2 className="text-lg font-extrabold text-gray-900 mb-2">Couldn't load your wishlist</h2>
+            <p className="text-sm text-gray-500 mb-7">
+              Something went wrong. Please refresh the page and try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-sm px-6 py-3 rounded-xl transition-colors"
+            >
+              Try Again
+            </button>
           </div>
 
         /* Empty wishlist */

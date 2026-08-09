@@ -185,6 +185,20 @@ export default function CheckoutPage() {
 
   const handleDeliveryNext = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.fullName.trim()) { toast.error('Please enter your full name'); return; }
+    if (!form.phone.trim()) { toast.error('Please enter your phone number'); return; }
+    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('Please enter a valid email address'); return;
+    }
+    // Street address / city are only collected (and shown) when the customer
+    // isn't reusing a saved address — matches the `showFull` condition that
+    // controls locationFields() and the sel/!useNewAddress branch in buildShipping().
+    const sel = savedAddresses.find(a => a.id === selectedAddressId);
+    const usingSavedAddress = Boolean(sel) && !useNewAddress;
+    if (!usingSavedAddress) {
+      if (!form.streetAddress.trim()) { toast.error('Please enter your street address'); return; }
+      if (!form.city.trim()) { toast.error('Please enter your city or town'); return; }
+    }
     if (!form.state) { toast.error('Please select your delivery state'); return; }
     if (isAbuja && !form.abujaZone) { toast.error('Please select your Abuja zone'); return; }
     setStep(2);

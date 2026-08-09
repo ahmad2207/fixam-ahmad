@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 interface WishlistContextValue {
   items: string[];
   isLoading: boolean;
+  isError: boolean;
   toggle: (productId: string) => void;
   has: (productId: string) => boolean;
   clear: () => Promise<void>;
@@ -19,11 +20,13 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const qc = useQueryClient();
 
-  const { data: items = [], isLoading } = useQuery<string[]>({
+  // Throw (rather than swallow into an empty array) on a failed fetch, so
+  // callers can tell "genuinely no wishlist items" apart from "couldn't load".
+  const { data: items = [], isLoading, isError } = useQuery<string[]>({
     queryKey: ['wishlist', (session?.user as any)?.id],
     queryFn: async () => {
       const res = await fetch('/api/wishlist');
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error('Failed to fetch wishlist');
       return res.json();
     },
     enabled: !!session?.user,
@@ -65,13 +68,22 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
   const clear = async () => {
     if (!session?.user) return;
-    qc.setQueryData(['wishlist', (session?.user as any)?.id], []);
-    await fetch('/api/wishlist', { method: 'DELETE' }).catch(() => {});
-    qc.invalidateQueries({ queryKey: ['wishlist'] });
+    const key = ['wishlist', (session?.user as any)?.id];
+    const previous = qc.getQueryData<string[]>(key);
+    qc.setQueryData(key, []);
+    try {
+      const res = await fetch('/api/wishlist', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to clear wishlist');
+    } catch {
+      qc.setQueryData(key, previous ?? []);
+      toast.error('Failed to clear wishlist');
+    } finally {
+      qc.invalidateQueries({ queryKey: ['wishlist'] });
+    }
   };
 
   return (
-    <WishlistContext.Provider value={{ items, isLoading, toggle, has, clear }}>
+    <WishlistContext.Provider value={{ items, isLoading, isError, toggle, has, clear }}>
       {children}
     </WishlistContext.Provider>
   );

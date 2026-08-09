@@ -102,6 +102,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[POD] Error:', err);
-    return NextResponse.json({ error: err.message ?? 'Order creation failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not place your order. Please try again.' }, { status: 500 });
   }
 }

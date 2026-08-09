@@ -11,6 +11,12 @@ async function ensureSettings() {
 }
 
 export async function GET() {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== 'admin' && role !== 'staff')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const [row] = await db.select({ flashSaleEnd: storeSettings.flashSaleEnd }).from(storeSettings).limit(1);
   return NextResponse.json({ endsAt: row?.flashSaleEnd?.toISOString() ?? null });
 }

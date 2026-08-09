@@ -102,6 +102,6 @@ export async function POST(req: NextRequest) {
     }
   } catch (err: any) {
     console.error('[payment/init]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: 'Could not start payment. Please try again.' }, { status: 500 });
   }
 }

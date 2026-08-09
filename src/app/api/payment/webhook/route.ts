@@ -10,7 +10,16 @@ export async function POST(req: NextRequest) {
     .update(rawBody)
     .digest('hex');
 
-  if (!signature || signature !== expectedSignature) {
+  // Compare with a fixed-time algorithm — a plain !== leaks how many
+  // leading characters matched via response-time differences.
+  const signatureBuf = Buffer.from(signature ?? '', 'hex');
+  const expectedBuf = Buffer.from(expectedSignature, 'hex');
+  const isValid =
+    signature &&
+    signatureBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(signatureBuf, expectedBuf);
+
+  if (!isValid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -41,10 +41,21 @@ export default function AccountPage() {
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [addressesError, setAddressesError] = useState(false);
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addressForm, setAddressForm] = useState<AddressForm>(EMPTY_ADDRESS);
   const [savingAddress, setSavingAddress] = useState(false);
+
+  const fetchAddresses = () => {
+    setLoadingAddresses(true);
+    setAddressesError(false);
+    fetch('/api/account/addresses')
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(setAddresses)
+      .catch(() => setAddressesError(true))
+      .finally(() => setLoadingAddresses(false));
+  };
 
   useEffect(() => {
     if (!session?.user) { router.push('/login'); return; }
@@ -54,7 +65,7 @@ export default function AccountPage() {
         .then((d) => { setProfileForm({ fullName: d.fullName || session?.user?.name || '', phone: d.phone || '' }); setProfileLoaded(true); })
         .catch(() => { setProfileForm({ fullName: session?.user?.name || '', phone: '' }); setProfileLoaded(true); });
     }
-    fetch('/api/account/addresses').then((r) => r.json()).then(setAddresses).catch(() => {}).finally(() => setLoadingAddresses(false));
+    fetchAddresses();
   }, [session, router, profileLoaded]);
 
   const handleSaveProfile = async () => {
@@ -297,6 +308,14 @@ export default function AccountPage() {
 
               {loadingAddresses ? (
                 <p className="text-sm text-gray-400 py-4 text-center">Loading addresses…</p>
+              ) : addressesError ? (
+                <div className="text-center py-8">
+                  <MapPin className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 font-semibold">Couldn't load your addresses.</p>
+                  <button onClick={fetchAddresses} className="mt-2 text-xs font-bold text-primary hover:underline">
+                    Try again
+                  </button>
+                </div>
               ) : addresses.length === 0 ? (
                 <div className="text-center py-8">
                   <MapPin className="h-8 w-8 text-gray-300 mx-auto mb-2" />
