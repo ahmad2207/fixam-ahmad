@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { pendingCheckouts, orders } from '@/db/schema';
 import { consumeStockReservationsForOrder, generateOrderNumber, createStockReservations, priceCheckoutItems } from '@/lib/inventory';
+import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -100,6 +101,10 @@ export async function POST(req: NextRequest) {
       .update(pendingCheckouts)
       .set({ status: 'paid' })
       .where(eq(pendingCheckouts.id, checkout.id));
+
+    // POD orders previously never sent any confirmation email at all.
+    // Awaited for the same reason as payment/verify — see comment there.
+    await sendOrderConfirmationEmail(order.id);
 
     return NextResponse.json({
       success: true,

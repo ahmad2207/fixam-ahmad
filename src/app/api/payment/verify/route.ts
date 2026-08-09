@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { paymentTransactions, orders, pendingCheckouts, receipts } from '@/db/schema';
 import { consumeStockReservationsForOrder, generateReceiptNumber, generateOrderNumber } from '@/lib/inventory';
+import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
 import { eq } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
@@ -113,12 +114,12 @@ export async function POST(req: NextRequest) {
       items: JSON.stringify(checkout.items),
     });
 
-    // Send confirmation email (fire and forget)
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/email/order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: order.id }),
-    }).catch(() => {});
+    // Awaited deliberately (not fire-and-forget) — a serverless function can
+    // tear down as soon as the response is sent, which previously meant a
+    // background fetch() calling back into this app was never guaranteed to
+    // finish. The function itself never throws (self-caught + logged), so
+    // this can't turn an email failure into a failed payment verification.
+    await sendOrderConfirmationEmail(order.id);
 
     return NextResponse.json({ success: true, orderId: order.id, receiptNumber });
   } catch (err: any) {

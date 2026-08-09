@@ -6,6 +6,7 @@ import {
 } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import { logAdminAction } from '@/lib/auditLog';
+import { sendPaymentConfirmedEmail } from '@/lib/orderNotifications';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -108,6 +109,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     before: existing,
     after: updated,
   });
+
+  // Only email on the actual pending -> paid transition (e.g. "Confirm
+  // Payment" for a manual/bank-transfer order) — not on every unrelated
+  // PATCH, and not repeatedly if it's already confirmed.
+  if (body.paymentStatus === 'paid' && existing.paymentStatus !== 'paid') {
+    await sendPaymentConfirmedEmail(id);
+  }
 
   return NextResponse.json(updated);
 }
