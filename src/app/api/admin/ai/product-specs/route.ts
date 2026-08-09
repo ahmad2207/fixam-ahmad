@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { auth } from '@/lib/auth';
 
 const PROMPT = (name: string, category?: string) =>
@@ -44,22 +44,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Product name is required' }, { status: 400 });
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
     }
 
-    const client = new Groq({ apiKey });
-
-    const message = await client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 1024,
-      response_format: { type: 'json_object' },
-      messages: [{ role: 'user', content: PROMPT(name, category) }],
+    const client = new GoogleGenerativeAI(apiKey);
+    const model = client.getGenerativeModel({
+      model: 'gemini-flash-latest',
+      // gemini-flash-latest spends part of this budget on invisible internal
+      // "thinking" tokens before it writes the actual JSON answer (observed
+      // ~835 thinking tokens for this prompt) — this SDK version has no
+      // thinkingConfig to cap that separately, so the budget needs enough
+      // headroom for both, or the JSON answer gets cut off mid-string.
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
     });
 
-    const raw = message.choices[0]?.message?.content?.trim() ?? '{}';
-    const data = JSON.parse(raw) as { description?: unknown; variations?: unknown; specifications?: unknown };
+    const result = await model.generateContent(PROMPT(name, category));
+
+    const finishReason = result.response.candidates?.[0]?.finishReason;
+    const raw = result.response.text()?.trim() ?? '{}';
+
+    let data: { description?: unknown; variations?: unknown; specifications?: unknown };
+    try {
+      data = JSON.parse(raw);
+    } catch (parseErr) {
+      console.error('[ai/product-specs] unparsable response:', { finishReason, raw });
+      const reason = finishReason === 'MAX_TOKENS'
+        ? 'The AI response was cut off — try again.'
+        : 'The AI returned an unexpected response — try again.';
+      return NextResponse.json({ error: reason }, { status: 502 });
+    }
 
     return NextResponse.json({
       description: typeof data.description === 'string' ? data.description : '',
