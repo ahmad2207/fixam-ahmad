@@ -408,6 +408,37 @@
     pointer-events: none;
   }
 
+  /* ── Ticket motif (storefront) ──────────────────────────────────────
+     Same paper-tag language as the POS receipt, reused for the Returns
+     page's "return slip": a torn top edge framing the whole tag, and a
+     row of punched holes separating its headline stat from its fine print. */
+  .ticket-torn-top {
+    position: relative;
+  }
+
+  .ticket-torn-top::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10px;
+    height: 11px;
+    background-color: hsl(var(--card));
+    background-image: radial-gradient(circle at 7px 11px, hsl(var(--background)) 7px, transparent 7.5px);
+    background-size: 14px 11px;
+    background-repeat: repeat-x;
+    pointer-events: none;
+  }
+
+  .ticket-perforation {
+    height: 14px;
+    flex-shrink: 0;
+    background-color: hsl(var(--card));
+    background-image: radial-gradient(circle at 7px 7px, hsl(var(--background)) 3.5px, transparent 4px);
+    background-size: 14px 14px;
+    background-repeat: repeat-x;
+  }
+
   /* New line advancing onto the receipt tape (cart line added). */
   .animate-print-line {
     animation: printLineIn 0.22s ease-out both;
