@@ -7,6 +7,12 @@ import { deleteFromSpaces } from '@/lib/spaces';
 import { isBarcodeUniqueViolation } from '@/lib/barcode';
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  const role = (session?.user as any)?.role;
+  if (!session || (role !== 'admin' && role !== 'staff')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const [row] = await db.select().from(products).where(eq(products.id, id));
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });

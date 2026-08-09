@@ -33,6 +33,11 @@ async function getOrCreateSettings() {
 }
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+  const session = await auth();
+  if ((session?.user as any)?.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { key } = await params;
   const col = KEY_MAP[key];
   if (!col) return NextResponse.json({ error: 'Unknown setting key' }, { status: 400 });
