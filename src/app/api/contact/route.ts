@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { contactMessages } from '@/db/schema';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
+  const { success } = await checkRateLimit('contact', getClientIp(req));
+  if (!success) {
+    return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+  }
+
   const body = await req.json();
   const { name, email, phone, subject, message } = body;
 

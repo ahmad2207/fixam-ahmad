@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, userRoles, profiles, accounts, sessions, verificationTokens } from '@/db/schema';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -26,8 +27,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // Brute-force guard — one source hammering login attempts, not a
+        // distributed attack across many IPs (that needs a different defense).
+        const ip = getClientIp(request);
+        const { success } = await checkRateLimit('login', ip);
+        if (!success) return null;
 
         const user = await db
           .select()

@@ -3,9 +3,15 @@ import { db } from '@/lib/db';
 import { pendingCheckouts, paymentTransactions } from '@/db/schema';
 import { createStockReservations, releaseStockReservations, priceCheckoutItems } from '@/lib/inventory';
 import { auth } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
   try {
+    const { success: withinLimit } = await checkRateLimit('payment', getClientIp(req));
+    if (!withinLimit) {
+      return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+    }
+
     const session = await auth();
     const userId = (session?.user as any)?.id ?? null;
 

@@ -3,8 +3,14 @@ import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, profiles, userRoles } from '@/db/schema';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
+  const { success } = await checkRateLimit('signup', getClientIp(req));
+  if (!success) {
+    return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+  }
+
   const { name, email, password } = await req.json();
 
   if (!name || !email || !password) {

@@ -4,8 +4,14 @@ import { eq } from 'drizzle-orm';
 import { Resend } from 'resend';
 import { db } from '@/lib/db';
 import { users, passwordResetTokens } from '@/db/schema';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
+  const { success } = await checkRateLimit('forgotPassword', getClientIp(req));
+  if (!success) {
+    return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+  }
+
   const { email } = await req.json();
 
   if (!email) {

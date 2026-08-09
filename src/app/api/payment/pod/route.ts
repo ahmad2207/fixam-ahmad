@@ -4,9 +4,15 @@ import { pendingCheckouts, orders } from '@/db/schema';
 import { consumeStockReservationsForOrder, generateOrderNumber, createStockReservations, priceCheckoutItems } from '@/lib/inventory';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
   try {
+    const { success: withinLimit } = await checkRateLimit('payment', getClientIp(req));
+    if (!withinLimit) {
+      return NextResponse.json({ error: 'Too many attempts. Please try again in a minute.' }, { status: 429 });
+    }
+
     const session = await auth();
     const userId = (session?.user as any)?.id ?? null;
 
