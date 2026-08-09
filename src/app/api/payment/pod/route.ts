@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { pendingCheckouts, orders } from '@/db/schema';
-import { consumeStockReservationsForOrder, generateOrderNumber, createStockReservations } from '@/lib/inventory';
+import { consumeStockReservationsForOrder, generateOrderNumber, createStockReservations, priceCheckoutItems } from '@/lib/inventory';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 
@@ -12,16 +12,31 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
-      items, shippingAddress, subtotal, deliveryFee, total,
+      items: rawItems, shippingAddress,
       customerEmail, customerName, customerPhone, notes,
     } = body;
 
-    if (!items?.length || !subtotal || !total) {
+    if (!rawItems?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     if (!shippingAddress?.state) {
       return NextResponse.json({ error: 'Delivery state is required' }, { status: 400 });
+    }
+
+    // Recompute everything from the products table and the delivery-fee
+    // calculator — never trust price/subtotal/total from the client. This
+    // is the only backstop on POD orders: there's no payment gateway to
+    // catch a tampered total later.
+    let items, subtotal, deliveryFee, total;
+    try {
+      ({ items, subtotal, deliveryFee, total } = await priceCheckoutItems(
+        rawItems,
+        shippingAddress.state,
+        shippingAddress.abujaZone,
+      ));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message ?? 'Could not price your cart' }, { status: 400 });
     }
 
     // Create pending checkout record

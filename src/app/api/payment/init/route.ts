@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { pendingCheckouts, paymentTransactions } from '@/db/schema';
-import { createStockReservations, releaseStockReservations } from '@/lib/inventory';
+import { createStockReservations, releaseStockReservations, priceCheckoutItems } from '@/lib/inventory';
 import { auth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
@@ -10,10 +10,23 @@ export async function POST(req: NextRequest) {
     const userId = (session?.user as any)?.id ?? null;
 
     const body = await req.json();
-    const { items, shippingAddress, subtotal, deliveryFee, total, customerEmail, customerName, customerPhone } = body;
+    const { items: rawItems, shippingAddress, customerEmail, customerName, customerPhone } = body;
 
-    if (!items?.length || !subtotal || !total) {
+    if (!rawItems?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Recompute everything from the products table and the delivery-fee
+    // calculator — never trust price/subtotal/total from the client.
+    let items, subtotal, deliveryFee, total;
+    try {
+      ({ items, subtotal, deliveryFee, total } = await priceCheckoutItems(
+        rawItems,
+        shippingAddress?.state,
+        shippingAddress?.abujaZone,
+      ));
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message ?? 'Could not price your cart' }, { status: 400 });
     }
 
     // Create pending checkout
