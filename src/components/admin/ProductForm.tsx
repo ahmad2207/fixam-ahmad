@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useCategories } from '@/hooks/useCategories';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import BarcodeSvg from '@/components/admin/BarcodeSvg';
@@ -235,7 +236,10 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
       categoryId: form.categoryId || null,
       sku: form.sku || null,
       barcode: form.barcode.trim() || null,
-      stock: parseInt(form.stock) || 0,
+      // Stock is intentionally not sent — the server ignores it either way
+      // (see /api/admin/products routes), but it shouldn't even look like
+      // this form can set it. Real stock only ever comes from a batch added
+      // on the Inventory page.
       isFeatured: form.isFeatured,
       isPromo: form.isPromo,
       promoEndsAt: form.promoEndsAt ? new Date(form.promoEndsAt).toISOString() : null,
@@ -308,8 +312,15 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Stock</label>
-              <input name="stock" type="number" min="0" value={form.stock} onChange={handleChange}
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+              <div className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-muted/40 text-muted-foreground flex items-center justify-between gap-2">
+                <span>{mode === 'edit' ? `${form.stock} units` : 'Starts at 0'}</span>
+                <Link href="/admin/inventory" className="text-primary font-semibold hover:underline flex-shrink-0 text-xs">
+                  {mode === 'edit' ? 'Adjust in Inventory' : 'Add stock after saving'}
+                </Link>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Stock is tracked by real inventory batches, not set here — {mode === 'edit' ? 'use the Inventory page to add or adjust it' : 'you\'ll add opening stock from the Inventory page once this product is created'}.
+              </p>
             </div>
           </div>
 

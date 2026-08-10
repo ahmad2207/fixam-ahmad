@@ -52,13 +52,18 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { promoEndsAt, restockAt, ...rest } = body;
+  // `stock` is deliberately discarded here, no matter what the client sends
+  // — a new product always starts at 0. Real stock only ever comes from a
+  // batch created via POST /api/admin/inventory/[productId]/batches, which
+  // is the only place that's allowed to move this number.
+  const { promoEndsAt, restockAt, stock: _stock, ...rest } = body;
   const slug = rest.slug || slugify(rest.name);
 
   try {
     const product = await insertProductWithBarcode({
       ...rest,
       slug,
+      stock: 0,
       promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
       restockAt: restockAt ? new Date(restockAt) : null,
     });

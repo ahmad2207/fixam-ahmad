@@ -136,57 +136,82 @@ export async function syncProductStockFromBatches(productId: string): Promise<nu
   return result;
 }
 
-// ─── Deduct POS Inventory (FIFO) ───────────────────────────────────────────
-// Deducts stock from the oldest batches first for a POS sale.
-// Does NOT create batch_allocations (POS COGS is estimated separately).
-export async function deductPOSInventory(
+// Extracted so deductPOSInventory can either run standalone (opening its own
+// transaction, the original self-contained behavior) or participate in a
+// caller-supplied transaction — needed by the POS sale route, which wraps
+// order creation + every item's deduction + the receipt in one atomic unit.
+// Nesting a second top-level db.transaction() inside that outer one would
+// NOT actually be atomic with it: a failure on item 3 would still leave
+// items 1-2's deductions permanently committed.
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbOrTx = typeof db | Tx;
+
+async function deductPOSInventoryInner(
+  tx: DbOrTx,
   productId: string,
   quantity: number,
 ): Promise<boolean> {
-  return db.transaction(async (tx) => {
-    const batches = await tx
-      .select()
-      .from(inventoryBatches)
-      .where(
-        and(
-          eq(inventoryBatches.productId, productId),
-          gt(inventoryBatches.quantityAvailable, 0),
-        ),
-      )
-      .orderBy(asc(inventoryBatches.createdAt));
+  const batches = await tx
+    .select()
+    .from(inventoryBatches)
+    .where(
+      and(
+        eq(inventoryBatches.productId, productId),
+        gt(inventoryBatches.quantityAvailable, 0),
+      ),
+    )
+    .orderBy(asc(inventoryBatches.createdAt));
 
-    let remaining = quantity;
+  let remaining = quantity;
 
-    for (const batch of batches) {
-      if (remaining <= 0) break;
+  for (const batch of batches) {
+    if (remaining <= 0) break;
 
-      const deduct = Math.min(batch.quantityAvailable, remaining);
-      await tx
-        .update(inventoryBatches)
-        .set({ quantityAvailable: batch.quantityAvailable - deduct })
-        .where(eq(inventoryBatches.id, batch.id));
-
-      remaining -= deduct;
-    }
-
-    if (remaining > 0) {
-      throw new Error(`Insufficient stock for product ${productId}`);
-    }
-
-    // Sync product stock
-    const newStock = await tx
-      .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
-      .from(inventoryBatches)
-      .where(eq(inventoryBatches.productId, productId))
-      .then((r) => r[0]?.total ?? 0);
-
+    const deduct = Math.min(batch.quantityAvailable, remaining);
     await tx
-      .update(products)
-      .set({ stock: newStock })
-      .where(eq(products.id, productId));
+      .update(inventoryBatches)
+      .set({ quantityAvailable: batch.quantityAvailable - deduct })
+      .where(eq(inventoryBatches.id, batch.id));
 
-    return true;
-  });
+    remaining -= deduct;
+  }
+
+  if (remaining > 0) {
+    throw new Error(
+      `Insufficient stock for product ${productId} — needed ${quantity}, only ${quantity - remaining} available in real inventory batches.`,
+    );
+  }
+
+  // Sync product stock
+  const newStock = await tx
+    .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
+    .from(inventoryBatches)
+    .where(eq(inventoryBatches.productId, productId))
+    .then((r) => r[0]?.total ?? 0);
+
+  await tx
+    .update(products)
+    .set({ stock: newStock })
+    .where(eq(products.id, productId));
+
+  return true;
+}
+
+// ─── Deduct POS Inventory (FIFO) ───────────────────────────────────────────
+// Deducts stock from the oldest batches first for a POS sale.
+// Does NOT create batch_allocations (POS COGS is estimated separately).
+//
+// Pass `tx` (the transaction handle from an outer db.transaction(async (tx)
+// => ...)) when this needs to be atomic with other writes in the same
+// operation — e.g. the POS sale route. Omit it to run standalone in its own
+// self-contained transaction, as before.
+export async function deductPOSInventory(
+  productId: string,
+  quantity: number,
+  tx?: DbOrTx,
+): Promise<boolean> {
+  if (tx) return deductPOSInventoryInner(tx, productId, quantity);
+  return db.transaction((innerTx) => deductPOSInventoryInner(innerTx, productId, quantity));
 }
 
 // ─── Create Stock Reservations ─────────────────────────────────────────────
