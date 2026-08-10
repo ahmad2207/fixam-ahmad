@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 import {
   getStoreContactInfo,
   renderEmailLayout,
-  renderBadge,
+  renderStatusBanner,
   renderButton,
   renderItemsTable,
   renderTotals,
@@ -23,48 +23,55 @@ import {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const STATUS_META: Record<string, { label: string; heading: string; message: string; color: string }> = {
+const STATUS_META: Record<string, { label: string; heading: string; message: string; color: string; emoji: string }> = {
   pending: {
     label: 'Order Received',
     heading: "We've got your order",
     message: "Your order has been received and is awaiting confirmation. We'll email you again as soon as it's confirmed.",
     color: emailColors.orange,
+    emoji: '📝',
   },
   confirmed: {
     label: 'Order Confirmed',
     heading: 'Your order is confirmed',
     message: "We've confirmed your order and it's being prepared for dispatch.",
     color: emailColors.green,
+    emoji: '✅',
   },
   processing: {
     label: 'Order Processing',
     heading: "We're preparing your order",
     message: "Your order is being picked and packed — we'll let you know the moment it ships.",
     color: emailColors.orange,
+    emoji: '📦',
   },
   shipped: {
     label: 'Order Shipped',
     heading: 'Your order is on its way',
     message: "Your order has left our warehouse and is on its way to you.",
     color: emailColors.green,
+    emoji: '🚚',
   },
   delivered: {
     label: 'Order Delivered',
     heading: 'Delivered!',
     message: "Your order has been delivered. We hope you love it — thank you for shopping with us.",
     color: emailColors.green,
+    emoji: '🎉',
   },
   cancelled: {
     label: 'Order Cancelled',
     heading: 'Your order was cancelled',
     message: "This order has been cancelled. If you weren't expecting this or have questions, just reply to this email.",
     color: '#dc2626',
+    emoji: '✕',
   },
   refunded: {
     label: 'Order Refunded',
     heading: "You've been refunded",
     message: 'A refund for this order has been processed. It may take a few business days to reflect, depending on your bank.',
     color: emailColors.muted,
+    emoji: '↩️',
   },
 };
 
@@ -107,21 +114,20 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
 
     const podNote =
       order.paymentMethod === 'pod'
-        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;background:${emailColors.orange}0f;border-radius:10px;">
+        ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;background:${emailColors.orange}14;border-radius:10px;border:1px solid ${emailColors.orange}33;">
              <tr><td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${emailColors.ink};">
-               <strong>Pay on Delivery</strong> — please have ₦${Number(order.total).toLocaleString()} ready for the courier.
+               💰 <strong>Pay on Delivery</strong> — please have ₦${Number(order.total).toLocaleString()} ready for the courier.
              </td></tr>
            </table>`
         : '';
 
     const bodyHtml = `
-      ${renderBadge('ORDER CONFIRMED', emailColors.green)}
-      <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:${emailColors.ink};">Thank you for your order!</h1>
+      <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${emailColors.ink};">🎉 Thank you for your order!</h1>
       ${renderOrderNumberChip(order.orderNumber)}
       <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${emailColors.muted};line-height:1.6;">
         We're getting your order ready. Here's what you ordered:
       </p>
-      ${renderItemsTable(items.map((i) => ({ name: `${i.productName}${i.variation ? ` (${i.variation})` : ''}`, qty: i.quantity, price: Number(i.price) })))}
+      ${renderItemsTable(items.map((i) => ({ name: `${i.productName}${i.variation ? ` (${i.variation})` : ''}`, qty: i.quantity, price: Number(i.price), image: i.productImage })))}
       ${renderTotals([
         { label: 'Subtotal', value: `₦${Number(order.subtotal).toLocaleString()}` },
         { label: 'Delivery', value: `₦${Number(order.deliveryFee).toLocaleString()}` },
@@ -135,8 +141,13 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
     const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
       to: recipientEmail,
-      subject: `Order Confirmed — ${info.storeName} #${order.orderNumber}`,
-      html: renderEmailLayout({ preheader: `Your order #${order.orderNumber} has been confirmed.`, bodyHtml, info }),
+      subject: `🎉 Order Confirmed — ${info.storeName} #${order.orderNumber}`,
+      html: renderEmailLayout({
+        preheader: `Your order #${order.orderNumber} has been confirmed.`,
+        bodyHtml,
+        info,
+        bannerHtml: renderStatusBanner('Order Confirmed', '✅', emailColors.green),
+      }),
     });
     if (error) console.error('[orderNotifications] confirmation email failed:', orderId, error);
   } catch (err) {
@@ -160,11 +171,11 @@ export async function sendOrderStatusEmail(orderId: string, status: string): Pro
       heading: `Order ${status}`,
       message: 'There has been an update to your order.',
       color: emailColors.orange,
+      emoji: 'ℹ️',
     };
 
     const bodyHtml = `
-      ${renderBadge(meta.label.toUpperCase(), meta.color)}
-      <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:${emailColors.ink};">${meta.heading}</h1>
+      <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${emailColors.ink};">${meta.heading}</h1>
       ${renderOrderNumberChip(order.orderNumber)}
       <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${emailColors.muted};line-height:1.6;">
         ${meta.message}
@@ -175,8 +186,13 @@ export async function sendOrderStatusEmail(orderId: string, status: string): Pro
     const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
       to: recipientEmail,
-      subject: `${meta.label} — ${info.storeName} #${order.orderNumber}`,
-      html: renderEmailLayout({ preheader: meta.message, bodyHtml, info }),
+      subject: `${meta.emoji} ${meta.label} — ${info.storeName} #${order.orderNumber}`,
+      html: renderEmailLayout({
+        preheader: meta.message,
+        bodyHtml,
+        info,
+        bannerHtml: renderStatusBanner(meta.label, meta.emoji, meta.color),
+      }),
     });
     if (error) console.error('[orderNotifications] status email failed:', orderId, status, error);
   } catch (err) {
@@ -198,8 +214,7 @@ export async function sendPaymentConfirmedEmail(orderId: string): Promise<void> 
     const info = await getStoreContactInfo();
 
     const bodyHtml = `
-      ${renderBadge('PAYMENT CONFIRMED', emailColors.green)}
-      <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:800;color:${emailColors.ink};">Payment received — thank you!</h1>
+      <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${emailColors.ink};">💳 Payment received — thank you!</h1>
       ${renderOrderNumberChip(order.orderNumber)}
       <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${emailColors.muted};line-height:1.6;">
         We've confirmed your payment of <strong style="color:${emailColors.ink};">₦${Number(order.total).toLocaleString()}</strong>. Your order is now being processed.
@@ -210,8 +225,13 @@ export async function sendPaymentConfirmedEmail(orderId: string): Promise<void> 
     const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
       to: recipientEmail,
-      subject: `Payment Confirmed — ${info.storeName} #${order.orderNumber}`,
-      html: renderEmailLayout({ preheader: 'Your payment has been confirmed.', bodyHtml, info }),
+      subject: `✅ Payment Confirmed — ${info.storeName} #${order.orderNumber}`,
+      html: renderEmailLayout({
+        preheader: 'Your payment has been confirmed.',
+        bodyHtml,
+        info,
+        bannerHtml: renderStatusBanner('Payment Confirmed', '💳', emailColors.green),
+      }),
     });
     if (error) console.error('[orderNotifications] payment-confirmed email failed:', orderId, error);
   } catch (err) {

@@ -5,15 +5,24 @@ import { storeSettings } from '@/db/schema';
 // status updates, payment confirmed, password reset). Email HTML is a
 // different discipline from the site's own CSS — table-based layout,
 // inline styles only, web-safe fonts. External stylesheets, flexbox/grid,
-// and custom fonts are unreliable-to-broken across real inboxes (Outlook's
-// engine in particular only understands a small subset of CSS).
+// custom fonts, and CSS filters (e.g. the brightness-0 invert trick the
+// site uses to turn the logo white on dark backgrounds) are unreliable-to-
+// broken across real inboxes — Outlook's rendering engine in particular
+// only understands a small subset of CSS. That's why the header here is
+// white with the logo in its natural color, rather than colored with an
+// inverted logo.
 
 const BRAND_ORANGE = '#ff8800'; // matches --primary
+const BRAND_ORANGE_DARK = '#e67700';
 const BRAND_GREEN = '#0a8800'; // matches the unified storefront green
 const INK = '#1a1a1a';
 const MUTED = '#6b7280';
 const BORDER = '#e5e7eb';
 const PANEL = '#f9fafb';
+
+// /public/logo-email.png — a 400x400 optimized copy of the site's real
+// logo.png (which is 1563x1563 / 109KB, heavier than an email should embed).
+const LOGO_PATH = '/logo-email.png';
 
 export interface StoreContactInfo {
   storeName: string;
@@ -49,50 +58,70 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// A colored badge used at the top of the body for order/status emails —
-// e.g. a green "Delivered" pill or a red "Cancelled" one.
-export function renderBadge(label: string, color: string): string {
+function logoUrl(): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || '';
+  return `${base}${LOGO_PATH}`;
+}
+
+// Full-width colored banner right under the header — the primary "eye" of
+// the email, so the status reads at a glance even with images off (it's
+// pure HTML/CSS, not an image).
+export function renderStatusBanner(label: string, emoji: string, color: string): string {
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${color};">
       <tr>
-        <td style="background:${color}1a;border-radius:999px;padding:6px 16px;">
-          <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;color:${color};letter-spacing:0.3px;">${escapeHtml(label)}</span>
+        <td align="center" style="padding:14px 24px;">
+          <span style="font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">${emoji ? `${emoji} ` : ''}${escapeHtml(label.toUpperCase())}</span>
         </td>
       </tr>
     </table>`;
 }
 
-// Orange filled CTA button.
+// Orange filled CTA button, with a subtle darker-orange bottom edge for
+// depth (box-shadow support is inconsistent across clients, so depth here
+// comes from a real border rather than a shadow).
 export function renderButton(label: string, href: string): string {
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 8px">
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 8px">
       <tr>
-        <td style="border-radius:10px;background:${BRAND_ORANGE};">
-          <a href="${href}" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a>
+        <td style="border-radius:10px;background:${BRAND_ORANGE};border-bottom:3px solid ${BRAND_ORANGE_DARK};">
+          <a href="${href}" style="display:inline-block;padding:14px 30px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(label)} →</a>
         </td>
       </tr>
     </table>`;
 }
 
-export function renderItemsTable(
-  items: { name: string; qty: number; price: number }[],
-): string {
+export interface ReceiptItem {
+  name: string;
+  qty: number;
+  price: number;
+  image?: string | null;
+}
+
+// Each row gets a product thumbnail when one's available — falls back to a
+// simple bag-emoji tile when it isn't, rather than leaving a blank gap.
+export function renderItemsTable(items: ReceiptItem[]): string {
   const rows = items
-    .map(
-      (i, idx) => `
+    .map((i, idx) => {
+      const thumb = i.image
+        ? `<img src="${i.image}" width="52" height="52" alt="" style="display:block;width:52px;height:52px;border-radius:8px;object-fit:cover;border:1px solid ${BORDER};" />`
+        : `<table role="presentation" width="52" height="52" cellpadding="0" cellspacing="0" style="width:52px;height:52px;background:${PANEL};border-radius:8px;border:1px solid ${BORDER};"><tr><td align="center" valign="middle" style="font-size:20px;">🛍️</td></tr></table>`;
+
+      return `
       <tr>
-        <td style="padding:12px 0;border-top:${idx === 0 ? 'none' : `1px solid ${BORDER}`};font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${INK};">
+        <td width="52" style="padding:12px 0;border-top:${idx === 0 ? 'none' : `1px solid ${BORDER}`};">${thumb}</td>
+        <td style="padding:12px 0 12px 12px;border-top:${idx === 0 ? 'none' : `1px solid ${BORDER}`};font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${INK};vertical-align:middle;">
           ${escapeHtml(i.name)}
-          <span style="color:${MUTED};font-size:13px;"> × ${i.qty}</span>
+          <br /><span style="color:${MUTED};font-size:12.5px;">Qty ${i.qty}</span>
         </td>
-        <td align="right" style="padding:12px 0;border-top:${idx === 0 ? 'none' : `1px solid ${BORDER}`};font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${INK};white-space:nowrap;">
+        <td align="right" style="padding:12px 0;border-top:${idx === 0 ? 'none' : `1px solid ${BORDER}`};font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:${INK};white-space:nowrap;vertical-align:middle;">
           ₦${i.price.toLocaleString()}
         </td>
-      </tr>`,
-    )
+      </tr>`;
+    })
     .join('');
 
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">${rows}</table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;">${rows}</table>`;
 }
 
 export function renderTotals(
@@ -102,15 +131,15 @@ export function renderTotals(
     .map(
       (l) => `
       <tr>
-        <td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:${l.bold ? '15px' : '13px'};font-weight:${l.bold ? '700' : '400'};color:${l.bold ? INK : MUTED};">${escapeHtml(l.label)}</td>
-        <td align="right" style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:${l.bold ? '15px' : '13px'};font-weight:${l.bold ? '700' : '400'};color:${l.bold ? INK : MUTED};white-space:nowrap;">${escapeHtml(l.value)}</td>
+        <td style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:${l.bold ? '16px' : '13px'};font-weight:${l.bold ? '800' : '400'};color:${l.bold ? INK : MUTED};">${escapeHtml(l.label)}</td>
+        <td align="right" style="padding:4px 0;font-family:Arial,Helvetica,sans-serif;font-size:${l.bold ? '16px' : '13px'};font-weight:${l.bold ? '800' : '400'};color:${l.bold ? BRAND_ORANGE_DARK : MUTED};white-space:nowrap;">${escapeHtml(l.value)}</td>
       </tr>`,
     )
     .join('');
 
   return `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 0;border-top:1px solid ${BORDER};padding-top:12px;">
-      <tr><td colspan="2" style="padding-top:12px"></td></tr>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 0;border-top:2px solid ${BORDER};">
+      <tr><td colspan="2" style="padding-top:14px"></td></tr>
       ${rows}
     </table>`;
 }
@@ -128,8 +157,9 @@ export function renderEmailLayout(opts: {
   preheader: string;
   bodyHtml: string;
   info: StoreContactInfo;
+  bannerHtml?: string;
 }): string {
-  const { preheader, bodyHtml, info } = opts;
+  const { preheader, bodyHtml, info, bannerHtml } = opts;
   const contactLine = [info.storePhone, info.whatsappNumber ? `WhatsApp: ${info.whatsappNumber}` : null]
     .filter(Boolean)
     .join(' · ');
@@ -146,12 +176,13 @@ export function renderEmailLayout(opts: {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PANEL};padding:24px 0;">
     <tr>
       <td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${BORDER};">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid ${BORDER};">
           <tr>
-            <td style="background:${BRAND_ORANGE};padding:26px 32px;">
-              <span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:800;color:#ffffff;letter-spacing:0.5px;">${escapeHtml(info.storeName.toUpperCase())}</span>
+            <td align="center" style="background:#ffffff;padding:28px 32px 20px;">
+              <img src="${logoUrl()}" width="120" alt="${escapeHtml(info.storeName)}" style="display:block;width:120px;max-width:120px;height:auto;" />
             </td>
           </tr>
+          ${bannerHtml ? `<tr><td>${bannerHtml}</td></tr>` : ''}
           <tr>
             <td style="padding:32px 32px 28px;">
               ${bodyHtml}
@@ -176,4 +207,12 @@ export function renderEmailLayout(opts: {
 </html>`;
 }
 
-export const emailColors = { orange: BRAND_ORANGE, green: BRAND_GREEN, ink: INK, muted: MUTED, border: BORDER, panel: PANEL };
+export const emailColors = {
+  orange: BRAND_ORANGE,
+  orangeDark: BRAND_ORANGE_DARK,
+  green: BRAND_GREEN,
+  ink: INK,
+  muted: MUTED,
+  border: BORDER,
+  panel: PANEL,
+};
