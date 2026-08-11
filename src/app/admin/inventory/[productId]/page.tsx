@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
 import { AddBatchForm } from './AddBatchForm';
 import { WaitlistTable } from '@/components/admin/WaitlistTable';
+import { EditableBatchQuantity } from '@/components/admin/EditableBatchQuantity';
 
 interface Props {
   params: Promise<{ productId: string }>;
@@ -72,7 +73,7 @@ export default async function InventoryProductPage({ params }: Props) {
                   {new Date(b.createdAt).toLocaleDateString('en-NG')}
                 </td>
                 <td className={`px-4 py-3 font-medium ${b.quantityAvailable === 0 ? 'text-gray-400' : 'text-primary'}`}>
-                  {b.quantityAvailable}
+                  <EditableBatchQuantity productId={productId} batchId={b.id} quantity={b.quantityAvailable} />
                 </td>
                 <td className="px-4 py-3">{formatCurrency(Number(b.costPrice))}</td>
               </tr>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Bell, BellOff, ChevronDown, ChevronRight, Download, Loader2, Package, Search, Camera, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import BarcodeScannerModal from './BarcodeScannerModal';
+import { EditableBatchQuantity } from './EditableBatchQuantity';
 
 interface ProductRow {
   id: string;
@@ -286,7 +287,11 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                       {b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-NG') : '—'}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">
-                      {b.quantityAvailable}
+                      {b.productId ? (
+                        <EditableBatchQuantity productId={b.productId} batchId={b.id} quantity={b.quantityAvailable} />
+                      ) : (
+                        b.quantityAvailable
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
                       {formatCurrency(Number(b.costPrice))}
@@ -387,7 +392,14 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                             </span>
                           </td>
                           <td className="px-4 py-2">
-                            <span className="text-xs text-gray-500">{b.quantityAvailable} units remaining</span>
+                            <span className="text-xs text-gray-500 inline-flex items-center gap-1">
+                              {b.productId ? (
+                                <EditableBatchQuantity productId={b.productId} batchId={b.id} quantity={b.quantityAvailable} className="text-xs" />
+                              ) : (
+                                b.quantityAvailable
+                              )}
+                              units remaining
+                            </span>
                           </td>
                           <td colSpan={2} className="px-4 py-2 text-right text-xs text-gray-500">
                             {formatCurrency(Number(b.costPrice))}/unit
