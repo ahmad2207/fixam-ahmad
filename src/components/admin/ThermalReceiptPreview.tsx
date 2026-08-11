@@ -105,9 +105,19 @@ export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], 
 }
 
 /**
- * Builds and immediately prints a thermal receipt in a popup window — shared by
- * this component's own "Print Thermal" button and by the POS page, which
+ * Builds and immediately prints a thermal receipt — shared by this
+ * component's own "Print Thermal" button and by the POS page, which
  * triggers it automatically right after a sale completes.
+ *
+ * Prints via a hidden same-page iframe rather than window.open(...). A
+ * popup can be silently blocked by the browser unless it's opened
+ * perfectly synchronously within the click that triggered it — and the
+ * POS page's auto-print call happens after `await fetch(...)` for the sale
+ * itself, which is exactly the kind of async gap that trips popup blockers.
+ * The old code's `if (!w) return` meant a blocked popup just failed
+ * silently, with no error and no receipt — nothing told the cashier
+ * printing hadn't happened. An iframe has no such gesture requirement in
+ * any browser, so this isn't a timing-dependent maybe anymore.
  */
 export function printThermalReceipt(
   receipt: ThermalReceipt,
@@ -117,11 +127,32 @@ export function printThermalReceipt(
 ) {
   const logoUrl = `${window.location.origin}/logo.png`;
   const html = buildThermalHtml(receipt, items, logoUrl, storeAddress, storePhone);
-  const w = window.open('', '_blank', 'width=340,height=700');
-  if (!w) return;
-  w.document.write(html);
-  w.document.close();
-  setTimeout(() => { w.focus(); w.print(); w.close(); }, 300);
+
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+
+  const cleanup = () => setTimeout(() => iframe.remove(), 1000);
+
+  // Attach the load handler and append to the DOM BEFORE setting srcdoc —
+  // srcdoc triggers an async navigation inside the iframe, so the handler
+  // must already be registered for `load` to fire reliably.
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } finally {
+      cleanup();
+    }
+  };
+
+  document.body.appendChild(iframe);
+  iframe.srcdoc = html;
 }
 
 export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, FCT, Nigeria', storePhone = '', onClose }: Props) {
