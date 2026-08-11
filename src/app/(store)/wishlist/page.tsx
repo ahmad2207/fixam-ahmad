@@ -9,6 +9,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { ProductCard } from '@/components/store/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { hasProductImage } from '@/lib/utils';
 
 export default function WishlistPage() {
   const { data: session } = useSession();
@@ -18,7 +19,8 @@ export default function WishlistPage() {
 
   const isLoading = wishlistLoading || productsLoading;
   const isError = wishlistError || productsError;
-  const wishlistProducts = allProducts.filter((p) => wishlistIds.includes(p.id));
+  // Don't publish products with no image on the storefront, even ones the user wishlisted.
+  const wishlistProducts = allProducts.filter((p) => wishlistIds.includes(p.id) && hasProductImage(p));
 
   const handleAddAll = () => {
     if (wishlistProducts.length === 0) return;

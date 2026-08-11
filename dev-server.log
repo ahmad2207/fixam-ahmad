@@ -57,3 +57,77 @@
  GET /api/products? 200 in 1961ms (next.js: 7ms, application-code: 1955ms)
  GET /api/admin/settings/general 200 in 2.3s (next.js: 3ms, application-code: 2.3s)
  GET /api/wishlist 200 in 2.6s (next.js: 4ms, application-code: 2.6s)
+ GET /api/auth/session 200 in 98ms (next.js: 32ms, application-code: 66ms)
+ GET /api/auth/session 200 in 41ms (next.js: 10ms, application-code: 31ms)
+ GET /api/products? 200 in 1954ms (next.js: 11ms, application-code: 1942ms)
+ GET /api/admin/settings/general 200 in 2.3s (next.js: 10ms, application-code: 2.3s)
+ GET /api/wishlist 200 in 2.7s (next.js: 11ms, application-code: 2.7s)
+○ Compiling /admin/products ...
+ GET /admin/products 200 in 4.9s (next.js: 19ms, proxy.ts: 4.1s, application-code: 757ms)
+○ Compiling /api/admin/products ...
+ GET /api/auth/session 200 in 13.4s (next.js: 13.3s, application-code: 112ms)
+○ Compiling /api/wishlist ...
+ GET /api/admin/products 200 in 16.7s (next.js: 13.2s, application-code: 3.5s)
+ GET /api/auth/session 200 in 5.0s (next.js: 4.9s, application-code: 106ms)
+ GET /api/wishlist 200 in 5.4s (next.js: 5.0s, application-code: 434ms)
+ GET /admin/orders 200 in 3.7s (next.js: 3.1s, proxy.ts: 384ms, application-code: 219ms)
+ GET /api/admin/orders?summary=true 200 in 13.9s (next.js: 11.6s, application-code: 2.3s)
+ GET /api/admin/orders?page=1 200 in 14.5s (next.js: 11.6s, application-code: 2.9s)
+ GET /admin/products 200 in 658ms (next.js: 142ms, proxy.ts: 416ms, application-code: 100ms)
+ GET /api/admin/products 200 in 442ms (next.js: 37ms, application-code: 405ms)
+○ Compiling /admin/products/[id]/edit ...
+ GET /admin/products/11c5ade2-ca8e-48e1-9743-38f30e3210bc/edit 200 in 12.7s (next.js: 12.5s, proxy.ts: 20ms, application-code: 183ms)
+○ Compiling /api/admin/products/[id] ...
+ GET /api/admin/products/11c5ade2-ca8e-48e1-9743-38f30e3210bc 200 in 15.2s (next.js: 12.9s, application-code: 2.3s)
+ GET /api/admin/products/11c5ade2-ca8e-48e1-9743-38f30e3210bc 200 in 737ms (next.js: 21ms, application-code: 717ms)
+ GET /api/categories 200 in 3.0s (next.js: 2.7s, application-code: 316ms)
+ GET /admin/pos 200 in 711ms (next.js: 148ms, proxy.ts: 447ms, application-code: 116ms)
+○ Compiling /api/products ...
+ GET /api/products? 200 in 27.0s (next.js: 24.7s, application-code: 2.3s)
+ GET /api/admin/settings/general 200 in 27.4s (next.js: 24.8s, application-code: 2.6s)
+ POST /api/admin/pos/sale 201 in 5.0s (next.js: 2.1s, application-code: 2.9s)
+○ Compiling /admin/inventory ...
+ GET /admin/inventory 200 in 7.6s (next.js: 4.8s, proxy.ts: 16ms, application-code: 2.8s)
+ GET /admin/products 200 in 502ms (next.js: 37ms, proxy.ts: 404ms, application-code: 62ms)
+ GET /api/admin/products 200 in 3.7s (next.js: 3.3s, application-code: 400ms)
+ GET /admin/orders 200 in 267ms (next.js: 153ms, proxy.ts: 23ms, application-code: 90ms)
+ GET /api/admin/orders?summary=true 200 in 2.8s (next.js: 2.6s, application-code: 210ms)
+ GET /api/admin/orders?page=1 200 in 3.8s (next.js: 2.7s, application-code: 1094ms)
+ GET /admin/products 200 in 140ms (next.js: 75ms, proxy.ts: 15ms, application-code: 51ms)
+ GET /admin/products/11c5ade2-ca8e-48e1-9743-38f30e3210bc/edit 200 in 119ms (next.js: 51ms, proxy.ts: 16ms, application-code: 52ms)
+ GET /api/admin/products/11c5ade2-ca8e-48e1-9743-38f30e3210bc 200 in 3.0s (next.js: 2.6s, application-code: 428ms)
+ GET /api/admin/products/11c5ade2-ca8e-48e1-9743-38f30e3210bc 200 in 481ms (next.js: 11ms, application-code: 470ms)
+ GET /api/categories 200 in 3.2s (next.js: 2.9s, application-code: 251ms)
+ GET /admin/orders 200 in 470ms (next.js: 74ms, proxy.ts: 340ms, application-code: 56ms)
+○ Compiling /api/admin/orders/[id] ...
+ DELETE /api/admin/orders/a3ba6534-59b9-4644-9e17-976d740407a5 500 in 27.3s (next.js: 5.7s, application-code: 21.6s)
+ DELETE /api/admin/orders/a3ba6534-59b9-4644-9e17-976d740407a5 200 in 5.1s (next.js: 17ms, application-code: 5.1s)
+ GET /api/admin/orders?page=1 200 in 495ms (next.js: 15ms, application-code: 480ms)
+ GET /admin/orders 200 in 724ms (next.js: 104ms, proxy.ts: 30ms, application-code: 590ms)
+○ Compiling /api/auth/[...nextauth] ...
+ GET /api/auth/session 200 in 8.2s (next.js: 6.7s, application-code: 1506ms)
+ GET /api/admin/orders?summary=true 200 in 8.5s (next.js: 6.6s, application-code: 1891ms)
+ GET /api/admin/orders?page=1 200 in 9.5s (next.js: 6.6s, application-code: 2.9s)
+○ Compiling /api/wishlist ...
+ GET /api/auth/session 200 in 6.4s (next.js: 6.1s, application-code: 369ms)
+ GET /admin/inventory 200 in 9.8s (next.js: 6.3s, proxy.ts: 2.5s, application-code: 968ms)
+ GET /api/wishlist 200 in 7.4s (next.js: 6.3s, application-code: 1136ms)
+○ Compiling /admin/audit ...
+ GET /admin/audit 200 in 4.6s (next.js: 4.2s, proxy.ts: 249ms, application-code: 100ms)
+ GET /api/admin/audit?limit=100 200 in 5.6s (next.js: 3.2s, application-code: 2.4s)
+ GET /admin/inventory 200 in 3.3s (next.js: 70ms, proxy.ts: 266ms, application-code: 3.0s)
+ GET /admin/orders 200 in 131ms (next.js: 55ms, proxy.ts: 25ms, application-code: 51ms)
+○ Compiling /api/admin/orders ...
+ GET /api/admin/orders?summary=true 200 in 7.0s (next.js: 4.9s, application-code: 2.1s)
+ GET /api/admin/orders?page=1 200 in 7.7s (next.js: 5.0s, application-code: 2.7s)
+ GET /admin/products 200 in 204ms (next.js: 117ms, proxy.ts: 15ms, application-code: 72ms)
+○ Compiling /api/admin/products ...
+ GET /api/admin/products 200 in 6.6s (next.js: 4.7s, application-code: 1874ms)
+○ Compiling /admin/products/new ...
+ GET /admin/products/new 200 in 4.1s (next.js: 3.9s, proxy.ts: 17ms, application-code: 152ms)
+ GET /api/categories 200 in 2.8s (next.js: 2.5s, application-code: 319ms)
+○ Compiling / ...
+ GET / 200 in 10.7s (next.js: 4.0s, application-code: 6.7s)
+ GET /api/admin/settings/general 200 in 4.6s (next.js: 3.0s, application-code: 1609ms)
+○ Compiling /products/[slug] ...
+ GET /products/qasa-microwave-oven-qmw-20l-grill 200 in 41s (next.js: 12.9s, application-code: 28.3s)

@@ -6,6 +6,7 @@ import { eq, and, desc, gt } from 'drizzle-orm';
 import { ProductCard } from '@/components/store/ProductCard';
 import { FlashSaleTimer } from '@/components/store/FlashSaleTimer';
 import { Flame } from 'lucide-react';
+import { hasProductImage } from '@/lib/utils';
 
 export const metadata = {
   title: 'Combo Deals — Fixam Africa',
@@ -13,7 +14,7 @@ export const metadata = {
 };
 
 export default async function ComboDealsPage() {
-  const promoProducts = await db
+  const allPromoProducts = await db
     .select({
       id: products.id,
       name: products.name,
@@ -34,6 +35,9 @@ export default async function ComboDealsPage() {
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .where(and(eq(products.isActive, true), eq(products.isPromo, true), gt(products.stock, 0)))
     .orderBy(desc(products.createdAt));
+
+  // Don't publish products with no image on the storefront.
+  const promoProducts = allPromoProducts.filter(hasProductImage);
 
   return (
     <div className="min-h-screen bg-gray-100">

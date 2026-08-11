@@ -2,3 +2,71 @@
     at ignore-listed frames {
   code: 'ECONNRESET'
 }
+[browser] Uncaught Error: Internal Next.js error: Router action dispatched before initialization.
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+⨯ Error: Failed query: select "id", "order_number", "user_id", "guest_email", "address_id", "status", "payment_method", "payment_status", "sale_type", "subtotal", "delivery_fee", "total", "shipping_full_name", "shipping_phone", "shipping_street_address", "shipping_city", "shipping_state", "shipping_abuja_zone", "notes", "checkout_id", "created_at", "updated_at" from "orders" where "orders"."id" = $1
+params: a3ba6534-59b9-4644-9e17-976d740407a5
+    at async DELETE (src\app\api\admin\orders\[id]\route.ts:132:22)
+  130 |
+  131 |   const { id } = await params;
+> 132 |   const [existing] = await db.select().from(orders).where(eq(orders.id, id));
+      |                      ^
+  133 |   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  134 |
+  135 |   const restored = await db.transaction(async (tx) => { {
+  query: 'select "id", "order_number", "user_id", "guest_email", "address_id", "status", "payment_method", "payment_status", "sale_type", "subtotal", "delivery_fee", "total", "shipping_full_name", "shipping_phone", "shipping_street_address", "shipping_city", "shipping_state", "shipping_abuja_zone", "notes", "checkout_id", "created_at", "updated_at" from "orders" where "orders"."id" = $1',
+  params: [ 'a3ba6534-59b9-4644-9e17-976d740407a5' ],
+  [cause]: Error: connect ETIMEDOUT 64:ff9b::a5f5:d76c:25060
+      at <unknown> (Error: connect ETIMEDOUT 64:ff9b::a5f5:d76c:25060) {
+    errno: -4039,
+    code: 'ETIMEDOUT',
+    syscall: 'connect',
+    address: '64:ff9b::a5f5:d76c',
+    port: 25060
+  }
+}
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+[browser] Image with src "http://localhost:3000/logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+⨯ Error: Failed query: select "products"."id", "products"."name", "products"."slug", "products"."description", "products"."price", "products"."compare_at_price", "products"."cost_price", "products"."category_id", "products"."collection", "products"."image_url", "products"."images", "products"."stock", "products"."sku", "products"."barcode", "products"."status", "products"."variations", "products"."specifications", "products"."tags", "products"."rating", "products"."reviews_count", "products"."is_featured", "products"."is_promo", "products"."promo_ends_at", "products"."restock_at", "products"."is_active", "products"."weight", "products"."created_at", "products"."updated_at", "categories"."id", "categories"."name", "categories"."slug" from "products" left join "categories" on "products"."category_id" = "categories"."id" where ("products"."slug" = $1 and "products"."is_active" = $2)
+params: qasa-microwave-oven-qmw-20l-grill,true
+    at async ProductPage (src\app\(store)\products\[slug]\page.tsx:27:17)
+  25 |   const { slug } = await params;
+  26 |
+> 27 |   const [row] = await db
+     |                 ^
+  28 |     .select({
+  29 |       product: products,
+  30 |       category: { {
+  query: 'select "products"."id", "products"."name", "products"."slug", "products"."description", "products"."price", "products"."compare_at_price", "products"."cost_price", "products"."category_id", "products"."collection", "products"."image_url", "products"."images", "products"."stock", "products"."sku", "products"."barcode", "products"."status", "products"."variations", "products"."specifications", "products"."tags", "products"."rating", "products"."reviews_count", "products"."is_featured", "products"."is_promo", "products"."promo_ends_at", "products"."restock_at", "products"."is_active", "products"."weight", "products"."created_at", "products"."updated_at", "categories"."id", "categories"."name", "categories"."slug" from "products" left join "categories" on "products"."category_id" = "categories"."id" where ("products"."slug" = $1 and "products"."is_active" = $2)',
+  params: [ 'qasa-microwave-oven-qmw-20l-grill', true ],
+  digest: '1023466919',
+  [cause]: AggregateError: 
+      at ignore-listed frames {
+    code: 'ETIMEDOUT',
+    [errors]: [ [Error], [Error] ]
+  }
+}
+RangeError: Failed to allocate memory
+    at ignore-listed frames {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+⨯ uncaughtException: RangeError: Failed to allocate memory
+    at ignore-listed frames {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+⨯ uncaughtException:  RangeError: Failed to allocate memory
+    at ignore-listed frames {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+RangeError: Failed to allocate memory
+    at ignore-listed frames {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+⨯ uncaughtException: RangeError: Failed to allocate memory
+    at ignore-listed frames {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}
+⨯ uncaughtException:  RangeError: Failed to allocate memory
+    at ignore-listed frames {
+  code: 'ERR_MEMORY_ALLOCATION_FAILED'
+}

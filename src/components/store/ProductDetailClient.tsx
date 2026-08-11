@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useSession } from 'next-auth/react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, hasProductImage } from '@/lib/utils';
 import {
   ShoppingCart, Heart, Star, Truck, Shield, RotateCcw,
   Zap, Minus, Plus, Edit2, Trash2, ArrowRight, ChevronLeft, ChevronRight,
@@ -393,6 +393,9 @@ export function ProductDetailClient({
   const [showDialog, setShowDialog] = useState(false);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
 
+  // Don't publish products with no image on the storefront.
+  const visibleRelatedProducts = relatedProducts.filter(hasProductImage);
+
   const isWishlisted = has(product.id);
   const inStock = product.stock > 0;
   const price = Number(product.price);
@@ -766,7 +769,7 @@ export function ProductDetailClient({
         </div>
 
         {/* ── RELATED PRODUCTS ── */}
-        {relatedProducts.length > 0 && (
+        {visibleRelatedProducts.length > 0 && (
           <div className="bg-white shadow-sm pt-4 pb-5">
             <div className="px-4 sm:px-5 flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
               <div className="flex items-center gap-2">
@@ -785,7 +788,7 @@ export function ProductDetailClient({
             </div>
             <div className="px-4 sm:px-5">
               <div className="grid grid-flow-col auto-cols-[160px] sm:auto-cols-[190px] lg:grid-flow-row lg:grid-cols-4 xl:grid-cols-5 gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                {relatedProducts.map(p => <ProductCard key={p.id} product={p as any} />)}
+                {visibleRelatedProducts.map(p => <ProductCard key={p.id} product={p as any} />)}
               </div>
             </div>
           </div>

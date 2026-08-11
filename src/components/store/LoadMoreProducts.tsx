@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { ProductCard } from './ProductCard';
 import { Loader2 } from 'lucide-react';
+import { hasProductImage } from '@/lib/utils';
 
 interface Product {
   id: string;
@@ -23,7 +24,7 @@ interface Product {
 const PAGE_SIZE = 24;
 
 export function LoadMoreProducts({ initialProducts }: { initialProducts: Product[] }) {
-  const [items, setItems] = useState<Product[]>(initialProducts);
+  const [items, setItems] = useState<Product[]>(initialProducts.filter(hasProductImage));
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialProducts.length === PAGE_SIZE);
   const [isPending, startTransition] = useTransition();
@@ -35,9 +36,12 @@ export function LoadMoreProducts({ initialProducts }: { initialProducts: Product
       const data: Product[] = await res.json();
       setItems((prev) => {
         const existingIds = new Set(prev.map((p) => p.id));
-        return [...prev, ...data.filter((p) => !existingIds.has(p.id))];
+        return [...prev, ...data.filter((p) => !existingIds.has(p.id) && hasProductImage(p))];
       });
       setPage(nextPage);
+      // Page is "full" (more to load) based on the raw server page size, not the
+      // post-filter count — otherwise a page full of image-less products would
+      // look like the last page and stop pagination early.
       setHasMore(data.length === PAGE_SIZE);
     });
   };

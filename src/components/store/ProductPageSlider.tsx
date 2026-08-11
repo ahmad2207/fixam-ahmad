@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { ProductCard } from '@/components/store/ProductCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { hasProductImage } from '@/lib/utils';
 
 interface Product {
   id: string;
@@ -28,10 +29,13 @@ export function ProductPageSlider({
   itemsPerPage?: number;
 }) {
   const [page, setPage] = useState(0);
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+  // Don't publish products with no image — they render as a broken-looking
+  // placeholder card in every carousel that reuses this component.
+  const visibleProducts = useMemo(() => products.filter(hasProductImage), [products]);
+  const totalPages = Math.ceil(visibleProducts.length / itemsPerPage);
 
   const pages = Array.from({ length: totalPages }, (_, i) =>
-    products.slice(i * itemsPerPage, (i + 1) * itemsPerPage),
+    visibleProducts.slice(i * itemsPerPage, (i + 1) * itemsPerPage),
   );
 
   const prev = useCallback(() => setPage(p => (p - 1 + totalPages) % totalPages), [totalPages]);
