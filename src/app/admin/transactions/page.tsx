@@ -12,8 +12,8 @@ export default async function AdminTransactionsPage() {
     .select({
       id: paymentTransactions.id,
       orderId: paymentTransactions.orderId,
-      flutterwaveTxRef: paymentTransactions.flutterwaveTxRef,
-      flutterwaveTransactionId: paymentTransactions.flutterwaveTransactionId,
+      paystackReference: paymentTransactions.paystackReference,
+      paystackTransactionId: paymentTransactions.paystackTransactionId,
       amount: paymentTransactions.amount,
       currency: paymentTransactions.currency,
       status: paymentTransactions.status,
@@ -36,34 +36,33 @@ export default async function AdminTransactionsPage() {
     orderStatus: r.orderStatus ?? null,
   }));
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Payment Transactions</h1>
+  const failedCount = rows.filter((r) => r.status === 'failed' || r.status === 'cancelled').length;
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border rounded-xl p-4">
-          <p className="text-xs text-gray-500">Total</p>
-          <p className="text-2xl font-bold">{rows.length}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <p className="text-xs text-gray-500">Successful</p>
-          <p className="text-2xl font-bold text-emerald-600">{successful.length}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <p className="text-xs text-gray-500">Failed / Cancelled</p>
-          <p className="text-2xl font-bold text-red-600">{rows.filter((r) => r.status === 'failed' || r.status === 'cancelled').length}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-4">
-          <p className="text-xs text-gray-500">Total Collected</p>
-          <p className="text-2xl font-bold">{formatCurrency(totalCollected)}</p>
-        </div>
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Payment Transactions</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{rows.length} transactions recorded</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[
+          { label: 'Total',            value: rows.length,                    color: 'text-foreground',   border: 'border-border' },
+          { label: 'Successful',       value: successful.length,              color: 'text-emerald-600',  border: 'border-emerald-100' },
+          { label: 'Failed / Cancelled', value: failedCount,                  color: 'text-destructive',  border: 'border-red-100' },
+          { label: 'Total Collected',  value: formatCurrency(totalCollected), color: 'text-foreground',   border: 'border-border' },
+        ].map(({ label, value, color, border }) => (
+          <div key={label} className={`bg-card rounded-2xl p-5 border shadow-sm ${border}`}>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
+            <p className={`text-2xl font-bold ${color}`}>{value}</p>
+          </div>
+        ))}
       </div>
 
       {rows.length === 0 ? (
-        <div className="bg-white border rounded-xl py-16 text-center text-gray-500">
-          <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          No transactions yet.
+        <div className="bg-card border border-border rounded-2xl py-16 text-center shadow-sm">
+          <CreditCard className="w-8 h-8 mx-auto mb-2 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">No transactions yet.</p>
         </div>
       ) : (
         <TransactionsClient transactions={transactions} />

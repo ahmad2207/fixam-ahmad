@@ -1,28 +1,15 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 const nextConfig: NextConfig = {
-  images: {
-    remotePatterns: [
-      // DigitalOcean Spaces CDN
-      {
-        protocol: 'https',
-        hostname: '**.digitaloceanspaces.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '**.cdn.digitaloceanspaces.com',
-      },
-      // Supabase Storage (migrated product images)
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-      },
-      // Google (for OAuth avatars)
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      },
-    ],
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+images: {
+    // Images are served from Supabase CDN / DigitalOcean Spaces CDN which already
+    // handle optimisation and caching. Disabling Next.js optimisation bypasses the
+    // remotePatterns check that Turbopack's image-optimizer worker fails to load.
+    unoptimized: true,
   },
   // Expose only the public Flutterwave key to the browser
   env: {

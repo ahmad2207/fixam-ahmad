@@ -8,6 +8,93 @@ import {
   pendingCheckouts,
 } from '@/db/schema';
 import { eq, and, gt, asc, sql, inArray } from 'drizzle-orm';
+import { calculateDeliveryFee } from '@/lib/deliveryFees';
+import { getDeliveryConfigFromDb } from '@/lib/deliveryConfigServer';
+
+// ─── Validate & Price Checkout Items ───────────────────────────────────────
+// The client can only choose WHAT to buy — never at what price. This
+// recomputes subtotal/delivery fee/total from the live products table and
+// the delivery-fee calculator, ignoring whatever price/subtotal/total the
+// client submitted. Call this before ever creating a pendingCheckout row or
+// a Paystack charge; use ONLY the values this returns downstream.
+export interface RawCheckoutItem {
+  product_id: string;
+  quantity: number;
+  variation?: string | null;
+}
+
+export interface PricedCheckoutItem {
+  product_id: string;
+  product_name: string;
+  product_image: string | null;
+  quantity: number;
+  price: number;
+  variation: string | null;
+}
+
+export interface PricedCheckout {
+  items: PricedCheckoutItem[];
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+}
+
+export async function priceCheckoutItems(
+  rawItems: RawCheckoutItem[],
+  shippingState: string,
+  abujaZone?: string,
+): Promise<PricedCheckout> {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    throw new Error('Your cart is empty');
+  }
+
+  const ids = rawItems.map((i) => i?.product_id).filter((id): id is string => typeof id === 'string' && id.length > 0);
+  if (ids.length !== rawItems.length) {
+    throw new Error('One of the items in your cart is invalid');
+  }
+
+  const rows = await db.select().from(products).where(inArray(products.id, ids));
+  const byId = new Map(rows.map((p) => [p.id, p]));
+
+  const items: PricedCheckoutItem[] = [];
+  let subtotal = 0;
+
+  for (const raw of rawItems) {
+    const quantity = Number(raw.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error('One of the items in your cart has an invalid quantity');
+    }
+
+    const product = byId.get(raw.product_id);
+    if (!product || !product.isActive) {
+      throw new Error(`"${product?.name ?? raw.product_id}" is no longer available`);
+    }
+    if (product.stock < quantity) {
+      throw new Error(`Only ${product.stock} of "${product.name}" left in stock`);
+    }
+
+    const price = Number(product.price);
+    subtotal += price * quantity;
+    items.push({
+      product_id: product.id,
+      product_name: product.name,
+      product_image: product.imageUrl,
+      quantity,
+      price,
+      variation: raw.variation ?? null,
+    });
+  }
+
+  if (!shippingState) {
+    throw new Error('Delivery state is required');
+  }
+
+  const deliveryConfig = await getDeliveryConfigFromDb();
+  const { fee: deliveryFee } = calculateDeliveryFee(shippingState, subtotal, abujaZone, deliveryConfig);
+  const total = subtotal + deliveryFee;
+
+  return { items, subtotal, deliveryFee, total };
+}
 
 // ─── Add Inventory Batch ────────────────────────────────────────────────────
 // Adds stock at a given cost price and updates products.stock atomically.
@@ -103,7 +190,7 @@ export async function deductPOSInventory(
 }
 
 // ─── Create Stock Reservations ─────────────────────────────────────────────
-// FIFO-locks inventory for a pending checkout (called before Flutterwave redirect).
+// FIFO-locks inventory for a pending checkout (called before Paystack redirect).
 export async function createStockReservations(
   checkoutId: string,
   ttlMinutes: number = 30,

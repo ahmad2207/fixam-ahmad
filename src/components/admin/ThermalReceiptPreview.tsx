@@ -4,14 +4,14 @@ import { X, Printer } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { format } from 'date-fns';
 
-interface ThermalItem {
+export interface ThermalItem {
   product_name: string;
   variation?: string;
   quantity: number;
   price: string | number;
 }
 
-interface ThermalReceipt {
+export interface ThermalReceipt {
   receiptNumber: string;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -28,10 +28,12 @@ interface ThermalReceipt {
 
 interface Props {
   receipt: ThermalReceipt;
+  storeAddress?: string;
+  storePhone?: string;
   onClose: () => void;
 }
 
-function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string {
+export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl: string, storeAddress: string, storePhone: string): string {
   const rows = items
     .map(
       (item) =>
@@ -58,6 +60,7 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
   const dateStr = format(new Date(receipt.createdAt), 'dd/MM/yyyy HH:mm');
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Receipt-${receipt.receiptNumber}</title>
     <style>
       body{margin:0;padding:0;font-family:"Courier New",Courier,monospace;font-size:11px;color:#000}
       @page{size:80mm auto;margin:0}
@@ -66,8 +69,11 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
   </head><body>
     <div style="width:80mm;padding:4mm;box-sizing:border-box">
       <div style="text-align:center;margin-bottom:4px">
-        <div style="font-size:17px;font-weight:900;letter-spacing:3px">FIXAM</div>
-        <div style="font-size:9px">Fixam Africa — Lagos, Nigeria</div>
+        <img src="${logoUrl}" alt="Fixam" style="height:28px;width:auto;display:block;margin:0 auto 3px" />
+        <div style="font-size:9px;font-weight:700">Fixam Africa Ltd.</div>
+        <div style="font-size:9px">${storeAddress}</div>
+        ${storePhone ? `<div style="font-size:9px">${storePhone}</div>` : ''}
+        <div style="font-size:9px">fixam.africa</div>
       </div>
       <div style="border-top:1px dashed #000;margin:4px 0"></div>
       <div style="font-size:10px;margin-bottom:4px">
@@ -91,25 +97,38 @@ function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[]): string
       ${notesRow}
       <div style="border-top:1px dashed #000;margin:4px 0"></div>
       <div style="text-align:center;font-size:9px;margin-top:4px">
-        <div>Thank you for shopping at Fixam!</div>
-        <div>www.fixam.africa</div>
+        <div style="font-weight:700">Thank you for shopping at Fixam!</div>
+        <div>fixam.africa</div>
       </div>
     </div>
   </body></html>`;
 }
 
-export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
+/**
+ * Builds and immediately prints a thermal receipt in a popup window — shared by
+ * this component's own "Print Thermal" button and by the POS page, which
+ * triggers it automatically right after a sale completes.
+ */
+export function printThermalReceipt(
+  receipt: ThermalReceipt,
+  items: ThermalItem[],
+  storeAddress = 'Abuja, FCT, Nigeria',
+  storePhone = '',
+) {
+  const logoUrl = `${window.location.origin}/logo.png`;
+  const html = buildThermalHtml(receipt, items, logoUrl, storeAddress, storePhone);
+  const w = window.open('', '_blank', 'width=340,height=700');
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => { w.focus(); w.print(); w.close(); }, 300);
+}
+
+export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, FCT, Nigeria', storePhone = '', onClose }: Props) {
   let items: ThermalItem[] = [];
   try { items = JSON.parse(receipt.items); } catch { items = []; }
 
-  const handlePrintThermal = () => {
-    const html = buildThermalHtml(receipt, items);
-    const w = window.open('', '_blank', 'width=340,height=700');
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => { w.focus(); w.print(); w.close(); }, 300);
-  };
+  const handlePrintThermal = () => printThermalReceipt(receipt, items, storeAddress, storePhone);
 
   const dateStr = format(new Date(receipt.createdAt), 'dd/MM/yyyy HH:mm');
 
@@ -132,9 +151,13 @@ export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
           >
             <div style={{ padding: '4mm' }}>
               {/* Store header */}
-              <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-                <div style={{ fontSize: '17px', fontWeight: 900, letterSpacing: '3px' }}>FIXAM</div>
-                <div style={{ fontSize: '9px' }}>Fixam Africa — Lagos, Nigeria</div>
+              <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Fixam" style={{ height: '28px', width: 'auto', display: 'block', margin: '0 auto 3px' }} />
+                <div style={{ fontSize: '9px', fontWeight: 700 }}>Fixam Africa Ltd.</div>
+                <div style={{ fontSize: '9px' }}>{storeAddress}</div>
+                {storePhone && <div style={{ fontSize: '9px' }}>{storePhone}</div>}
+                <div style={{ fontSize: '9px' }}>fixam.africa</div>
               </div>
               <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
 
@@ -196,8 +219,8 @@ export default function ThermalReceiptPreview({ receipt, onClose }: Props) {
 
               <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />
               <div style={{ textAlign: 'center', fontSize: '9px', marginTop: '4px' }}>
-                <div>Thank you for shopping at Fixam!</div>
-                <div>www.fixam.africa</div>
+                <div style={{ fontWeight: 700 }}>Thank you for shopping at Fixam!</div>
+                <div>fixam.africa</div>
               </div>
             </div>
           </div>

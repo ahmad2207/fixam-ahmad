@@ -82,7 +82,7 @@ export default function NotificationsSettingsPage() {
     {
       name: 'notify_payment_confirmed',
       label: 'Payment Confirmed',
-      description: 'Get notified when a payment is confirmed (Flutterwave or manual)',
+      description: 'Get notified when a payment is confirmed (Paystack or manual)',
     },
     {
       name: 'notify_order_cancelled',

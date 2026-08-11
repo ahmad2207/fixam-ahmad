@@ -17,8 +17,8 @@ const STATUS_OPTIONS = ['All', 'successful', 'failed', 'pending', 'initiated', '
 export interface TransactionRow {
   id: string;
   orderId: string | null;
-  flutterwaveTxRef: string | null;
-  flutterwaveTransactionId: string | null;
+  paystackReference: string | null;
+  paystackTransactionId: string | null;
   amount: string;
   currency: string;
   status: string;
@@ -35,11 +35,11 @@ interface Props {
 }
 
 function downloadCSV(transactions: TransactionRow[]) {
-  const header = ['Date', 'TX Reference', 'Flutterwave ID', 'Customer', 'Amount', 'Currency', 'Status', 'Order ID'];
+  const header = ['Date', 'TX Reference', 'Paystack ID', 'Customer', 'Amount', 'Currency', 'Status', 'Order ID'];
   const rows = transactions.map((tx) => [
     new Date(tx.createdAt).toLocaleDateString('en-NG'),
-    tx.flutterwaveTxRef ?? '',
-    tx.flutterwaveTransactionId ?? '',
+    tx.paystackReference ?? '',
+    tx.paystackTransactionId ?? '',
     tx.shippingFullName ?? tx.guestEmail ?? '',
     String(tx.amount),
     tx.currency,
@@ -71,8 +71,8 @@ export default function TransactionsClient({ transactions }: Props) {
         const matchStatus = statusFilter === 'All' || tx.status === statusFilter;
         const matchSearch =
           !q ||
-          (tx.flutterwaveTxRef ?? '').toLowerCase().includes(q) ||
-          (tx.flutterwaveTransactionId ?? '').toLowerCase().includes(q) ||
+          (tx.paystackReference ?? '').toLowerCase().includes(q) ||
+          (tx.paystackTransactionId ?? '').toLowerCase().includes(q) ||
           (tx.shippingFullName ?? '').toLowerCase().includes(q) ||
           (tx.guestEmail ?? '').toLowerCase().includes(q) ||
           (tx.orderId ?? '').toLowerCase().includes(q);
@@ -98,7 +98,7 @@ export default function TransactionsClient({ transactions }: Props) {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search TX ref, Flutterwave ID, customer..."
+              placeholder="Search TX ref, Paystack ID, customer..."
               className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
             />
           </div>
@@ -166,10 +166,10 @@ export default function TransactionsClient({ transactions }: Props) {
                   </td>
                   <td className="px-4 py-3">
                     <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono">
-                      {tx.flutterwaveTxRef ?? '—'}
+                      {tx.paystackReference ?? '—'}
                     </code>
-                    {tx.flutterwaveTransactionId && (
-                      <p className="text-xs text-gray-400 mt-0.5">FLW: {tx.flutterwaveTransactionId}</p>
+                    {tx.paystackTransactionId && (
+                      <p className="text-xs text-gray-400 mt-0.5">PSK: {tx.paystackTransactionId}</p>
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">
@@ -214,8 +214,8 @@ export default function TransactionsClient({ transactions }: Props) {
             </div>
 
             <div className="space-y-3 text-sm">
-              <Row label="TX Reference" value={selected.flutterwaveTxRef ?? '—'} mono />
-              <Row label="Flutterwave TX ID" value={selected.flutterwaveTransactionId ?? '—'} mono />
+              <Row label="TX Reference" value={selected.paystackReference ?? '—'} mono />
+              <Row label="Paystack TX ID" value={selected.paystackTransactionId ?? '—'} mono />
               <Row label="Amount" value={`${selected.currency} ${formatCurrency(Number(selected.amount))}`} />
               <Row
                 label="Status"

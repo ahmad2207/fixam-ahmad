@@ -60,18 +60,21 @@ export default function AdminAuditPage() {
   });
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Audit Log</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Audit Log</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">{logs.length} entries recorded</p>
+      </div>
 
-      <div className="bg-white border rounded-xl">
+      <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
         {/* Filters */}
-        <div className="p-4 flex flex-col md:flex-row gap-4 items-start md:items-center border-b">
+        <div className="p-4 flex flex-col md:flex-row gap-3 items-start md:items-center border-b border-border bg-muted/20">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search logs..."
-              className="w-full pl-10 pr-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Search logs…"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-background"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -79,7 +82,7 @@ export default function AdminAuditPage() {
           <select
             value={entityFilter}
             onChange={(e) => setEntityFilter(e.target.value)}
-            className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            className="text-sm border border-border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
           >
             <option value="">All Types</option>
             {ENTITY_TYPES.map((t) => (
@@ -90,36 +93,38 @@ export default function AdminAuditPage() {
 
         {/* Entries */}
         {isLoading ? (
-          <div className="p-12 text-center text-gray-500">Loading...</div>
+          <div className="flex items-center justify-center p-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center">
-            <ScrollText className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-gray-500">No audit logs found</p>
+          <div className="p-16 text-center">
+            <ScrollText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No audit logs found</p>
           </div>
         ) : (
-          <div className="max-h-[65vh] overflow-y-auto divide-y">
+          <div className="max-h-[65vh] overflow-y-auto divide-y divide-border">
             {filtered.map((entry) => {
               const Icon = entityIcons[entry.entityType ?? ''] ?? ScrollText;
               return (
-                <div key={entry.id} className="flex items-start gap-4 p-4 hover:bg-gray-50 transition-colors">
-                  <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Icon className="h-4 w-4 text-gray-500" />
+                <div key={entry.id} className="flex items-start gap-4 px-5 py-4 hover:bg-muted/20 transition-colors">
+                  <div className="h-9 w-9 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${getActionColor(entry.action)}`}>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${getActionColor(entry.action)}`}>
                         {entry.action}
                       </span>
                       {entry.entityType && (
-                        <span className="text-xs border border-gray-200 rounded px-2 py-0.5 capitalize">
+                        <span className="text-xs border border-border bg-secondary text-muted-foreground rounded-lg px-2.5 py-1 capitalize font-medium">
                           {entry.entityType.replace('_', ' ')}
                         </span>
                       )}
                     </div>
                     {!!entry.after && (
-                      <p className="text-sm text-gray-500 mt-1 truncate">{String(formatDetails(entry.after))}</p>
+                      <p className="text-sm text-muted-foreground mt-1.5 truncate">{String(formatDetails(entry.after))}</p>
                     )}
-                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                    <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground/60">
                       <Clock className="h-3 w-3" />
                       {entry.createdAt ? format(new Date(entry.createdAt), 'MMM d, yyyy · h:mm a') : '—'}
                     </div>
@@ -130,8 +135,8 @@ export default function AdminAuditPage() {
           </div>
         )}
 
-        <div className="p-4 border-t">
-          <p className="text-sm text-gray-500">Showing {filtered.length} of {logs.length} entries</p>
+        <div className="px-5 py-3.5 border-t border-border bg-muted/20">
+          <p className="text-xs text-muted-foreground">Showing <span className="font-semibold text-foreground">{filtered.length}</span> of <span className="font-semibold text-foreground">{logs.length}</span> entries</p>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { products, categories, reviews } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne, desc } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
@@ -39,21 +39,67 @@ export default async function ProductPage({ params }: Props) {
 
   if (!row) notFound();
 
-  const productReviews = await db
-    .select()
-    .from(reviews)
-    .where(eq(reviews.productId, row.product.id));
+  const relatedFields = {
+    id: products.id,
+    name: products.name,
+    slug: products.slug,
+    price: products.price,
+    compareAtPrice: products.compareAtPrice,
+    imageUrl: products.imageUrl,
+    images: products.images,
+    stock: products.stock,
+    isFeatured: products.isFeatured,
+    isActive: products.isActive,
+    rating: products.rating,
+    reviewsCount: products.reviewsCount,
+    categoryName: categories.name,
+  } as const;
 
+  const [productReviews, relatedProducts] = await Promise.all([
+    db.select().from(reviews).where(eq(reviews.productId, row.product.id)),
+
+    row.product.categoryId
+      ? db
+          .select(relatedFields)
+          .from(products)
+          .leftJoin(categories, eq(products.categoryId, categories.id))
+          .where(
+            and(
+              eq(products.isActive, true),
+              eq(products.categoryId, row.product.categoryId),
+              ne(products.id, row.product.id),
+            ),
+          )
+          .orderBy(desc(products.rating), desc(products.createdAt))
+          .limit(12)
+      : Promise.resolve([]),
+  ]);
+
+  // Explicitly pick only serialisable fields — avoids passing Date objects
+  // (createdAt / updatedAt) from a Server Component to a Client Component.
+  const p = row.product;
   return (
     <ProductDetailClient
       product={{
-          ...row.product,
-          images: row.product.images ?? undefined,
-          variations: row.product.variations ?? undefined,
-          specifications: (row.product.specifications as Record<string, string> | null) ?? undefined,
-          category: row.category,
-        }}
+        id:             p.id,
+        name:           p.name,
+        slug:           p.slug,
+        description:    p.description,
+        price:          p.price,
+        compareAtPrice: p.compareAtPrice,
+        imageUrl:       p.imageUrl,
+        images:         p.images ?? undefined,
+        stock:          p.stock,
+        sku:            p.sku,
+        variations:     p.variations ?? undefined,
+        specifications: (p.specifications as Record<string, string> | null) ?? undefined,
+        category:       row.category,
+        isPromo:        p.isPromo,
+        promoEndsAt:    p.promoEndsAt ? p.promoEndsAt.toISOString() : null,
+        restockAt:      p.restockAt ? p.restockAt.toISOString() : null,
+      }}
       reviews={productReviews}
+      relatedProducts={relatedProducts}
     />
   );
 }

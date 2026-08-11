@@ -18,6 +18,15 @@ import {
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  paystack:      'Paystack',
+  pod:           'Pay on Delivery',
+  cash:          'Cash',
+  bank_transfer: 'Bank Transfer',
+  card:          'Card',
+  card_pos:      'Card (POS)',
+};
+
 const statusConfig: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
   pending:    { icon: <Clock className="w-4 h-4" />,        bg: 'bg-gray-100',    text: 'text-gray-700' },
   confirmed:  { icon: <Package className="w-4 h-4" />,      bg: 'bg-blue-100',    text: 'text-blue-700' },
@@ -225,7 +234,7 @@ export default function AdminOrderDetailPage() {
                   {order.paymentStatus ?? 'pending'}
                 </span>
                 {order.paymentMethod && (
-                  <span className="text-xs text-gray-400 capitalize">{order.paymentMethod.replace('_', ' ')}</span>
+                  <span className="text-xs text-gray-400">{PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod.replace('_', ' ')}</span>
                 )}
               </div>
               {order.paymentStatus !== 'paid' && (
@@ -410,11 +419,11 @@ export default function AdminOrderDetailPage() {
               {order.paymentTransactions!.map((txn) => (
                 <div key={txn.id} className="px-6 py-4 flex items-center justify-between gap-4 text-sm">
                   <div className="min-w-0">
-                    {txn.flutterwaveTxRef && (
-                      <p className="font-mono text-xs text-gray-500 truncate">{txn.flutterwaveTxRef}</p>
+                    {txn.paystackReference && (
+                      <p className="font-mono text-xs text-gray-500 truncate">{txn.paystackReference}</p>
                     )}
-                    {txn.flutterwaveTransactionId && (
-                      <p className="text-xs text-gray-400">TX ID: {txn.flutterwaveTransactionId}</p>
+                    {txn.paystackTransactionId && (
+                      <p className="text-xs text-gray-400">TX ID: {txn.paystackTransactionId}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(txn.createdAt).toLocaleDateString('en-NG', {

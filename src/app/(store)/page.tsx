@@ -1,49 +1,115 @@
 import { db } from '@/lib/db';
-import { products, categories } from '@/db/schema';
-import { eq, and, desc, asc, count } from 'drizzle-orm';
-import { ProductCard } from '@/components/store/ProductCard';
+import { products, categories, orderItems } from '@/db/schema';
+import { eq, and, desc, asc, count, sql, gt } from 'drizzle-orm';
+import { LoadMoreProducts } from '@/components/store/LoadMoreProducts';
+import { HeroProductCarousel } from '@/components/store/HeroProductCarousel';
+import { ProductPageSlider } from '@/components/store/ProductPageSlider';
+import { getActiveBanners } from '@/lib/serverBanners';
+import { BANNER_THEMES } from '@/db/schema/banners';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ArrowRight, Truck, Shield, Headphones, Sparkles,
-  Flame, Zap, Clock, RotateCcw, CreditCard, Award,
+  ArrowRight, ChevronRight, Truck, Shield, Headphones,
+  Flame, RotateCcw, Tag, Trophy, Banknote,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-const CATEGORY_ICONS: Record<string, string> = {
-  cookware:    '🍳',
-  cutlery:     '🔪',
-  appliances:  '📦',
-  storage:     '🗄️',
-  bakeware:    '🧁',
-  utensils:    '🥄',
-  seasonal:    '🌿',
+const CATEGORY_META: Record<string, {
+  icon: string; desc: string; gradient: string; hoverBorder: string; image?: string;
+}> = {
+  cookware:   { icon: '🍳', desc: 'Pots & pans',        gradient: 'from-orange-50 to-amber-100',   hoverBorder: 'group-hover:border-orange-300',  image: '/cookware.png'   },
+  cutlery:    { icon: '🔪', desc: 'Knives & blades',     gradient: 'from-blue-50 to-sky-100',       hoverBorder: 'group-hover:border-blue-300',    image: '/cutlery.png'    },
+  appliances: { icon: '⚡', desc: 'Kitchen gadgets',     gradient: 'from-violet-50 to-purple-100',  hoverBorder: 'group-hover:border-violet-300',  image: '/Appliances.png' },
+  storage:    { icon: '🗄️', desc: 'Jars & containers',  gradient: 'from-brand-green-50 to-brand-green-100',  hoverBorder: 'group-hover:border-brand-green-300',   image: '/storage.png'    },
+  bakeware:   { icon: '🧁', desc: 'Trays & moulds',      gradient: 'from-pink-50 to-rose-100',      hoverBorder: 'group-hover:border-pink-300',    image: '/bakeware.png'   },
+  utensils:   { icon: '🥄', desc: 'Spoons & spatulas',   gradient: 'from-yellow-50 to-amber-100',   hoverBorder: 'group-hover:border-yellow-300',  image: '/utensils.png'   },
+  seasonal:   { icon: '🌿', desc: 'Seasonal picks',      gradient: 'from-teal-50 to-brand-green-100',   hoverBorder: 'group-hover:border-teal-300'                            },
 };
 
-const DOT_PATTERN = `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`;
+const productFields = {
+  id: products.id,
+  name: products.name,
+  slug: products.slug,
+  price: products.price,
+  compareAtPrice: products.compareAtPrice,
+  imageUrl: products.imageUrl,
+  images: products.images,
+  stock: products.stock,
+  isFeatured: products.isFeatured,
+  isPromo: products.isPromo,
+  promoEndsAt: products.promoEndsAt,
+  restockAt: products.restockAt,
+  isActive: products.isActive,
+  rating: products.rating,
+  reviewsCount: products.reviewsCount,
+  categoryName: categories.name,
+} as const;
+
+const PRODUCTS_PER_CATEGORY = 6;
+
+// Deterministic per-day shuffle so "Daily Picks" order changes every day
+// without needing a cron job — same seed all day, new seed tomorrow.
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const result = [...arr];
+  let s = seed;
+  const rand = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function BannerImage({ src, alt, className }: { src: string; alt: string; className: string }) {
+  if (src.toLowerCase().endsWith('.gif')) {
+    return <img src={src} alt={alt} className={`absolute inset-0 w-full h-full ${className}`} />;
+  }
+  return <Image src={src} alt={alt} fill className={className} />;
+}
 
 export default async function HomePage() {
-  const [featuredProducts, categoriesWithCount] = await Promise.all([
+  const [
+    flashProducts, topSellerProducts, recommendedProducts,
+    categoriesWithCount, allCategoryProducts,
+    promoBanners, ctaBanners,
+  ] = await Promise.all([
+    // Combo deals — featured products
+    db
+      .select(productFields)
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(and(eq(products.isActive, true), eq(products.isPromo, true), gt(products.stock, 0)))
+      .orderBy(desc(products.createdAt))
+      .limit(16),
+
+    // Top sellers — ranked by actual units sold
     db
       .select({
-        id: products.id,
-        name: products.name,
-        slug: products.slug,
-        price: products.price,
-        compareAtPrice: products.compareAtPrice,
-        imageUrl: products.imageUrl,
-        images: products.images,
-        stock: products.stock,
-        isFeatured: products.isFeatured,
-        isActive: products.isActive,
-        categoryName: categories.name,
+        ...productFields,
+        unitsSold: sql<number>`coalesce(sum(${orderItems.quantity}), 0)`.as('units_sold'),
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(eq(products.isActive, true), eq(products.isFeatured, true)))
+      .leftJoin(orderItems, eq(products.id, orderItems.productId))
+      .where(and(eq(products.isActive, true), gt(products.stock, 0)))
+      .groupBy(products.id, categories.name)
+      .orderBy(desc(sql`coalesce(sum(${orderItems.quantity}), 0)`), desc(products.rating))
+      .limit(16),
+
+    // Recommended — newest in-stock active products
+    db
+      .select(productFields)
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(and(eq(products.isActive, true), gt(products.stock, 0)))
       .orderBy(desc(products.createdAt))
-      .limit(8),
+      .limit(24), // first page — LoadMoreProducts fetches subsequent pages
+
+    // Categories with product counts
     db
       .select({
         id: categories.id,
@@ -52,323 +118,317 @@ export default async function HomePage() {
         count: count(products.id),
       })
       .from(categories)
-      .leftJoin(products, and(eq(products.categoryId, categories.id), eq(products.isActive, true)))
+      .leftJoin(products, and(eq(products.categoryId, categories.id), eq(products.isActive, true), gt(products.stock, 0)))
       .groupBy(categories.id, categories.name, categories.slug)
       .orderBy(asc(categories.name)),
+
+    // All active in-stock products for category sections
+    db
+      .select({
+        ...productFields,
+        categorySlug: categories.slug,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(and(eq(products.isActive, true), gt(products.stock, 0)))
+      .orderBy(asc(categories.name), desc(products.createdAt))
+      .limit(120),
+
+    getActiveBanners('promo'),
+    getActiveBanners('cta'),
   ]);
 
+  // Group products by category, max PRODUCTS_PER_CATEGORY each
+  const categoryMap = new Map<string, { id: string; name: string; slug: string; items: typeof allCategoryProducts }>();
+  for (const p of allCategoryProducts) {
+    if (!p.categorySlug) continue;
+    if (!categoryMap.has(p.categorySlug)) {
+      const catMeta = categoriesWithCount.find(c => c.slug === p.categorySlug);
+      if (catMeta) categoryMap.set(p.categorySlug, { id: catMeta.id, name: catMeta.name, slug: catMeta.slug, items: [] });
+    }
+    const group = categoryMap.get(p.categorySlug);
+    if (group && group.items.length < PRODUCTS_PER_CATEGORY) group.items.push(p);
+  }
+  const categoryGroups = Array.from(categoryMap.values()).filter(g => g.items.length > 0 && g.slug !== 'bakeware');
+
+  const ctaBanner = ctaBanners[0] ?? null;
+
+  const today = new Date();
+  const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const dailyPicks = seededShuffle(recommendedProducts, daySeed).slice(0, 10);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-100">
 
-      {/* ─── HERO ─── */}
-      <section className="relative overflow-hidden min-h-[90vh] flex items-center">
-        {/* Background image with Ken Burns */}
-        <div
-          className="absolute inset-0 scale-105"
-          style={{ animation: 'kenBurns 20s ease-in-out infinite' }}
-        >
-          <Image
-            src="/hero-kitchen.png"
-            alt=""
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
-
-        {/* Layered gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/80" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
-
-        {/* Animated glow orbs */}
-        <div className="absolute top-1/4 -right-32 w-96 h-96 bg-primary/20 rounded-full blur-[120px] animate-pulse-soft" />
-        <div
-          className="absolute bottom-1/4 -left-32 w-80 h-80 bg-primary/15 rounded-full blur-[100px] animate-pulse-soft"
-          style={{ animationDelay: '1.5s' }}
-        />
-
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="py-16 lg:py-24">
-            <div className="max-w-4xl mx-auto text-center">
-
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-md rounded-full text-sm font-medium text-white mb-8 animate-fade-in border border-white/10 shadow-lg">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span>Premium Kitchen Products</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              </div>
-
-              {/* Heading */}
-              <h1 className="text-5xl sm:text-6xl lg:text-8xl font-extrabold text-white mb-6 leading-[1.1] tracking-tight animate-slide-up">
-                <span className="block">Elevate Your</span>
-                <span className="block bg-gradient-to-r from-primary via-orange-400 to-primary bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">
-                  Kitchen Experience
-                </span>
-              </h1>
-
-              {/* Subheading */}
-              <p
-                className="text-lg sm:text-xl lg:text-2xl text-white/80 mb-10 max-w-2xl mx-auto leading-relaxed animate-slide-up font-light"
-                style={{ animationDelay: '0.15s' }}
-              >
-                Discover Africa&apos;s finest collection of premium cookware,
-                smart appliances, and culinary essentials.
-              </p>
-
-              {/* CTAs */}
-              <div
-                className="flex flex-wrap justify-center gap-4 animate-slide-up"
-                style={{ animationDelay: '0.25s' }}
-              >
-                <Link
-                  href="/products"
-                  className="inline-flex items-center gap-2 h-14 px-8 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 text-white shadow-glow transition-all duration-300 hover:scale-105 group"
-                >
-                  Shop Collection
-                  <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link
-                  href="/products?category=appliances"
-                  className="inline-flex items-center h-14 px-8 text-base font-semibold rounded-full border-2 border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300"
-                >
-                  Explore Appliances
-                </Link>
-              </div>
-
-              {/* Stats */}
-              <div
-                className="flex flex-wrap justify-center gap-8 mt-14 animate-fade-in"
-                style={{ animationDelay: '0.4s' }}
-              >
-                {[
-                  { value: '10K+', label: 'Happy Customers' },
-                  { value: '500+', label: 'Products' },
-                  { value: '4.9',  label: 'Average Rating' },
-                ].map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <p className="text-3xl lg:text-4xl font-bold text-white">{stat.value}</p>
-                    <p className="text-sm text-white/60 mt-1">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
+      {/* ── COMBO DEALS ── */}
+      <section className="bg-white shadow-sm mt-3 pt-4 pb-5">
+        <div className="container mx-auto px-4 lg:px-12">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 pb-3 mb-4 border-b-2 border-amber-500">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="bg-amber-500 text-white px-4 py-2 shadow-md shadow-orange-200/70 font-black text-sm tracking-wide uppercase">
+                Combo Deals
+              </span>
             </div>
+            <Link
+              href="/combo-deals"
+              className="text-primary text-sm font-bold hover:underline flex items-center gap-1 flex-shrink-0 sm:ml-auto"
+            >
+              See All <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
 
-          {/* Feature cards — overlaid on hero */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-8 lg:pb-12">
+          {flashProducts.length > 0 ? (
+            <ProductPageSlider products={flashProducts as any} itemsPerPage={4} />
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-400 text-sm">No combo deals right now — check back soon!</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── DAILY PICKS ── */}
+      {dailyPicks.length > 0 && (
+        <div className="mt-3">
+          <HeroProductCarousel products={dailyPicks as any} />
+        </div>
+      )}
+
+      {/* ── PROMO BANNERS ── */}
+      {promoBanners.length > 0 && (
+        <section className="mt-3">
+          <div className="container mx-auto px-4 lg:px-12">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {promoBanners.slice(0, 3).map((b) => {
+                const theme = BANNER_THEMES[b.theme] ?? BANNER_THEMES.dark;
+                return (
+                  <Link
+                    key={b.id}
+                    href={b.ctaHref ?? '/products'}
+                    className="relative rounded-2xl overflow-hidden bg-white min-h-[170px] sm:min-h-[190px] flex hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 group"
+                  >
+                    {b.imageUrl && (
+                      <BannerImage
+                        src={b.imageUrl}
+                        alt={b.title}
+                        className="object-cover object-right group-hover:scale-110 transition-transform duration-500"
+                      />
+                    )}
+                    <div className={`absolute inset-0 bg-gradient-to-r ${theme.overlayFrom} ${theme.overlayVia} to-transparent`} />
+                    <div className="relative z-10 flex flex-col justify-between p-5 sm:p-6 w-[58%]">
+                      {b.eyebrow && (
+                        <span className="self-start text-[10px] font-black uppercase tracking-widest bg-white/20 text-white px-2.5 py-0.5 rounded-full">
+                          {b.eyebrow}
+                        </span>
+                      )}
+                      <div>
+                        <p className="font-black text-xl sm:text-2xl leading-tight text-white mb-1.5 drop-shadow-sm whitespace-pre-line">
+                          {b.heading}
+                        </p>
+                        {b.subheading && (
+                          <p className="text-xs sm:text-sm text-white/75 mb-4 leading-snug">{b.subheading}</p>
+                        )}
+                        {b.ctaLabel && (
+                          <span className={`inline-flex items-center gap-1.5 bg-white ${theme.ctaColor} font-black text-xs px-4 py-2 rounded-full shadow-md group-hover:shadow-lg transition-shadow`}>
+                            {b.ctaLabel} <ArrowRight className="h-3 w-3" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── TOP SELLERS ── */}
+      <section className="bg-white shadow-sm mt-3 pt-4 pb-5">
+        <div className="container mx-auto px-4 lg:px-12">
+          <div className="flex items-center justify-between pb-3 mb-4 border-b-2 border-amber-500">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-shrink-0">
+                <div className="w-11 h-11 bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center">
+                  <Trophy className="h-5 w-5 text-white" />
+                </div>
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black px-1 py-0.5 leading-none">#1</span>
+              </div>
+              <div>
+                <span className="font-black text-base text-gray-900 tracking-tight">Top Sellers</span>
+                <p className="text-[10px] text-gray-400 hidden sm:block">Most purchased by customers</p>
+              </div>
+            </div>
+            <Link
+              href="/products"
+              className="text-primary text-sm font-bold hover:underline flex items-center gap-1 flex-shrink-0"
+            >
+              See All <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          {topSellerProducts.length > 0 ? (
+            <ProductPageSlider products={topSellerProducts as any} />
+          ) : (
+            <div className="text-center py-10">
+              <p className="text-gray-400 text-sm">No top sellers yet — check back soon!</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── DEALS STRIP ── */}
+      <section className="bg-primary mt-3 py-3">
+        <div className="container mx-auto px-4 lg:px-12">
+          <div className="grid grid-cols-2 sm:flex sm:justify-center sm:gap-8 gap-y-2.5 gap-x-4">
             {[
-              { icon: Truck,       title: 'Free Delivery',   desc: 'Orders over ₦50,000' },
-              { icon: Shield,      title: 'Secure Payment',  desc: '100% protected checkout' },
-              { icon: Headphones,  title: '24/7 Support',    desc: 'Dedicated customer care' },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <div
-                key={title}
-                className="group flex items-center gap-4 bg-white/5 backdrop-blur-md rounded-2xl p-5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 animate-fade-in cursor-default"
-                style={{ animationDelay: `${0.5 + i * 0.1}s` }}
-              >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-                  <Icon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white text-lg">{title}</p>
-                  <p className="text-sm text-white/60">{desc}</p>
-                </div>
+              { icon: Truck,      text: 'Fast Delivery' },
+              { icon: Banknote,   text: 'Pay on Delivery' },
+              { icon: RotateCcw,  text: '30-Day Returns' },
+              { icon: Shield,     text: 'Secure Checkout' },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center justify-center sm:justify-start gap-1.5 text-white text-xs sm:text-sm font-semibold">
+                <Icon className="h-3.5 w-3.5 opacity-90 flex-shrink-0" />
+                <span>{text}</span>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Bottom fade into background */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
       </section>
 
-      {/* ─── CATEGORIES ─── */}
-      <section className="py-16 lg:py-24 relative overflow-hidden">
-        {/* Warm gradient background */}
-        <div className="absolute inset-0 gradient-warm opacity-50" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-[120px]" />
-
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-12 lg:mb-16">
-            <span className="inline-block text-primary font-semibold text-sm uppercase tracking-wider mb-3">
-              Browse Categories
-            </span>
-            <h2 className="text-3xl lg:text-5xl font-bold text-foreground mb-4">
-              Shop by Category
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Explore our curated collections and find the perfect additions to your kitchen
-            </p>
-          </div>
-
-          {categoriesWithCount.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 lg:gap-6">
-              {categoriesWithCount.map((cat, i) => (
+      {/* ── CATEGORY SECTIONS ── */}
+      {categoryGroups.map((group) => {
+        const catMeta = CATEGORY_META[group.slug];
+        const catImage = catMeta?.image;
+        return (
+          <section key={group.slug} className="bg-white shadow-sm mt-3 pt-4 pb-5">
+            <div className="container mx-auto px-4 lg:px-12">
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  {catImage && (
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 bg-gradient-to-br ${catMeta?.gradient ?? 'from-gray-50 to-gray-100'}`}>
+                      <Image
+                        src={catImage}
+                        alt={group.name}
+                        width={40}
+                        height={40}
+                        className="object-contain p-1"
+                        style={{ mixBlendMode: 'multiply' }}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="font-extrabold text-base text-gray-900">{group.name}</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {categoriesWithCount.find(c => c.slug === group.slug)?.count ?? 0} products available
+                    </p>
+                  </div>
+                </div>
                 <Link
-                  key={cat.id}
-                  href={`/products?category=${cat.slug}`}
-                  className="group relative bg-card rounded-2xl p-6 lg:p-8 text-center shadow-card hover:shadow-card-hover transition-all duration-500 hover:-translate-y-2 animate-fade-in overflow-hidden"
-                  style={{ animationDelay: `${i * 0.08}s` }}
+                  href={`/products?category=${group.slug}`}
+                  className="text-primary text-sm font-bold hover:underline flex items-center gap-1 flex-shrink-0"
                 >
-                  {/* Hover gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                  {/* Icon */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-primary/10 rounded-2xl scale-0 group-hover:scale-100 transition-transform duration-500" />
-                    <div className="relative text-5xl lg:text-6xl mb-4 transform group-hover:scale-110 transition-transform duration-300">
-                      {CATEGORY_ICONS[cat.slug] ?? '🛍️'}
-                    </div>
-                  </div>
-
-                  <h3 className="font-bold text-foreground group-hover:text-primary transition-colors text-base lg:text-lg relative">
-                    {cat.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-2 relative">
-                    {cat.count} {cat.count === 1 ? 'item' : 'items'}
-                  </p>
-
-                  {/* Hover arrow */}
-                  <div className="mt-4 flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <ArrowRight className="h-4 w-4 text-primary" />
-                    </div>
-                  </div>
+                  See All <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-8">No categories yet.</p>
-          )}
-        </div>
-      </section>
-
-      {/* ─── FEATURED PRODUCTS ─── */}
-      <section className="py-16 lg:py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-secondary/40 via-secondary/20 to-background" />
-
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 mb-12 lg:mb-16">
-            <div>
-              <div className="inline-flex items-center gap-2 text-primary font-semibold text-sm uppercase tracking-wider mb-3">
-                <Flame className="h-4 w-4" />
-                <span>Hot Picks</span>
               </div>
-              <h2 className="text-3xl lg:text-5xl font-bold text-foreground mb-3">
-                Featured Products
-              </h2>
-              <p className="text-muted-foreground text-lg max-w-xl">
-                Handpicked favorites loved by thousands of home chefs across Africa
+
+              <ProductPageSlider products={group.items as any} />
+            </div>
+          </section>
+        );
+      })}
+
+      {/* ── RECOMMENDED FOR YOU ── */}
+      <section className="bg-white shadow-sm mt-3 pt-5 pb-6">
+        <div className="container mx-auto px-4 lg:px-12">
+          <div className="flex items-end justify-between mb-5 pb-3 border-b border-gray-100">
+            <div>
+              <p className="text-[10px] font-bold text-primary/70 uppercase tracking-widest flex items-center gap-1 mb-1">
+                <Tag className="h-2.5 w-2.5" /> Curated For You
               </p>
+              <h2 className="font-black text-lg text-gray-900 flex items-center gap-2">
+                Recommended For You
+              </h2>
             </div>
             <Link
               href="/products"
-              className="inline-flex items-center gap-2 h-11 px-8 rounded-full border-2 border-border font-semibold text-base hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-300 group flex-shrink-0"
+              className="text-primary text-sm font-bold hover:underline flex items-center gap-1 flex-shrink-0 mb-0.5"
             >
-              View All Products
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              View All <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
 
-          {featuredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-              {featuredProducts.map((product, i) => (
-                <div
-                  key={product.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${i * 0.1}s` }}
-                >
-                  <ProductCard product={product as any} />
-                </div>
-              ))}
-            </div>
+          {recommendedProducts.length > 0 ? (
+            <LoadMoreProducts initialProducts={recommendedProducts as any} />
           ) : (
-            <div className="text-center py-16 bg-card rounded-3xl">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-secondary/50 flex items-center justify-center">
-                <Flame className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <p className="text-xl text-muted-foreground">No products available yet.</p>
-              <p className="text-muted-foreground mt-2">Check back soon for amazing products!</p>
+            <div className="text-center py-16">
+              <p className="text-gray-400">No products available yet — check back soon!</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* ─── PROMO BANNER ─── */}
-      <section className="py-16 lg:py-20">
-        <div className="container mx-auto px-4">
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-foreground via-foreground/95 to-foreground/90">
-            {/* Decorative orbs */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/15 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
-
-            {/* Dot pattern overlay */}
-            <div
-              className="absolute inset-0 opacity-5"
-              style={{ backgroundImage: DOT_PATTERN }}
-            />
-
-            <div className="relative z-10 px-8 py-14 lg:px-16 lg:py-20 flex flex-col lg:flex-row items-center justify-between gap-10">
-              <div className="text-center lg:text-left max-w-2xl">
-                {/* Badge */}
-                <div className="inline-flex items-center gap-2 bg-primary/20 backdrop-blur-sm px-5 py-2.5 rounded-full mb-6">
-                  <Zap className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-bold text-primary uppercase tracking-wider">Flash Sale</span>
-                  <div className="flex items-center gap-1 text-primary/80 text-sm font-medium ml-2">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>Ends in 24hrs</span>
-                  </div>
-                </div>
-
-                <h2 className="text-4xl lg:text-5xl xl:text-6xl font-bold text-card mb-4 leading-tight">
-                  Up to <span className="text-primary">40% Off</span>
-                  <br />Cookware &amp; Appliances
-                </h2>
-
-                <p className="text-card/70 text-lg lg:text-xl leading-relaxed">
-                  Upgrade your kitchen with professional-grade pots, pans, knives, and premium appliances.
-                  Limited stock available!
-                </p>
+      {/* ── CTA BANNER ── */}
+      {ctaBanner && (
+        <section className="mt-3">
+          <div className="container mx-auto px-4 lg:px-12">
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 px-8 py-10 lg:px-16 lg:py-14 flex flex-col lg:flex-row items-center justify-between gap-8">
+              {/* Optional background image */}
+              {ctaBanner.imageUrl && (
+                <BannerImage
+                  src={ctaBanner.imageUrl}
+                  alt={ctaBanner.title}
+                  className="object-cover object-center opacity-30"
+                />
+              )}
+              {/* Blur orbs (only shown when no image) */}
+              {!ctaBanner.imageUrl && (
+                <>
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-primary/15 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4" />
+                  <div className="absolute bottom-0 left-0 w-60 h-60 bg-primary/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/4" />
+                </>
+              )}
+              <div className="text-center lg:text-left relative z-10">
+                {ctaBanner.eyebrow && (
+                  <p className="text-primary font-semibold text-sm uppercase tracking-wider mb-2">{ctaBanner.eyebrow}</p>
+                )}
+                <h2 className="text-3xl lg:text-4xl font-extrabold text-white mb-2">{ctaBanner.heading}</h2>
+                {ctaBanner.subheading && (
+                  <p className="text-gray-400 text-base">{ctaBanner.subheading}</p>
+                )}
               </div>
-
-              {/* CTA */}
-              <div className="flex flex-col items-center lg:items-end gap-4 flex-shrink-0">
+              {ctaBanner.ctaLabel && ctaBanner.ctaHref && (
                 <Link
-                  href="/products"
-                  className="inline-flex items-center gap-2 h-16 px-10 text-lg font-bold rounded-full bg-primary hover:bg-primary/90 text-white shadow-glow transition-all duration-300 hover:scale-105 group"
+                  href={ctaBanner.ctaHref}
+                  className="relative z-10 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-base transition-all duration-200 hover:shadow-lg hover:scale-105 flex-shrink-0"
                 >
-                  Shop the Sale
-                  <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  {ctaBanner.ctaLabel}
+                  <ArrowRight className="h-5 w-5" />
                 </Link>
-                <p className="text-card/50 text-sm">*While supplies last. Terms apply.</p>
-              </div>
+              )}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* ─── TRUST BADGES ─── */}
-      <section className="py-12 lg:py-16 border-t border-border/50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 lg:gap-4">
+      {/* ── TRUST BADGES ── */}
+      <section className="bg-white mt-3 py-5 shadow-sm">
+        <div className="container mx-auto px-4 lg:px-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Truck,      title: 'Free Shipping',     desc: 'On orders over ₦50,000' },
-              { icon: RotateCcw,  title: '30-Day Returns',    desc: 'Easy hassle-free returns' },
-              { icon: Shield,     title: 'Secure Checkout',   desc: '100% payment protection' },
-              { icon: CreditCard, title: 'Flexible Payment',  desc: 'Multiple payment options' },
-              { icon: Award,      title: 'Quality Guarantee', desc: 'Premium tested products' },
-              { icon: Headphones, title: '24/7 Support',      desc: 'Dedicated customer care' },
-            ].map(({ icon: Icon, title, desc }, i) => (
-              <div
-                key={title}
-                className="flex flex-col items-center text-center group animate-fade-in"
-                style={{ animationDelay: `${i * 0.08}s` }}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:scale-110 transition-all duration-300">
-                  <Icon className="h-6 w-6 text-primary group-hover:text-primary-foreground transition-colors" />
+              { icon: Truck,      title: 'Fast Delivery',     desc: 'Nationwide delivery' },
+              { icon: Banknote,   title: 'Pay on Delivery',  desc: '' },
+              { icon: Shield,     title: 'Secure Checkout',  desc: '100% protected' },
+              { icon: RotateCcw,  title: '30-Day Returns',   desc: 'Hassle-free returns' },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="flex flex-col items-center text-center gap-2 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                <div className="w-10 h-10 rounded-full bg-orange-50 border-2 border-orange-100 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-5 w-5 text-primary" />
                 </div>
-                <h3 className="font-semibold text-foreground text-sm lg:text-base mb-1">{title}</h3>
-                <p className="text-xs lg:text-sm text-muted-foreground">{desc}</p>
+                <div>
+                  <p className="font-bold text-xs sm:text-sm text-gray-800">{title}</p>
+                  {desc && <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">{desc}</p>}
+                </div>
               </div>
             ))}
           </div>

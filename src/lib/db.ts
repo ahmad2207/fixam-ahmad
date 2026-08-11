@@ -9,9 +9,10 @@ const client =
   globalForDb._pgClient ??
   postgres(process.env.DATABASE_URL!, {
     ssl: 'require',
-    max: 10,
+    max: 1,
+    idle_timeout: 20,
   });
 
-if (process.env.NODE_ENV !== 'production') globalForDb._pgClient = client;
+globalForDb._pgClient = client;
 
 export const db = drizzle(client, { schema });

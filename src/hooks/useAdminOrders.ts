@@ -26,8 +26,8 @@ export interface OrderItem {
 
 export interface PaymentTransaction {
   id: string;
-  flutterwaveTxRef: string | null;
-  flutterwaveTransactionId: string | null;
+  paystackReference: string | null;
+  paystackTransactionId: string | null;
   amount: string;
   customerName: string | null;
   customerEmail: string | null;

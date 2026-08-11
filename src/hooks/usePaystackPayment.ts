@@ -28,7 +28,7 @@ interface CheckoutPayload {
   customerPhone: string;
 }
 
-export function useFlutterwavePayment() {
+export function usePaystackPayment() {
   const { clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export function useFlutterwavePayment() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Payment initiation failed');
 
-      // Redirect to Flutterwave hosted page
+      // Redirect to Paystack hosted page
       window.location.href = data.link;
     } catch (err: any) {
       setError(err.message);
@@ -53,14 +53,14 @@ export function useFlutterwavePayment() {
     }
   };
 
-  const verifyPayment = async (transactionId: string, txRef: string) => {
+  const verifyPayment = async (reference: string) => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/payment/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transaction_id: transactionId, tx_ref: txRef }),
+        body: JSON.stringify({ reference }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Verification failed');

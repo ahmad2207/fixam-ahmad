@@ -64,6 +64,97 @@
       "when": 1780052584333,
       "tag": "0008_faulty_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780735817387,
+      "tag": "0009_absurd_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780742277791,
+      "tag": "0010_eager_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780753721865,
+      "tag": "0011_pink_anthem",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780809174690,
+      "tag": "0012_aspiring_thunderbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1750636800000,
+      "tag": "0013_recovery_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1750723200000,
+      "tag": "0014_stock_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1783641600000,
+      "tag": "0015_promo_ends_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1752451200000,
+      "tag": "0016_fix_accounts_pk",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784111827214,
+      "tag": "0017_restock_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784889873755,
+      "tag": "0018_paystack_rename",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786060800000,
+      "tag": "0019_add_product_barcode",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786265005826,
+      "tag": "0020_reapply_accounts_pk",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786266418698,
+      "tag": "0021_payment_notification_columns",
+      "breakpoints": true
     }
   ]
 }

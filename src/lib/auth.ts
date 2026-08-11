@@ -5,10 +5,16 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { users, userRoles, profiles } from '@/db/schema';
+import { users, userRoles, profiles, accounts, sessions, verificationTokens } from '@/db/schema';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: DrizzleAdapter(db),
+  adapter: DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    sessionsTable: sessions,
+    verificationTokensTable: verificationTokens,
+  }),
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',
@@ -21,8 +27,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        // Brute-force guard — one source hammering login attempts, not a
+        // distributed attack across many IPs (that needs a different defense).
+        const ip = getClientIp(request);
+        const { success } = await checkRateLimit('login', ip);
+        if (!success) return null;
 
         const user = await db
           .select()
@@ -58,6 +70,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Google verifies email ownership itself, so it's safe to link a Google
+      // sign-in to an existing credentials account with the same email.
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   events: {
@@ -79,7 +94,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role ?? 'customer';
+        // Credentials provider sets role directly; OAuth providers don't — fetch from DB
+        if ((user as any).role) {
+          token.role = (user as any).role;
+        } else {
+          const roleRow = await db
+            .select()
+            .from(userRoles)
+            .where(eq(userRoles.userId, user.id!))
+            .limit(1)
+            .then((r) => r[0]);
+          token.role = roleRow?.role ?? 'customer';
+        }
       }
       return token;
     },

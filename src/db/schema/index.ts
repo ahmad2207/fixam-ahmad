@@ -18,3 +18,6 @@ export * from './storeSettings';
 export * from './adminAuditLog';
 export * from './passwordResetTokens';
 export * from './newsletterSubscribers';
+export * from './banners';
+export * from './contactMessages';
+export * from './stockNotifications';

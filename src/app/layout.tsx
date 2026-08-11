@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Oswald } from 'next/font/google';
 import './globals.css';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { SessionProvider } from '@/providers/SessionProvider';
@@ -13,6 +13,13 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
+const oswald = Oswald({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+  variable: '--font-oswald',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'Fixam Africa',
   description: 'Quality products delivered to you',
@@ -21,7 +28,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.variable} font-sans min-h-full flex flex-col antialiased`}>
+      <body className={`${inter.variable} ${oswald.variable} font-sans min-h-full flex flex-col antialiased`}>
         <SessionProvider>
           <QueryProvider>
             <CartProvider>

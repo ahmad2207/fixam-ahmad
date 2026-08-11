@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, boolean, integer, primaryKey } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -19,12 +19,14 @@ export const accounts = pgTable('accounts', {
   providerAccountId: text('provider_account_id').notNull(),
   refresh_token: text('refresh_token'),
   access_token: text('access_token'),
-  expires_at: text('expires_at'),
+  expires_at: integer('expires_at'),
   token_type: text('token_type'),
   scope: text('scope'),
   id_token: text('id_token'),
   session_state: text('session_state'),
-});
+}, (t) => ({
+  pk: primaryKey({ columns: [t.provider, t.providerAccountId] }),
+}));
 
 export const sessions = pgTable('sessions', {
   sessionToken: text('session_token').primaryKey(),
@@ -36,4 +38,6 @@ export const verificationTokens = pgTable('verification_tokens', {
   identifier: text('identifier').notNull(),
   token: text('token').notNull(),
   expires: timestamp('expires', { mode: 'date' }).notNull(),
-});
+}, (t) => ({
+  pk: primaryKey({ columns: [t.identifier, t.token] }),
+}));
