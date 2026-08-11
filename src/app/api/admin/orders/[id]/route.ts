@@ -7,6 +7,7 @@ import {
 import { eq, inArray } from 'drizzle-orm';
 import { logAdminAction } from '@/lib/auditLog';
 import { sendPaymentConfirmedEmail } from '@/lib/orderNotifications';
+import { restoreStockForOrder } from '@/lib/inventory';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -131,7 +132,29 @@ export async function DELETE(_: NextRequest, { params }: Params) {
   const [existing] = await db.select().from(orders).where(eq(orders.id, id));
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  await db.delete(orders).where(eq(orders.id, id));
+  const restored = await db.transaction(async (tx) => {
+    // If this order was already cancelled, its stock was already restored
+    // at that point (see the status route) — restoring it again here would
+    // double-count it. Only restore if it's being deleted directly, never
+    // having gone through a cancellation first.
+    const restored = existing.status !== 'cancelled'
+      ? await restoreStockForOrder(id, `Restored: order ${existing.orderNumber ?? id} was deleted`, tx)
+      : [];
+
+    // order_items cascade-deletes with the order (see schema), but
+    // batch_allocations.orderItemId has no real FK/cascade to it (kept
+    // that way to avoid a circular import — see the schema file's own
+    // comment) — without this, deleting the order would leave orphaned
+    // allocation rows pointing at order_items that no longer exist.
+    const items = await tx.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.orderId, id));
+    if (items.length) {
+      await tx.delete(batchAllocations).where(inArray(batchAllocations.orderItemId, items.map((i) => i.id)));
+    }
+
+    await tx.delete(orders).where(eq(orders.id, id));
+
+    return restored;
+  });
 
   await logAdminAction({
     userId: session.user?.id ?? '',
@@ -143,5 +166,5 @@ export async function DELETE(_: NextRequest, { params }: Params) {
     after: null,
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, stockRestored: restored });
 }

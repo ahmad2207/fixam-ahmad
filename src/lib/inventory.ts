@@ -11,6 +11,20 @@ import { eq, and, gt, asc, sql, inArray } from 'drizzle-orm';
 import { calculateDeliveryFee } from '@/lib/deliveryFees';
 import { getDeliveryConfigFromDb } from '@/lib/deliveryConfigServer';
 
+// Shared executor type: either the plain `db` connection or an active
+// transaction handle (from db.transaction(async (tx) => ...)). Any function
+// here that might run inside a caller's transaction MUST thread this through
+// consistently rather than falling back to the plain `db` — this pool is
+// configured with max: 1 (a single connection, total), so a transaction
+// that internally calls a helper using the plain `db` deadlocks: the
+// transaction holds the pool's only connection and then blocks forever
+// waiting for a second one to run the helper's query on, a connection that
+// can never free up until the transaction itself finishes. Confirmed this
+// exact deadlock live once already (see git history) — every new function
+// added here needs to avoid repeating it.
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbOrTx = typeof db | Tx;
+
 // ─── Validate & Price Checkout Items ───────────────────────────────────────
 // The client can only choose WHAT to buy — never at what price. This
 // recomputes subtotal/delivery fee/total from the live products table and
@@ -121,19 +135,117 @@ export async function addInventoryBatch(
 // ─── Sync Product Stock From Batches ───────────────────────────────────────
 // Recalculates products.stock as the sum of all batch quantities.
 // Call after any manual batch edit or delete.
-export async function syncProductStockFromBatches(productId: string): Promise<number> {
-  const result = await db
+//
+// Pass `tx` when calling this from inside an active transaction — see the
+// DbOrTx comment above for why this matters with this pool's max: 1 config.
+export async function syncProductStockFromBatches(productId: string, tx?: DbOrTx): Promise<number> {
+  const executor = tx ?? db;
+  const result = await executor
     .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
     .from(inventoryBatches)
     .where(eq(inventoryBatches.productId, productId))
     .then((r) => r[0]?.total ?? 0);
 
-  await db
+  await executor
     .update(products)
     .set({ stock: result })
     .where(eq(products.id, productId));
 
   return result;
+}
+
+export interface RestoredStockLine {
+  productId: string;
+  productName: string;
+  quantityRestored: number;
+  exact: boolean; // false when restored via a new compensating batch rather than the original one(s)
+}
+
+// ─── Restore Stock For Order ───────────────────────────────────────────────
+// Reverses the inventory deduction for every item on an order — call this
+// when an order is cancelled or deleted, before the order/its rows are
+// touched (so order_items/batch_allocations are still readable).
+//
+// Two cases per item:
+//  - It has batch_allocations rows (online orders — created by
+//    consumeStockReservationsForOrder): restore each allocation's exact
+//    quantity back to the exact batch it came from. Precise.
+//  - It has none (POS sales — deductPOSInventory never records
+//    batch_allocations; POS COGS is estimated separately, see that
+//    function's own comment): we know the product and quantity but not
+//    which original batch it was drawn from, so create a new compensating
+//    batch for that quantity instead, using the product's own cost price
+//    as the best available estimate (same approach used for the one-time
+//    inventory reconciliation).
+//
+// Pass `tx` when calling this from inside an active transaction.
+export async function restoreStockForOrder(
+  orderId: string,
+  reason: string,
+  tx?: DbOrTx,
+): Promise<RestoredStockLine[]> {
+  const executor = tx ?? db;
+
+  const items = await executor.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  if (!items.length) return [];
+
+  const itemIds = items.map((i) => i.id);
+  const allocations = await executor
+    .select()
+    .from(batchAllocations)
+    .where(inArray(batchAllocations.orderItemId, itemIds));
+
+  const allocByItem = new Map<string, typeof allocations>();
+  for (const a of allocations) {
+    if (!allocByItem.has(a.orderItemId)) allocByItem.set(a.orderItemId, []);
+    allocByItem.get(a.orderItemId)!.push(a);
+  }
+
+  const results: RestoredStockLine[] = [];
+  const touchedProductIds = new Set<string>();
+
+  for (const item of items) {
+    // productId is nullable (set null if the product itself was later
+    // deleted) — nothing real to restore stock into in that case.
+    if (!item.productId) continue;
+
+    const itemAllocations = allocByItem.get(item.id) ?? [];
+
+    if (itemAllocations.length > 0) {
+      for (const alloc of itemAllocations) {
+        await executor
+          .update(inventoryBatches)
+          .set({ quantityAvailable: sql`${inventoryBatches.quantityAvailable} + ${alloc.quantity}` })
+          .where(eq(inventoryBatches.id, alloc.batchId));
+      }
+    } else {
+      const [product] = await executor
+        .select({ costPrice: products.costPrice })
+        .from(products)
+        .where(eq(products.id, item.productId));
+
+      await executor.insert(inventoryBatches).values({
+        productId: item.productId,
+        quantityAvailable: item.quantity,
+        costPrice: product?.costPrice ?? '0',
+        notes: reason,
+      });
+    }
+
+    touchedProductIds.add(item.productId);
+    results.push({
+      productId: item.productId,
+      productName: item.productName,
+      quantityRestored: item.quantity,
+      exact: itemAllocations.length > 0,
+    });
+  }
+
+  for (const productId of touchedProductIds) {
+    await syncProductStockFromBatches(productId, executor);
+  }
+
+  return results;
 }
 
 // Extracted so deductPOSInventory can either run standalone (opening its own
@@ -143,9 +255,6 @@ export async function syncProductStockFromBatches(productId: string): Promise<nu
 // Nesting a second top-level db.transaction() inside that outer one would
 // NOT actually be atomic with it: a failure on item 3 would still leave
 // items 1-2's deductions permanently committed.
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type DbOrTx = typeof db | Tx;
-
 async function deductPOSInventoryInner(
   tx: DbOrTx,
   productId: string,
