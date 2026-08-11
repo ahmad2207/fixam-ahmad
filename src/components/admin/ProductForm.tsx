@@ -137,6 +137,10 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
   const [barcodeLoading, setBarcodeLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showLabelPreview, setShowLabelPreview] = useState(false);
+  // AI output lands here first, not straight into the form — the admin
+  // reviews it and clicks Confirm before it overwrites anything they may
+  // have already typed.
+  const [pendingAi, setPendingAi] = useState<{ description: string; variations: Variation[]; specs: SpecEntry[] } | null>(null);
 
   const [form, setForm] = useState(() => ({ ...DEFAULT_VALUES, ...initialValues }));
 
@@ -197,24 +201,43 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
       if (!res.ok) throw new Error((await res.json()).error ?? 'Generation failed');
       const data = await res.json();
 
-      setForm((p) => ({
-        ...p,
-        description: data.description ?? p.description,
+      const generated = {
+        description: data.description ?? '',
         variations: data.variations?.length > 0
           ? data.variations.map((v: { name: string; options: string[] }) => ({ name: v.name, options: v.options.join(', ') }))
-          : p.variations,
+          : [],
         specs: data.specifications && Object.keys(data.specifications).length > 0
           ? Object.entries(data.specifications as Record<string, string>).map(([key, value]) => ({ key, value: String(value) }))
-          : p.specs,
-      }));
+          : [],
+      };
 
-      toast.success('Description, variations & specifications generated — review and edit as needed');
+      if (!generated.description && generated.variations.length === 0 && generated.specs.length === 0) {
+        toast.error("AI didn't return any usable suggestions — try again");
+        return;
+      }
+
+      setPendingAi(generated);
+      toast.success('AI suggestions ready — review below and confirm to apply');
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setAiLoading(false);
     }
   };
+
+  const confirmAiSuggestions = () => {
+    if (!pendingAi) return;
+    setForm((p) => ({
+      ...p,
+      description: pendingAi.description || p.description,
+      variations: pendingAi.variations.length > 0 ? pendingAi.variations : p.variations,
+      specs: pendingAi.specs.length > 0 ? pendingAi.specs : p.specs,
+    }));
+    setPendingAi(null);
+    toast.success('AI suggestions applied');
+  };
+
+  const discardAiSuggestions = () => setPendingAi(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -475,6 +498,67 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
           )}
         </button>
       </div>
+
+      {/* ── AI suggestions awaiting review ── */}
+      {pendingAi && (
+        <div className="bg-white border-2 border-violet-300 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-violet-600" />
+            <h3 className="font-bold text-sm text-gray-900">Review AI suggestions</h3>
+            <p className="text-xs text-muted-foreground">Nothing is applied until you confirm</p>
+          </div>
+
+          {pendingAi.description && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-1">Description</p>
+              <p className="text-sm text-foreground bg-muted/40 rounded-lg p-3 whitespace-pre-wrap">{pendingAi.description}</p>
+            </div>
+          )}
+
+          {pendingAi.variations.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-1">Variations</p>
+              <div className="space-y-1">
+                {pendingAi.variations.map((v, i) => (
+                  <p key={i} className="text-sm text-foreground">
+                    <span className="font-semibold">{v.name}:</span> {v.options}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {pendingAi.specs.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-1">Specifications</p>
+              <div className="space-y-1">
+                {pendingAi.specs.map((s, i) => (
+                  <p key={i} className="text-sm text-foreground">
+                    <span className="font-semibold">{s.key}:</span> {s.value}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={discardAiSuggestions}
+              className="flex-1 border border-border rounded-xl py-2 text-sm font-semibold hover:bg-muted/40 transition-colors"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={confirmAiSuggestions}
+              className="flex-1 bg-violet-600 hover:bg-violet-700 text-white rounded-xl py-2 text-sm font-bold transition-colors"
+            >
+              Confirm & Apply
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Variations */}
       <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">

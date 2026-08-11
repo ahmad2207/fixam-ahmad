@@ -5,7 +5,7 @@ import { products, categories, inventoryBatches, stockReservations, stockNotific
 import { eq, asc, isNull, count, desc } from 'drizzle-orm';
 import { formatCurrency } from '@/lib/utils';
 import { InventoryTabsClient } from '@/components/admin/InventoryTabsClient';
-import { Package, DollarSign, AlertTriangle, TrendingDown, Bell } from 'lucide-react';
+import { DollarSign, AlertTriangle, TrendingDown, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default async function AdminInventoryPage() {
@@ -85,46 +85,30 @@ export default async function AdminInventoryPage() {
     expiresAt: r.expiresAt.toISOString(),
   }));
 
-  const metrics = [
-    {
-      label: 'Total Units',
-      value: totalUnits.toLocaleString(),
-      icon: Package,
-      accentBg: 'bg-primary/10',
-      accentText: 'text-primary',
-      border: 'border-l-4 border-l-primary',
-    },
-    {
-      label: 'Inventory Value',
-      value: formatCurrency(inventoryValue),
-      icon: DollarSign,
-      accentBg: 'bg-emerald-50',
-      accentText: 'text-emerald-600',
-      border: 'border-l-4 border-l-emerald-500',
-    },
+  // Three things that need someone to act on them today — Inventory Value
+  // (below) isn't in this set on purpose: it's a level, not an alert.
+  const actionMetrics = [
     {
       label: 'Out of Stock',
-      value: outOfStock.toString(),
+      value: outOfStock,
       icon: AlertTriangle,
-      accentBg: outOfStock > 0 ? 'bg-red-50' : 'bg-muted',
-      accentText: outOfStock > 0 ? 'text-red-500' : 'text-muted-foreground',
-      border: outOfStock > 0 ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-border',
+      bg: outOfStock > 0 ? 'bg-red-50' : 'bg-muted',
+      text: outOfStock > 0 ? 'text-red-500' : 'text-muted-foreground',
     },
     {
-      label: 'Low Stock (<10)',
-      value: lowStock.toString(),
+      label: 'Low Stock',
+      sub: 'under 10 units',
+      value: lowStock,
       icon: TrendingDown,
-      accentBg: lowStock > 0 ? 'bg-amber-50' : 'bg-muted',
-      accentText: lowStock > 0 ? 'text-amber-600' : 'text-muted-foreground',
-      border: lowStock > 0 ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-border',
+      bg: lowStock > 0 ? 'bg-amber-50' : 'bg-muted',
+      text: lowStock > 0 ? 'text-amber-600' : 'text-muted-foreground',
     },
     {
       label: 'Waitlist Alerts',
-      value: pendingAlerts.toString(),
+      value: pendingAlerts,
       icon: Bell,
-      accentBg: pendingAlerts > 0 ? 'bg-violet-50' : 'bg-muted',
-      accentText: pendingAlerts > 0 ? 'text-violet-600' : 'text-muted-foreground',
-      border: pendingAlerts > 0 ? 'border-l-4 border-l-violet-500' : 'border-l-4 border-l-border',
+      bg: pendingAlerts > 0 ? 'bg-violet-50' : 'bg-muted',
+      text: pendingAlerts > 0 ? 'text-violet-600' : 'text-muted-foreground',
     },
   ];
 
@@ -137,21 +121,50 @@ export default async function AdminInventoryPage() {
         <p className="text-sm text-muted-foreground mt-0.5">{productRows.length} products tracked across {batchRows.length} batches</p>
       </div>
 
-      {/* ── Metric Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {metrics.map(({ label, value, icon: Icon, accentBg, accentText, border }) => (
-          <div key={label} className={cn('bg-card rounded-2xl px-4 py-3.5 border border-border shadow-sm', border)}>
-            <div className="flex items-start justify-between gap-1.5">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 leading-tight">{label}</p>
-                <p className="text-lg font-black text-foreground leading-none truncate">{value}</p>
-              </div>
-              <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5', accentBg)}>
-                <Icon className={cn('h-3.5 w-3.5', accentText)} />
-              </div>
+      {/* ── Key Metrics ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+        {/* Inventory Value — the number this page exists to answer, so it
+            gets a full-width card of its own rather than competing for space
+            with the other stats. Set in the same ledger typeface (font-receipt)
+            the POS terminal uses for money, so a Naira figure of any size —
+            ₦84,213,500 or ₦8.4bn — always renders in full. */}
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-card p-5 sm:p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-emerald-800/80 uppercase tracking-widest mb-2">
+                Total Inventory Value
+              </p>
+              <p className="font-receipt font-bold text-emerald-900 tabular-nums leading-none text-[26px] sm:text-3xl lg:text-[34px] break-words">
+                {formatCurrency(inventoryValue)}
+              </p>
+              <p className="text-xs text-emerald-800/70 mt-2.5">
+                {totalUnits.toLocaleString()} units in stock across {batchRows.length} {batchRows.length === 1 ? 'batch' : 'batches'}
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-xl bg-emerald-600/15 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="h-5 w-5 text-emerald-700" />
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* Stock health — the things that need action */}
+        <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+          <div className="grid grid-cols-3 divide-x divide-border h-full">
+            {actionMetrics.map(({ label, sub, value, icon: Icon, bg, text }) => (
+              <div key={label} className="px-3 sm:px-4 py-4 sm:py-5 flex flex-col gap-2.5">
+                <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', bg)}>
+                  <Icon className={cn('h-3.5 w-3.5', text)} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl font-black text-foreground leading-none tabular-nums">{value.toLocaleString()}</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1.5 leading-tight">{label}</p>
+                  {sub && <p className="text-[10px] text-muted-foreground/70 leading-tight">{sub}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── Tabs ── */}

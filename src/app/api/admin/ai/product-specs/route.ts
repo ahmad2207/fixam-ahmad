@@ -81,8 +81,26 @@ export async function POST(req: NextRequest) {
       variations: Array.isArray(data.variations) ? data.variations : [],
       specifications: data.specifications && typeof data.specifications === 'object' ? data.specifications : {},
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[ai/product-specs] error:', err);
-    return NextResponse.json({ error: 'Failed to generate specs' }, { status: 500 });
+
+    // The Gemini free tier caps requests per model per day (as low as 20/day
+    // on some models) — every admin clicking "Generate" a handful of times
+    // burns through that fast, and the SDK reports it as a 429 with "quota"
+    // in the message rather than anything obviously rate-limit-shaped. Worth
+    // telling the admin that specifically: "Failed to generate specs" reads
+    // like a bug to retry immediately, when retrying immediately just fails
+    // again until the daily quota resets (or the plan is upgraded).
+    const message = typeof err?.message === 'string' ? err.message : '';
+    const isRateLimited = err?.status === 429 || /quota|Too Many Requests/i.test(message);
+
+    return NextResponse.json(
+      {
+        error: isRateLimited
+          ? "The AI service's daily request quota has been used up — try again later, or check the Gemini API plan/billing."
+          : 'Failed to generate specs',
+      },
+      { status: isRateLimited ? 429 : 500 },
+    );
   }
 }

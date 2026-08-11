@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import {
-  useAdminOrders, useAdminOrdersSummary, useUpdateOrderStatus, useGenerateOrderReceipt, useDeleteOrder,
+  useAdminOrders, useAdminOrdersSummary, useUpdateOrderStatus, useGenerateOrderReceipt,
 } from '@/hooks/useAdminOrders';
 import { formatCurrency } from '@/lib/utils';
 import {
   Search, Package, TruckIcon, Clock, DollarSign, ReceiptText,
-  Trash2, ChevronDown, ChevronLeft, ChevronRight, ShoppingCart, AlertCircle,
+  ChevronDown, ChevronLeft, ChevronRight, ShoppingCart,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -66,7 +66,6 @@ export default function AdminOrdersPage() {
   const [activeTab, setActiveTab] = useState<StatusTab>('All');
   const [search, setSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useAdminOrders({
@@ -80,7 +79,6 @@ export default function AdminOrdersPage() {
   const { data: summary } = useAdminOrdersSummary();
   const updateStatus = useUpdateOrderStatus();
   const generateReceipt = useGenerateOrderReceipt();
-  const deleteOrder = useDeleteOrder();
 
   const filtered = (orders ?? []).filter((o) => {
     const q = search.toLowerCase();
@@ -115,15 +113,6 @@ export default function AdminOrdersPage() {
       router.push(`/admin/receipts/${receipt.id}`);
     } catch {
       toast.error('Failed to generate receipt');
-    }
-  };
-
-  const handleDelete = async (orderId: string) => {
-    try {
-      await deleteOrder.mutateAsync(orderId);
-      setDeletingId(null);
-    } catch {
-      // toast shown by hook
     }
   };
 
@@ -279,13 +268,6 @@ export default function AdminOrdersPage() {
                     >
                       <ReceiptText className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => setDeletingId(row.id)}
-                      title="Delete"
-                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -381,13 +363,6 @@ export default function AdminOrdersPage() {
                           >
                             <ReceiptText className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => setDeletingId(row.id)}
-                            title="Delete Order"
-                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -431,41 +406,6 @@ export default function AdminOrdersPage() {
           </div>
         )}
       </div>
-
-      {/* ── Delete Confirmation Dialog ── */}
-      {deletingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-card rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4 border border-border">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-              </div>
-              <div>
-                <h3 className="font-bold text-foreground">Delete Order?</h3>
-                <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              This will permanently delete the order and all its items.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeletingId(null)}
-                className="flex-1 px-4 py-2.5 border border-border rounded-xl text-sm font-semibold hover:bg-secondary transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(deletingId)}
-                disabled={deleteOrder.isPending}
-                className="flex-1 px-4 py-2.5 bg-destructive text-destructive-foreground rounded-xl text-sm font-semibold hover:bg-destructive/90 transition disabled:opacity-50"
-              >
-                {deleteOrder.isPending ? 'Deleting…' : 'Delete Order'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
