@@ -131,3 +131,4 @@
  GET /api/admin/settings/general 200 in 4.6s (next.js: 3.0s, application-code: 1609ms)
 ○ Compiling /products/[slug] ...
  GET /products/qasa-microwave-oven-qmw-20l-grill 200 in 41s (next.js: 12.9s, application-code: 28.3s)
+[?25h
