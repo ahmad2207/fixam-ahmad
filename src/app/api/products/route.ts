@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, categories, reviews } from '@/db/schema';
 import { eq, and, or, ilike, desc, avg, count, sql, inArray } from 'drizzle-orm';
+import { hasProductImageSql } from '@/lib/productFilters';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -9,6 +10,12 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search');
   const featured = searchParams.get('featured') === 'true';
   const ids = searchParams.get('ids');
+  // Opt-in only — POS and the admin panel use this same endpoint and need
+  // every product regardless of whether a photo's been uploaded yet. Only
+  // storefront pagination (LoadMoreProducts, past the first SSR'd page)
+  // passes this, to match the has-image filtering already applied to that
+  // first page server-side.
+  const hasImage = searchParams.get('hasImage') === 'true';
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   // No `limit` param at all means "fetch everything" (used by the POS, the storefront's
   // client-side-filtered browse page, wishlist, etc). Only clamp to [1, 48] when a limit
@@ -26,6 +33,7 @@ export async function GET(req: NextRequest) {
   if (categoryId) conditions.push(eq(products.categoryId, categoryId));
   if (featured) conditions.push(eq(products.isFeatured, true));
   if (search) conditions.push(or(ilike(products.name, `%${search}%`), ilike(products.barcode, `%${search}%`))!);
+  if (hasImage) conditions.push(hasProductImageSql);
 
   let query = db
     .select({

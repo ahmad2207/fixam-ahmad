@@ -32,16 +32,19 @@ export function LoadMoreProducts({ initialProducts }: { initialProducts: Product
   const loadMore = () => {
     startTransition(async () => {
       const nextPage = page + 1;
-      const res = await fetch(`/api/products?page=${nextPage}&limit=${PAGE_SIZE}`);
+      // hasImage=true — same filtering as the SSR'd first page, applied
+      // server-side rather than after the fact. Without it, a page ranked/
+      // paginated with no idea about images could come back mostly filtered
+      // away client-side, making "See More" feel like it did nothing.
+      const res = await fetch(`/api/products?page=${nextPage}&limit=${PAGE_SIZE}&hasImage=true`);
       const data: Product[] = await res.json();
       setItems((prev) => {
         const existingIds = new Set(prev.map((p) => p.id));
+        // .filter(hasProductImage) here is just a defensive backstop — the
+        // server already only returns image-having products for this request.
         return [...prev, ...data.filter((p) => !existingIds.has(p.id) && hasProductImage(p))];
       });
       setPage(nextPage);
-      // Page is "full" (more to load) based on the raw server page size, not the
-      // post-filter count — otherwise a page full of image-less products would
-      // look like the last page and stop pagination early.
       setHasMore(data.length === PAGE_SIZE);
     });
   };

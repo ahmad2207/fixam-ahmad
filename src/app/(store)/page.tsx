@@ -5,6 +5,7 @@ import { LoadMoreProducts } from '@/components/store/LoadMoreProducts';
 import { HeroProductCarousel } from '@/components/store/HeroProductCarousel';
 import { ProductPageSlider } from '@/components/store/ProductPageSlider';
 import { getActiveBanners } from '@/lib/serverBanners';
+import { hasProductImageSql } from '@/lib/productFilters';
 import { BANNER_THEMES } from '@/db/schema/banners';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -45,8 +46,6 @@ const productFields = {
   reviewsCount: products.reviewsCount,
   categoryName: categories.name,
 } as const;
-
-const PRODUCTS_PER_CATEGORY = 6;
 
 // Deterministic per-day shuffle so "Daily Picks" order changes every day
 // without needing a cron job — same seed all day, new seed tomorrow.
@@ -95,17 +94,19 @@ export default async function HomePage() {
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .leftJoin(orderItems, eq(products.id, orderItems.productId))
-      .where(and(eq(products.isActive, true), gt(products.stock, 0)))
+      .where(and(eq(products.isActive, true), gt(products.stock, 0), hasProductImageSql))
       .groupBy(products.id, categories.name)
       .orderBy(desc(sql`coalesce(sum(${orderItems.quantity}), 0)`), desc(products.rating))
       .limit(16),
 
-    // Recommended — newest in-stock active products
+    // Recommended — newest in-stock active products. Also the source for
+    // "Daily Picks" below (a shuffled slice of this same list), so filtering
+    // here covers both sections in one place.
     db
       .select(productFields)
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(eq(products.isActive, true), gt(products.stock, 0)))
+      .where(and(eq(products.isActive, true), gt(products.stock, 0), hasProductImageSql))
       .orderBy(desc(products.createdAt))
       .limit(24), // first page — LoadMoreProducts fetches subsequent pages
 
@@ -122,7 +123,10 @@ export default async function HomePage() {
       .groupBy(categories.id, categories.name, categories.slug)
       .orderBy(asc(categories.name)),
 
-    // All active in-stock products for category sections
+    // Every active, in-stock, photographed product for the category
+    // sections — deliberately unlimited (not sliced to a handful per
+    // category) so every product with a real image shows up, not just
+    // whichever happened to be newest.
     db
       .select({
         ...productFields,
@@ -130,15 +134,15 @@ export default async function HomePage() {
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(eq(products.isActive, true), gt(products.stock, 0)))
-      .orderBy(asc(categories.name), desc(products.createdAt))
-      .limit(120),
+      .where(and(eq(products.isActive, true), gt(products.stock, 0), hasProductImageSql))
+      .orderBy(asc(categories.name), desc(products.createdAt)),
 
     getActiveBanners('promo'),
     getActiveBanners('cta'),
   ]);
 
-  // Group products by category, max PRODUCTS_PER_CATEGORY each
+  // Group products by category — every photographed product in the category,
+  // not a capped handful (see the query above for why it's unlimited).
   const categoryMap = new Map<string, { id: string; name: string; slug: string; items: typeof allCategoryProducts }>();
   for (const p of allCategoryProducts) {
     if (!p.categorySlug) continue;
@@ -146,8 +150,7 @@ export default async function HomePage() {
       const catMeta = categoriesWithCount.find(c => c.slug === p.categorySlug);
       if (catMeta) categoryMap.set(p.categorySlug, { id: catMeta.id, name: catMeta.name, slug: catMeta.slug, items: [] });
     }
-    const group = categoryMap.get(p.categorySlug);
-    if (group && group.items.length < PRODUCTS_PER_CATEGORY) group.items.push(p);
+    categoryMap.get(p.categorySlug)?.items.push(p);
   }
   const categoryGroups = Array.from(categoryMap.values()).filter(g => g.items.length > 0 && g.slug !== 'bakeware');
 
