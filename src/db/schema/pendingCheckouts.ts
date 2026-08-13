@@ -17,6 +17,7 @@ export const pendingCheckouts = pgTable('pending_checkouts', {
     quantity: number;
     price: number;
     variation: string | null;
+    variationOption: string | null;
   }>>(),
   shippingAddress: jsonb('shipping_address').$type<{
     fullName: string;

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 import { ProductDetailClient } from '@/components/store/ProductDetailClient';
+import { getVariationPricing } from '@/lib/inventory';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -48,6 +49,7 @@ export default async function ProductPage({ params }: Props) {
     imageUrl: products.imageUrl,
     images: products.images,
     stock: products.stock,
+    pricedVariationName: products.pricedVariationName,
     isFeatured: products.isFeatured,
     isActive: products.isActive,
     rating: products.rating,
@@ -75,6 +77,12 @@ export default async function ProductPage({ params }: Props) {
       : Promise.resolve([]),
   ]);
 
+  // No cost — that stays admin-only. Present only when this product prices
+  // by variation; absent (null) otherwise, same as before.
+  const variationPricing = row.product.pricedVariationName
+    ? (await getVariationPricing(row.product.id)).map((v) => ({ option: v.option, price: v.price, stock: v.stock }))
+    : null;
+
   // Explicitly pick only serialisable fields — avoids passing Date objects
   // (createdAt / updatedAt) from a Server Component to a Client Component.
   const p = row.product;
@@ -92,6 +100,8 @@ export default async function ProductPage({ params }: Props) {
         stock:          p.stock,
         sku:            p.sku,
         variations:     p.variations ?? undefined,
+        pricedVariationName: p.pricedVariationName,
+        variationPricing,
         specifications: (p.specifications as Record<string, string> | null) ?? undefined,
         category:       row.category,
         isPromo:        p.isPromo,

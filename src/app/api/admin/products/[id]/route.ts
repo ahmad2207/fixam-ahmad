@@ -29,10 +29,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json();
 
-  // `stock` is deliberately discarded here, no matter what the client
-  // sends — this route never touches that column. The only way to move it
-  // is through a real batch via POST /api/admin/inventory/[productId]/batches.
-  const { promoEndsAt, restockAt, stock: _stock, ...rest } = body;
+  // `stock`, `price` and `costPrice` are deliberately discarded here, no
+  // matter what the client sends — this route never touches those columns.
+  // The only way to move them is through a real batch via
+  // POST /api/admin/inventory/[productId]/batches.
+  const { promoEndsAt, restockAt, stock: _stock, price: _price, costPrice: _costPrice, ...rest } = body;
 
   try {
     const [updated] = await db

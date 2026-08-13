@@ -4,10 +4,9 @@ import { db } from '@/lib/db';
 import { inventoryBatches, products, stockNotifications } from '@/db/schema';
 import { eq, asc, desc } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
-import { formatCurrency } from '@/lib/utils';
 import { AddBatchForm } from './AddBatchForm';
+import { BatchGroupRow } from './BatchGroupRow';
 import { WaitlistTable } from '@/components/admin/WaitlistTable';
-import { EditableBatchQuantity } from '@/components/admin/EditableBatchQuantity';
 
 interface Props {
   params: Promise<{ productId: string }>;
@@ -18,6 +17,11 @@ export default async function InventoryProductPage({ params }: Props) {
 
   const [product] = await db.select().from(products).where(eq(products.id, productId));
   if (!product) notFound();
+
+  const pricedGroup = product.pricedVariationName
+    ? (product.variations ?? []).find((v) => v.name === product.pricedVariationName)
+    : undefined;
+  const variationOptions = pricedGroup?.options ?? [];
 
   const [batches, waitlist] = await Promise.all([
     db.select().from(inventoryBatches)
@@ -33,6 +37,21 @@ export default async function InventoryProductPage({ params }: Props) {
     notifiedAt: w.notifiedAt ? w.notifiedAt.toISOString() : null,
     createdAt:  w.createdAt.toISOString(),
   }));
+
+  // Deliveries logged as several variation lines at once (see AddBatchForm)
+  // share a deliveryGroupId — group by that, falling back to each row's own
+  // id so legacy/non-priced batches each still render as their own single
+  // "batch," exactly as before.
+  const groups = new Map<string, typeof batches>();
+  for (const b of batches) {
+    const key = b.deliveryGroupId ?? b.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(b);
+  }
+  const serializedGroups = [...groups.entries()].map(([key, lines]) => [
+    key,
+    lines.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() })),
+  ] as const);
 
   return (
     <div className="max-w-2xl">
@@ -51,7 +70,12 @@ export default async function InventoryProductPage({ params }: Props) {
 
       <div className="bg-white border rounded-xl p-6 mb-6">
         <h2 className="font-semibold mb-4">Add Inventory Batch</h2>
-        <AddBatchForm productId={productId} />
+        <AddBatchForm
+          productId={productId}
+          pricedVariationName={product.pricedVariationName}
+          variationOptions={variationOptions}
+          defaultVariationOption={product.defaultVariationOption}
+        />
       </div>
 
       <div className="bg-white border rounded-xl overflow-hidden">
@@ -62,21 +86,19 @@ export default async function InventoryProductPage({ params }: Props) {
           <thead className="bg-gray-50">
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Qty Available</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500">{product.pricedVariationName ? 'Variation' : 'Qty Available'}</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Cost Price</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500">Selling Price</th>
             </tr>
           </thead>
           <tbody>
-            {batches.map((b) => (
-              <tr key={b.id} className="border-t">
-                <td className="px-4 py-3 text-gray-500">
-                  {new Date(b.createdAt).toLocaleDateString('en-NG')}
-                </td>
-                <td className={`px-4 py-3 font-medium ${b.quantityAvailable === 0 ? 'text-gray-400' : 'text-primary'}`}>
-                  <EditableBatchQuantity productId={productId} batchId={b.id} quantity={b.quantityAvailable} />
-                </td>
-                <td className="px-4 py-3">{formatCurrency(Number(b.costPrice))}</td>
-              </tr>
+            {serializedGroups.map(([key, lines]) => (
+              <BatchGroupRow
+                key={key}
+                productId={productId}
+                lines={lines}
+                defaultVariationOption={product.defaultVariationOption}
+              />
             ))}
           </tbody>
         </table>

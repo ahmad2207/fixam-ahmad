@@ -31,6 +31,8 @@ export default async function AdminInventoryPage() {
         productId: inventoryBatches.productId,
         quantityAvailable: inventoryBatches.quantityAvailable,
         costPrice: inventoryBatches.costPrice,
+        sellingPrice: inventoryBatches.sellingPrice,
+        variationOption: inventoryBatches.variationOption,
         createdAt: inventoryBatches.createdAt,
         productName: products.name,
         productImage: products.imageUrl,
@@ -181,6 +183,7 @@ export default async function AdminInventoryPage() {
           ...b,
           quantityAvailable: Number(b.quantityAvailable),
           costPrice: String(b.costPrice),
+          sellingPrice: String(b.sellingPrice),
         }))}
         activeReservations={serializedReservations}
         waitlist={waitlistRows.map((w) => ({

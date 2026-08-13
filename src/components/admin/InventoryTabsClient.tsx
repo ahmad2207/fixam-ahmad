@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Bell, BellOff, ChevronDown, ChevronRight, Download, Loader2, Package, Search, Camera, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import BarcodeScannerModal from './BarcodeScannerModal';
-import { EditableBatchQuantity } from './EditableBatchQuantity';
+import { EditableBatchQuantity, EditableBatchField } from './EditableBatchQuantity';
 
 interface ProductRow {
   id: string;
@@ -25,6 +25,8 @@ interface BatchRow {
   productId: string | null;
   quantityAvailable: number;
   costPrice: string;
+  sellingPrice: string;
+  variationOption: string | null;
   createdAt: string | null;
   productName: string | null;
   productImage: string | null;
@@ -90,7 +92,7 @@ function StockHealthBar({ stock }: { stock: number }) {
 
 function exportCSV(products: ProductRow[], batches: BatchRow[]) {
   const rows: string[][] = [
-    ['Product', 'Category', 'Stock', 'Price', 'Cost Price', 'Inventory Value', 'Batch Count', 'Batch ID', 'Batch Date', 'Batch Qty Available', 'Batch Cost'],
+    ['Product', 'Category', 'Stock', 'Price', 'Cost Price', 'Inventory Value', 'Batch Count', 'Batch ID', 'Batch Date', 'Batch Qty Available', 'Batch Cost', 'Batch Selling Price'],
   ];
 
   for (const p of products) {
@@ -98,7 +100,7 @@ function exportCSV(products: ProductRow[], batches: BatchRow[]) {
     const invValue = pBatches.reduce((s, b) => s + b.quantityAvailable * Number(b.costPrice), 0);
 
     if (pBatches.length === 0) {
-      rows.push([p.name, p.categoryName ?? '', String(p.stock), p.price, p.costPrice, '0', '0', '', '', '', '']);
+      rows.push([p.name, p.categoryName ?? '', String(p.stock), p.price, p.costPrice, '0', '0', '', '', '', '', '']);
     } else {
       pBatches.forEach((b, i) => {
         rows.push([
@@ -113,6 +115,7 @@ function exportCSV(products: ProductRow[], batches: BatchRow[]) {
           b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-NG') : '',
           String(b.quantityAvailable),
           b.costPrice,
+          b.sellingPrice,
         ]);
       });
     }
@@ -263,6 +266,7 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                   <th className="text-left px-4 py-3 font-medium text-gray-500">Batch Date</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500">Qty Available</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500">Cost/Unit</th>
+                  <th className="text-right px-4 py-3 font-medium text-gray-500">Selling/Unit</th>
                   <th className="text-right px-4 py-3 font-medium text-gray-500">Batch Value</th>
                 </tr>
               </thead>
@@ -281,6 +285,9 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                           </div>
                         )}
                         <span className="font-medium">{b.productName ?? '—'}</span>
+                        {b.variationOption && (
+                          <span className="text-xs text-gray-400">({b.variationOption})</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500">
@@ -294,7 +301,18 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
-                      {formatCurrency(Number(b.costPrice))}
+                      {b.productId ? (
+                        <EditableBatchField productId={b.productId} batchId={b.id} field="costPrice" value={Number(b.costPrice)} />
+                      ) : (
+                        formatCurrency(Number(b.costPrice))
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-600">
+                      {b.productId ? (
+                        <EditableBatchField productId={b.productId} batchId={b.id} field="sellingPrice" value={Number(b.sellingPrice)} />
+                      ) : (
+                        formatCurrency(Number(b.sellingPrice))
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-emerald-600">
                       {formatCurrency(b.quantityAvailable * Number(b.costPrice))}
@@ -303,7 +321,7 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                 ))}
                 {batches.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="text-center py-10 text-gray-500">No inventory batches found.</td>
+                    <td colSpan={6} className="text-center py-10 text-gray-500">No inventory batches found.</td>
                   </tr>
                 )}
               </tbody>
@@ -387,7 +405,7 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                           <td />
                           <td colSpan={2} className="px-4 py-2 pl-16">
                             <span className="text-xs text-gray-500 font-medium">
-                              Batch #{idx + 1} — {b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-NG') : '—'}
+                              Batch #{idx + 1}{b.variationOption ? ` (${b.variationOption})` : ''} — {b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-NG') : '—'}
                               {idx === 0 && <span className="ml-2 bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full">Next to sell (FIFO)</span>}
                             </span>
                           </td>
@@ -402,7 +420,14 @@ export function InventoryTabsClient({ products, batches, activeReservations, wai
                             </span>
                           </td>
                           <td colSpan={2} className="px-4 py-2 text-right text-xs text-gray-500">
-                            {formatCurrency(Number(b.costPrice))}/unit
+                            {b.productId ? (
+                              <span className="inline-flex items-center gap-1">
+                                Cost <EditableBatchField productId={b.productId} batchId={b.id} field="costPrice" value={Number(b.costPrice)} className="text-xs" />
+                                · Sell <EditableBatchField productId={b.productId} batchId={b.id} field="sellingPrice" value={Number(b.sellingPrice)} className="text-xs" />
+                              </span>
+                            ) : (
+                              <>Cost {formatCurrency(Number(b.costPrice))} · Sell {formatCurrency(Number(b.sellingPrice))}</>
+                            )}
                           </td>
                           <td className="px-4 py-2 text-right text-xs font-medium text-emerald-600">
                             {formatCurrency(b.quantityAvailable * Number(b.costPrice))}

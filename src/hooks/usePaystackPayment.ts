@@ -11,6 +11,7 @@ interface CheckoutPayload {
     quantity: number;
     price: number;
     variation: string | null;
+    variationOption?: string | null;
   }>;
   shippingAddress: {
     fullName: string;

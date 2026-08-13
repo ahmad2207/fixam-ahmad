@@ -40,6 +40,8 @@ export default function EditProductPage() {
             name: v.name,
             options: v.options.join(', '),
           })),
+          pricedVariationName: product.pricedVariationName ?? '',
+          defaultVariationOption: product.defaultVariationOption ?? '',
           specs: product.specifications && typeof product.specifications === 'object'
             ? Object.entries(product.specifications as Record<string, string>).map(([key, value]) => ({ key, value: String(value) }))
             : [],

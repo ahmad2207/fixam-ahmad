@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { products, categories, reviews } from '@/db/schema';
 import { eq, and, or, ilike, desc, avg, count, sql, inArray } from 'drizzle-orm';
 import { hasProductImageSql } from '@/lib/productFilters';
+import { getVariationPricingForProducts } from '@/lib/inventory';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
       sku: products.sku,
       barcode: products.barcode,
       variations: products.variations,
+      pricedVariationName: products.pricedVariationName,
       tags: products.tags,
       isFeatured: products.isFeatured,
       isPromo: products.isPromo,
@@ -79,10 +81,21 @@ export async function GET(req: NextRequest) {
 
   const rows = await query;
 
+  // Products priced by variation need each option's own price/stock — no
+  // cost, that stays admin-only. Computed in one grouped query across every
+  // priced product in this page rather than one round-trip per product.
+  const pricedIds = rows.filter((r: any) => r.pricedVariationName).map((r: any) => r.id);
+  const variationPricingByProduct = pricedIds.length
+    ? await getVariationPricingForProducts(pricedIds)
+    : new Map();
+
   const result = rows.map((r: any) => ({
     ...r,
     rating: r.rating ? Math.round(Number(r.rating) * 10) / 10 : 0,
     reviewsCount: Number(r.reviewsCount),
+    variationPricing: r.pricedVariationName
+      ? (variationPricingByProduct.get(r.id) ?? []).map((v: any) => ({ option: v.option, price: v.price, stock: v.stock }))
+      : null,
   }));
 
   return NextResponse.json(result);

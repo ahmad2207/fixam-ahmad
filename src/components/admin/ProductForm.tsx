@@ -42,6 +42,12 @@ export interface ProductFormValues {
   images: string[];
   variations: Variation[];
   specs: SpecEntry[];
+  // Which variation group (matched by name against `variations` above, if
+  // any) determines price/stock — '' means all variations here are cosmetic
+  // labels, unchanged from before. defaultVariationOption is which of that
+  // group's options is "the" storefront price.
+  pricedVariationName: string;
+  defaultVariationOption: string;
 }
 
 const DEFAULT_VALUES: ProductFormValues = {
@@ -63,6 +69,8 @@ const DEFAULT_VALUES: ProductFormValues = {
   images: [],
   variations: [],
   specs: [],
+  pricedVariationName: '',
+  defaultVariationOption: '',
 };
 
 const MAX_MEDIA = 10;
@@ -153,12 +161,38 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
   const setImages = (images: string[]) => setForm((p) => ({ ...p, images }));
 
   const addVariation = () => setForm((p) => ({ ...p, variations: [...p.variations, { name: '', options: '' }] }));
+
   const removeVariation = (i: number) =>
-    setForm((p) => ({ ...p, variations: p.variations.filter((_, idx) => idx !== i) }));
+    setForm((p) => {
+      const removedName = p.variations[i]?.name.trim();
+      const wasRemovedPriced = !!removedName && p.pricedVariationName === removedName;
+      return {
+        ...p,
+        variations: p.variations.filter((_, idx) => idx !== i),
+        pricedVariationName: wasRemovedPriced ? '' : p.pricedVariationName,
+        defaultVariationOption: wasRemovedPriced ? '' : p.defaultVariationOption,
+      };
+    });
+
   const updateVariation = (i: number, field: keyof Variation, val: string) =>
+    setForm((p) => {
+      // Keep pricedVariationName pointed at this row if it's the one marked
+      // priced and its name just changed — the link is by name, not index.
+      const wasThisRowPriced = field === 'name' && p.pricedVariationName === p.variations[i].name.trim();
+      return {
+        ...p,
+        variations: p.variations.map((item, idx) => (idx === i ? { ...item, [field]: val } : item)),
+        pricedVariationName: wasThisRowPriced ? val.trim() : p.pricedVariationName,
+      };
+    });
+
+  // Only one variation group can carry price — checking a new one clears
+  // whichever was previously checked (and its chosen default option).
+  const togglePricedVariation = (name: string, checked: boolean) =>
     setForm((p) => ({
       ...p,
-      variations: p.variations.map((item, idx) => (idx === i ? { ...item, [field]: val } : item)),
+      pricedVariationName: checked ? name : '',
+      defaultVariationOption: checked ? p.defaultVariationOption : '',
     }));
 
   const handleGenerateBarcode = async () => {
@@ -241,8 +275,8 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.price) {
-      toast.error('Name and price are required');
+    if (!form.name) {
+      toast.error('Name is required');
       return;
     }
 
@@ -253,16 +287,19 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
     const payload = {
       name: form.name,
       description: form.description || null,
-      price: form.price,
       compareAtPrice: form.compareAtPrice || null,
-      costPrice: form.costPrice || '0',
       categoryId: form.categoryId || null,
       sku: form.sku || null,
       barcode: form.barcode.trim() || null,
-      // Stock is intentionally not sent — the server ignores it either way
-      // (see /api/admin/products routes), but it shouldn't even look like
-      // this form can set it. Real stock only ever comes from a batch added
-      // on the Inventory page.
+      // Price, cost price and stock are intentionally not sent — the server
+      // ignores them either way (see /api/admin/products routes), but it
+      // shouldn't even look like this form can set them. Real price, cost
+      // and stock only ever come from a batch added on the Inventory page.
+      // pricedVariationName/defaultVariationOption are structural config
+      // (which group carries price, which option is the display one), not
+      // a price themselves, so they do pass through here.
+      pricedVariationName: form.pricedVariationName || null,
+      defaultVariationOption: form.pricedVariationName ? (form.defaultVariationOption || null) : null,
       isFeatured: form.isFeatured,
       isPromo: form.isPromo,
       promoEndsAt: form.promoEndsAt ? new Date(form.promoEndsAt).toISOString() : null,
@@ -302,12 +339,7 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-all" />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Price (₦) <span className="text-red-400">*</span></label>
-              <input name="price" type="number" step="0.01" min="0" value={form.price} onChange={handleChange} required
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
-            </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5">Compare-at (₦)</label>
               <input name="compareAtPrice" type="number" step="0.01" min="0" value={form.compareAtPrice} onChange={handleChange}
@@ -315,10 +347,24 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">Cost Price (₦)</label>
-              <input name="costPrice" type="number" step="0.01" min="0" value={form.costPrice} onChange={handleChange}
-                placeholder="Purchase cost"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+              <label className="block text-sm font-medium mb-1.5">Price &amp; Cost</label>
+              <div className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-muted/40 text-muted-foreground flex items-center justify-between gap-2">
+                <span>
+                  {form.pricedVariationName
+                    ? `Priced by ${form.pricedVariationName}`
+                    : mode === 'edit'
+                      ? `₦${Number(form.price || 0).toLocaleString()} · Cost ₦${Number(form.costPrice || 0).toLocaleString()}`
+                      : 'Set from first batch'}
+                </span>
+                <Link href="/admin/inventory" className="text-primary font-semibold hover:underline flex-shrink-0 text-xs">
+                  {mode === 'edit' ? 'Manage in Inventory' : 'Add after saving'}
+                </Link>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {form.pricedVariationName
+                  ? `Each ${form.pricedVariationName} option gets its own cost & selling price on the Inventory page.`
+                  : 'Selling and cost price are set per batch on the Inventory page, not here.'}
+              </p>
             </div>
           </div>
 
@@ -572,22 +618,59 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
         {form.variations.length === 0 && (
           <p className="text-sm text-muted-foreground">No variations yet. Use AI to generate, or add manually.</p>
         )}
-        <div className="space-y-3">
-          {form.variations.map((v, i) => (
-            <div key={i} className="flex gap-3 items-start">
-              <div className="flex-1 space-y-2">
-                <input value={v.name} onChange={(e) => updateVariation(i, 'name', e.target.value)}
-                  placeholder="Name (e.g. Size)"
-                  className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
-                <input value={v.options} onChange={(e) => updateVariation(i, 'options', e.target.value)}
-                  placeholder="Options, comma-separated (e.g. 20cm, 24cm, 28cm)"
-                  className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+        <div className="space-y-4">
+          {form.variations.map((v, i) => {
+            const trimmedName = v.name.trim();
+            const isPriced = trimmedName.length > 0 && form.pricedVariationName === trimmedName;
+            const options = v.options.split(',').map((o) => o.trim()).filter(Boolean);
+            return (
+              <div key={i} className="space-y-2 pb-3 border-b border-border last:border-0 last:pb-0">
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1 space-y-2">
+                    <input value={v.name} onChange={(e) => updateVariation(i, 'name', e.target.value)}
+                      placeholder="Name (e.g. Size)"
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                    <input value={v.options} onChange={(e) => updateVariation(i, 'options', e.target.value)}
+                      placeholder="Options, comma-separated (e.g. 20cm, 24cm, 28cm)"
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                  </div>
+                  <button type="button" onClick={() => removeVariation(i)} className="mt-2 text-red-400 hover:text-red-600 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <label className={`flex items-center gap-2 text-xs font-medium pl-1 ${trimmedName ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
+                  <input
+                    type="checkbox"
+                    checked={isPriced}
+                    disabled={!trimmedName}
+                    onChange={(e) => togglePricedVariation(trimmedName, e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  This variation has its own prices
+                </label>
+
+                {isPriced && (
+                  <div className="pl-1">
+                    <label className="block text-xs font-medium mb-1">Which price should show on the storefront?</label>
+                    <select
+                      value={form.defaultVariationOption}
+                      onChange={(e) => setForm((p) => ({ ...p, defaultVariationOption: e.target.value }))}
+                      className="w-full border border-border rounded-lg px-2.5 py-1.5 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="">— Choose an option —</option>
+                      {options.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Cost &amp; selling price for each {trimmedName} option are set on the Inventory page after saving.
+                    </p>
+                  </div>
+                )}
               </div>
-              <button type="button" onClick={() => removeVariation(i)} className="mt-2 text-red-400 hover:text-red-600 transition-colors">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

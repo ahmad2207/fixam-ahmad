@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, categories } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getVariationPricing } from '@/lib/inventory';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
       stock: products.stock,
       sku: products.sku,
       variations: products.variations,
+      pricedVariationName: products.pricedVariationName,
       tags: products.tags,
       isFeatured: products.isFeatured,
       isActive: products.isActive,
@@ -36,5 +38,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
     .where(and(eq(products.slug, slug), eq(products.isActive, true)));
 
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json(row);
+
+  // No cost — that stays admin-only. Present only when this product prices
+  // by variation; absent (null) otherwise, same as before.
+  const variationPricing = row.pricedVariationName
+    ? (await getVariationPricing(row.id)).map((v) => ({ option: v.option, price: v.price, stock: v.stock }))
+    : null;
+
+  return NextResponse.json({ ...row, variationPricing });
 }

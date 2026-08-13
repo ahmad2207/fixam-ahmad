@@ -38,7 +38,17 @@ interface CartItem {
   imageUrl:      string | null;
   quantity:      number;
   stock:         number;
+  // Exact priced-option value (e.g. "24cm") for a product whose price
+  // varies by variation — null for everything else. Two different
+  // variations of the same product are separate cart lines, same as the
+  // storefront cart.
+  variation?:    string | null;
 }
+
+// Two lines can share a productId (different variations) — this is the key
+// every cart lookup/update below matches on, mirroring CartContext's
+// dedup-by-`${productId}:${variation}` on the storefront.
+const lineKey = (productId: string, variation?: string | null) => `${productId}:${variation ?? ''}`;
 
 interface SaleResult {
   receiptNumber: string;
@@ -111,11 +121,18 @@ export default function POSPage() {
   const [scannedOrder, setScannedOrder]         = useState<string[]>([]);
   const [mostRecentScanId, setMostRecentScanId] = useState<string | null>(null);
 
-  // Inline editing state
+  // Inline editing state — keyed by lineKey(productId, variation), not
+  // productId alone, so two variations of the same product edit
+  // independently.
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
   const [priceInput, setPriceInput]     = useState('');
   const [qtyEditing, setQtyEditing]     = useState<string | null>(null);
   const [qtyInput, setQtyInput]         = useState('');
+
+  // Product currently showing its variation picker (tapped a priced
+  // product's tile or scanned its barcode) — null when no picker is open.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [variationPickerProduct, setVariationPickerProduct] = useState<any | null>(null);
 
   // Customer section toggle
   const [showCustomer, setShowCustomer] = useState(false);
@@ -246,32 +263,54 @@ export default function POSPage() {
 
   const displayed = isBrowsing ? filtered : scannedFeed;
 
+  // Grid tile badge shows total across every variation of that product in
+  // the cart, not just one line's quantity.
   const cartQtyMap = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const i of cart) m[i.productId] = i.quantity;
+    for (const i of cart) m[i.productId] = (m[i.productId] ?? 0) + i.quantity;
     return m;
   }, [cart]);
 
+  // `variation` is the exact priced-option value for a product whose price
+  // varies by variation (see the picker below) — omit for everything else.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const addToCart = (product: any) => {
+  const addToCart = (product: any, variation?: string | null) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const optionPricing: any = variation
+      ? product.variationPricing?.find((v: any) => v.option === variation)
+      : undefined;
+    const linePrice = optionPricing ? optionPricing.price : Number(product.price);
+    const lineStock = optionPricing ? optionPricing.stock : product.stock;
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
+      const key = lineKey(product.id, variation);
+      const existing = prev.find((i) => lineKey(i.productId, i.variation) === key);
       if (existing) {
         if (existing.quantity >= existing.stock) return prev;
-        return prev.map((i) => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map((i) => lineKey(i.productId, i.variation) === key ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, {
         productId: product.id, name: product.name,
-        price: Number(product.price), originalPrice: Number(product.price),
-        imageUrl: product.imageUrl, quantity: 1, stock: product.stock,
+        price: linePrice, originalPrice: linePrice,
+        imageUrl: product.imageUrl, quantity: 1, stock: lineStock,
+        variation: variation ?? null,
       }];
     });
     setLastTouchedId(product.id);
   };
 
-  const updateQty = (productId: string, qty: number) => {
-    if (qty <= 0) setCart((p) => p.filter((i) => i.productId !== productId));
-    else setCart((p) => p.map((i) => i.productId === productId ? { ...i, quantity: qty } : i));
+  // Tapping a priced product's tile (or scanning its barcode) can't know
+  // which size was meant — open the picker instead of guessing.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleProductTap = (product: any) => {
+    if (product.pricedVariationName) setVariationPickerProduct(product);
+    else addToCart(product);
+  };
+
+  const updateQty = (productId: string, qty: number, variation?: string | null) => {
+    const key = lineKey(productId, variation);
+    if (qty <= 0) setCart((p) => p.filter((i) => lineKey(i.productId, i.variation) !== key));
+    else setCart((p) => p.map((i) => lineKey(i.productId, i.variation) === key ? { ...i, quantity: qty } : i));
   };
 
   // ── Barcode scanning (dedicated USB/Bluetooth scanner + camera) ──────────
@@ -284,7 +323,9 @@ export default function POSPage() {
   const handleScannedCode = (code: string) => {
     const product = barcodeIndex.get(code);
     if (product) {
-      addToCart(product);
+      // A barcode is per-product, not per-size — can't add straight to
+      // cart for a priced product without knowing which size was scanned.
+      handleProductTap(product);
       setScanFlashId(product.id);
       setMostRecentScanId(product.id);
       setScannedOrder((prev) => prev.includes(product.id) ? prev : [...prev, product.id]);
@@ -301,18 +342,20 @@ export default function POSPage() {
   const scanStateRef = useRef({ barcodeIndex, search, handleScannedCode });
   scanStateRef.current = { barcodeIndex, search, handleScannedCode };
 
-  const commitPrice = (productId: string) => {
+  const commitPrice = (productId: string, variation?: string | null) => {
     const val = parseFloat(priceInput);
+    const key = lineKey(productId, variation);
     if (!isNaN(val) && val >= 0)
-      setCart((p) => p.map((i) => i.productId === productId ? { ...i, price: val } : i));
+      setCart((p) => p.map((i) => lineKey(i.productId, i.variation) === key ? { ...i, price: val } : i));
     setEditingPrice(null);
   };
 
-  const commitQty = (productId: string) => {
+  const commitQty = (productId: string, variation?: string | null) => {
     const val = parseInt(qtyInput, 10);
-    const item = cart.find((i) => i.productId === productId);
-    if (!isNaN(val) && val > 0 && item) updateQty(productId, Math.min(val, item.stock));
-    else if (!isNaN(val) && val <= 0) updateQty(productId, 0);
+    const key = lineKey(productId, variation);
+    const item = cart.find((i) => lineKey(i.productId, i.variation) === key);
+    if (!isNaN(val) && val > 0 && item) updateQty(productId, Math.min(val, item.stock), variation);
+    else if (!isNaN(val) && val <= 0) updateQty(productId, 0, variation);
     setQtyEditing(null);
   };
 
@@ -347,7 +390,7 @@ export default function POSPage() {
         body: JSON.stringify({
           items: cart.map((i) => ({
             productId: i.productId, name: i.name, imageUrl: i.imageUrl,
-            price: i.price, quantity: i.quantity, variation: null,
+            price: i.price, quantity: i.quantity, variation: i.variation ?? null,
           })),
           customerName: customer.name, customerPhone: customer.phone,
           subtotal, discountAmount, deliveryFee: 0, total,
@@ -467,9 +510,11 @@ export default function POSPage() {
           </div>
         ) : (
           <div className="divide-y divide-dashed divide-border">
-            {cart.map((item) => (
+            {cart.map((item) => {
+              const key = lineKey(item.productId, item.variation);
+              return (
               <div
-                key={item.productId}
+                key={key}
                 className={`flex items-start gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors ${
                   item.productId === lastTouchedId ? 'animate-print-line' : ''
                 }`}
@@ -488,7 +533,10 @@ export default function POSPage() {
 
                   {/* Row 1: name + line total */}
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-foreground leading-snug">{item.name}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground leading-snug">{item.name}</p>
+                      {item.variation && <p className="text-[11px] text-muted-foreground">{item.variation}</p>}
+                    </div>
                     <p className="font-receipt text-sm font-bold text-foreground flex-shrink-0 tabular-nums">
                       {formatCurrency(item.price * item.quantity)}
                     </p>
@@ -500,29 +548,29 @@ export default function POSPage() {
                     {/* Qty pill stepper */}
                     <div className="flex items-center border border-border rounded-lg overflow-hidden bg-card flex-shrink-0">
                       <button
-                        onClick={() => updateQty(item.productId, item.quantity - 1)}
+                        onClick={() => updateQty(item.productId, item.quantity - 1, item.variation)}
                         className="w-7 h-7 flex items-center justify-center hover:bg-muted active:bg-muted transition text-muted-foreground"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
 
-                      {qtyEditing === item.productId ? (
+                      {qtyEditing === key ? (
                         <input
                           type="number" min={1} max={item.stock}
                           value={qtyInput}
                           onChange={(e) => setQtyInput(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === 'Tab') commitQty(item.productId);
+                            if (e.key === 'Enter' || e.key === 'Tab') commitQty(item.productId, item.variation);
                             if (e.key === 'Escape') setQtyEditing(null);
                           }}
-                          onBlur={() => commitQty(item.productId)}
+                          onBlur={() => commitQty(item.productId, item.variation)}
                           className="w-9 h-7 text-center text-xs font-receipt font-bold border-x border-border focus:outline-none focus:bg-accent bg-card text-primary"
                           autoFocus
                           onFocus={(e) => e.target.select()}
                         />
                       ) : (
                         <button
-                          onClick={() => { setQtyEditing(item.productId); setQtyInput(String(item.quantity)); }}
+                          onClick={() => { setQtyEditing(key); setQtyInput(String(item.quantity)); }}
                           className="w-9 h-7 border-x border-border text-sm font-receipt font-bold text-foreground hover:bg-accent hover:text-primary transition tabular-nums"
                           title="Click to type quantity"
                         >
@@ -531,7 +579,7 @@ export default function POSPage() {
                       )}
 
                       <button
-                        onClick={() => updateQty(item.productId, item.quantity + 1)}
+                        onClick={() => updateQty(item.productId, item.quantity + 1, item.variation)}
                         disabled={item.quantity >= item.stock}
                         className="w-7 h-7 flex items-center justify-center hover:bg-muted active:bg-muted transition text-muted-foreground disabled:opacity-30"
                       >
@@ -540,7 +588,7 @@ export default function POSPage() {
                     </div>
 
                     {/* Unit price — click to edit */}
-                    {editingPrice === item.productId ? (
+                    {editingPrice === key ? (
                       <div className="flex items-center gap-1 bg-accent border border-primary/30 rounded-lg px-2 h-7 flex-1 min-w-0">
                         <span className="text-xs text-muted-foreground flex-shrink-0">₦</span>
                         <input
@@ -548,21 +596,21 @@ export default function POSPage() {
                           value={priceInput}
                           onChange={(e) => setPriceInput(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') commitPrice(item.productId);
+                            if (e.key === 'Enter') commitPrice(item.productId, item.variation);
                             if (e.key === 'Escape') setEditingPrice(null);
                           }}
-                          onBlur={() => commitPrice(item.productId)}
+                          onBlur={() => commitPrice(item.productId, item.variation)}
                           className="flex-1 min-w-0 text-xs font-receipt font-semibold focus:outline-none bg-transparent"
                           autoFocus
                           onFocus={(e) => e.target.select()}
                         />
-                        <button onClick={() => commitPrice(item.productId)} className="flex-shrink-0 text-success">
+                        <button onClick={() => commitPrice(item.productId, item.variation)} className="flex-shrink-0 text-success">
                           <Check className="w-3 h-3" />
                         </button>
                       </div>
                     ) : (
                       <button
-                        onClick={() => { setEditingPrice(item.productId); setPriceInput(String(item.price)); }}
+                        onClick={() => { setEditingPrice(key); setPriceInput(String(item.price)); }}
                         className="flex items-center gap-1 h-7 text-xs font-receipt text-muted-foreground hover:text-foreground transition rounded-lg px-1.5 hover:bg-muted"
                         title="Click to adjust price"
                       >
@@ -575,7 +623,7 @@ export default function POSPage() {
 
                     {/* Remove */}
                     <button
-                      onClick={() => updateQty(item.productId, 0)}
+                      onClick={() => updateQty(item.productId, 0, item.variation)}
                       className="ml-auto w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition"
                       title="Remove item"
                     >
@@ -584,7 +632,8 @@ export default function POSPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -877,7 +926,7 @@ export default function POSPage() {
                 return (
                   <button
                     key={p.id}
-                    onClick={() => addToCart(p)}
+                    onClick={() => handleProductTap(p)}
                     className={`group bg-card rounded-xl text-left border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col h-full active:scale-[.97] ${
                       justScanned ? 'border-success/50 animate-scan-flash'
                         : isMostRecent ? 'border-primary/50 ring-2 ring-primary/25'
@@ -922,6 +971,9 @@ export default function POSPage() {
                       </h3>
                       <div className="mt-auto">
                         <div className="flex items-baseline gap-1.5 flex-wrap">
+                          {p.pricedVariationName && (
+                            <span className="text-[9px] text-muted-foreground">From</span>
+                          )}
                           <span className="font-display text-sm sm:text-base font-bold text-primary leading-none tabular-nums">
                             {formatCurrency(price)}
                           </span>
@@ -980,6 +1032,47 @@ export default function POSPage() {
           onDetected={(code) => { setShowScanner(false); handleScannedCode(code); }}
           onClose={() => setShowScanner(false)}
         />
+      )}
+
+      {variationPickerProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setVariationPickerProduct(null)}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-sm overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h3 className="font-bold text-foreground text-sm">Choose a {variationPickerProduct.pricedVariationName}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">{variationPickerProduct.name}</p>
+              </div>
+              <button onClick={() => setVariationPickerProduct(null)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 space-y-1.5 max-h-[60vh] overflow-y-auto">
+              {(variationPickerProduct.variationPricing ?? []).map((v: { option: string; price: number; stock: number }) => (
+                <button
+                  key={v.option}
+                  disabled={v.stock <= 0}
+                  onClick={() => { addToCart(variationPickerProduct, v.option); setVariationPickerProduct(null); }}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-border hover:border-primary/40 hover:bg-primary/5 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:bg-transparent"
+                >
+                  <span className="font-semibold text-sm text-foreground">{v.option}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-receipt text-sm font-bold text-primary tabular-nums">{formatCurrency(v.price)}</span>
+                    <span className="text-[11px] text-muted-foreground">{v.stock <= 0 ? 'Out of stock' : `${v.stock} left`}</span>
+                  </span>
+                </button>
+              ))}
+              {!(variationPickerProduct.variationPricing ?? []).length && (
+                <p className="text-center text-sm text-muted-foreground py-6">No stock logged for any size yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

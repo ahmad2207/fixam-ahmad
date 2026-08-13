@@ -29,6 +29,9 @@ interface AdminProduct {
   imageUrl: string | null;
   barcode: string | null;
   createdAt: string;
+  pricedVariationName: string | null;
+  defaultVariationOption: string | null;
+  variations: { name: string; options: string[] }[] | null;
 }
 
 type SortKey = 'name' | 'price' | 'stock' | 'margin';
@@ -52,23 +55,45 @@ function getMargin(p: AdminProduct) {
   return price > 0 ? ((price - cost) / price) * 100 : 0;
 }
 
+interface RestockLine {
+  quantity: string;
+  costPrice: string;
+  sellingPrice: string;
+}
+
+const emptyRestockLines = (options: string[]): Record<string, RestockLine> =>
+  Object.fromEntries(options.map((opt) => [opt, { quantity: '', costPrice: '', sellingPrice: '' }]));
+
 function RestockDialog({ product, onClose }: { product: AdminProduct; onClose: () => void }) {
   const qc = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── Non-priced product: single quantity/cost/selling triple ──
   const [qty, setQty] = useState('');
   const [costPrice, setCostPrice] = useState(product.costPrice ?? '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sellingPrice, setSellingPrice] = useState(product.price ?? '');
+
+  // ── Priced product: one delivery, one row per variation option ──
+  const pricedGroup = product.pricedVariationName
+    ? (product.variations ?? []).find((v) => v.name === product.pricedVariationName)
+    : undefined;
+  const variationOptions = pricedGroup?.options ?? [];
+  const [lines, setLines] = useState<Record<string, RestockLine>>(() => emptyRestockLines(variationOptions));
+  const [displayOption, setDisplayOption] = useState(product.defaultVariationOption || variationOptions[0] || '');
+  const updateLine = (option: string, field: keyof RestockLine, value: string) =>
+    setLines((prev) => ({ ...prev, [option]: { ...prev[option], [field]: value } }));
 
   const batchValue = Number(qty) > 0 && Number(costPrice) > 0 ? Number(qty) * Number(costPrice) : 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSingleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!qty || !costPrice) { toast.error('Quantity and cost price are required'); return; }
+    if (!qty || !costPrice || !sellingPrice) { toast.error('Quantity, cost price and selling price are required'); return; }
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/admin/inventory/${product.id}/batches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: Number(qty), costPrice: Number(costPrice) }),
+        body: JSON.stringify({ quantity: Number(qty), costPrice: Number(costPrice), sellingPrice: Number(sellingPrice) }),
       });
       if (!res.ok) throw new Error();
       toast.success(`Added ${qty} units to ${product.name}`);
@@ -80,6 +105,51 @@ function RestockDialog({ product, onClose }: { product: AdminProduct; onClose: (
       setIsSubmitting(false);
     }
   };
+
+  const handleGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeLines = Object.entries(lines)
+      .filter(([, l]) => Number(l.quantity) > 0)
+      .map(([option, l]) => ({
+        variationOption: option,
+        quantity: Number(l.quantity),
+        costPrice: Number(l.costPrice),
+        sellingPrice: Number(l.sellingPrice),
+      }));
+
+    if (!activeLines.length) {
+      toast.error(`Enter a quantity for at least one ${product.pricedVariationName}`);
+      return;
+    }
+    const incomplete = activeLines.find((l) => !l.costPrice || !l.sellingPrice);
+    if (incomplete) {
+      toast.error(`Enter both prices for "${incomplete.variationOption}"`);
+      return;
+    }
+    if (!displayOption) {
+      toast.error('Choose which price should show on the storefront');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/inventory/${product.id}/batches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lines: activeLines, defaultVariationOption: displayOption }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`Delivery added to ${product.name}`);
+      qc.invalidateQueries({ queryKey: ['admin-products-list'] });
+      onClose();
+    } catch {
+      toast.error('Failed to restock product');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isPriced = !!product.pricedVariationName && variationOptions.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -93,7 +163,7 @@ function RestockDialog({ product, onClose }: { product: AdminProduct; onClose: (
             <X className="w-4 h-4" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={isPriced ? handleGroupSubmit : handleSingleSubmit} className="p-6 space-y-4">
           <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl border border-border">
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-muted flex-shrink-0">
               {product.imageUrl
@@ -106,20 +176,59 @@ function RestockDialog({ product, onClose }: { product: AdminProduct; onClose: (
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1.5">Qty to Add <span className="text-destructive">*</span></label>
-              <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} required placeholder="50"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+          {isPriced ? (
+            <div className="space-y-3">
+              {variationOptions.map((opt) => (
+                <div key={opt} className="border border-border rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-bold text-foreground">{opt}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="number" min="0" value={lines[opt]?.quantity ?? ''} onChange={(e) => updateLine(opt, 'quantity', e.target.value)}
+                      placeholder="Qty"
+                      className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+                    <input type="number" min="0" step="0.01" value={lines[opt]?.costPrice ?? ''} onChange={(e) => updateLine(opt, 'costPrice', e.target.value)}
+                      placeholder="Cost ₦"
+                      className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+                    <input type="number" min="0" step="0.01" value={lines[opt]?.sellingPrice ?? ''} onChange={(e) => updateLine(opt, 'sellingPrice', e.target.value)}
+                      placeholder="Sell ₦"
+                      className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+                  </div>
+                </div>
+              ))}
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">Which price shows on the storefront?</label>
+                <select value={displayOption} onChange={(e) => setDisplayOption(e.target.value)}
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background">
+                  {variationOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Leave a {product.pricedVariationName?.toLowerCase()}&apos;s quantity at 0 if it didn&apos;t arrive in this delivery.
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1.5">Cost/Unit (₦) <span className="text-destructive">*</span></label>
-              <input type="number" min="0" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} required placeholder="2500"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">Qty to Add <span className="text-destructive">*</span></label>
+                <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} required placeholder="50"
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1.5">Cost/Unit (₦) <span className="text-destructive">*</span></label>
+                <input type="number" min="0" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} required placeholder="2500"
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-foreground mb-1.5">Selling Price (₦) <span className="text-destructive">*</span></label>
+                <input type="number" min="0" step="0.01" value={sellingPrice} onChange={(e) => setSellingPrice(e.target.value)} required placeholder="5000"
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background" />
+                <p className="text-[11px] text-muted-foreground mt-1">Becomes the product's listed price once older batches sell out (FIFO).</p>
+              </div>
             </div>
-          </div>
+          )}
 
-          {batchValue > 0 && (
+          {!isPriced && batchValue > 0 && (
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Batch value</span>
               <span className="font-bold text-primary">{formatCurrency(batchValue)}</span>

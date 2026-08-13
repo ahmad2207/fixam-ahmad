@@ -8,7 +8,12 @@ export interface CartItem {
   price: number;
   imageUrl: string | null;
   quantity: number;
+  // Free-text display label, possibly flattening multiple variation groups
+  // (e.g. "24cm / Blue") — shown on cart/receipts, and what dedup below
+  // keys on. `variationOption` is the exact value of just the *priced*
+  // group, used downstream for pricing/stock (see priceCheckoutItems).
   variation?: string | null;
+  variationOption?: string | null;
   stock: number;
 }
 

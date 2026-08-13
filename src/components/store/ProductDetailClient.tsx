@@ -29,6 +29,13 @@ interface Product {
   compareAtPrice?: string | null; imageUrl?: string | null;
   images?: string[] | null; stock: number; sku?: string | null;
   variations?: { name: string; options: string[] }[] | null;
+  // Set together when this product's price varies by variation (e.g.
+  // Size) — pricedVariationName names which group in `variations` above,
+  // variationPricing carries each of that group's options' own price/stock
+  // (no cost — that stays admin-only). Both null/absent for a product
+  // whose variations (if any) are cosmetic labels, unchanged from before.
+  pricedVariationName?: string | null;
+  variationPricing?: { option: string; price: number; stock: number }[] | null;
   specifications?: Record<string, string> | null;
   category?: { id: string; name: string; slug: string } | null;
   isPromo?: boolean;
@@ -397,12 +404,36 @@ export function ProductDetailClient({
   const visibleRelatedProducts = relatedProducts.filter(hasProductImage);
 
   const isWishlisted = has(product.id);
-  const inStock = product.stock > 0;
-  const price = Number(product.price);
+
+  // Price/stock react to the priced variation group once the customer picks
+  // an option in it. Before any pick (or for a product without one), price
+  // and stock fall back to the flat product-level values, which already
+  // mirror whichever option is the "display" one (see
+  // syncProductStockFromBatches in lib/inventory.ts).
+  const pricedGroupName = product.pricedVariationName ?? null;
+  const selectedPricedOption = pricedGroupName ? selectedVariations[pricedGroupName] : undefined;
+  const activeVariationPricing = selectedPricedOption
+    ? product.variationPricing?.find((v) => v.option === selectedPricedOption)
+    : undefined;
+  const needsVariationSelection = !!pricedGroupName && !selectedPricedOption;
+
+  const price = activeVariationPricing ? activeVariationPricing.price : Number(product.price);
+  const effectiveStock = pricedGroupName
+    ? (selectedPricedOption ? (activeVariationPricing?.stock ?? 0) : product.stock)
+    : product.stock;
+  const inStock = effectiveStock > 0;
+
   const compareAt = Number(product.compareAtPrice ?? 0);
   const discount = compareAt > price ? Math.round(((compareAt - price) / compareAt) * 100) : 0;
   const allImages = [product.imageUrl, ...(product.images ?? [])].filter(Boolean).filter((u) => !isVideoUrl(u as string)) as string[];
   const variationString = Object.values(selectedVariations).filter(Boolean).join(' / ') || null;
+  const variationOptionValue = pricedGroupName ? (selectedPricedOption ?? null) : null;
+
+  // A stale quantity picked against one option's stock could exceed a
+  // different option's — reset to 1 whenever the priced selection changes.
+  useEffect(() => {
+    setQuantity(1);
+  }, [selectedPricedOption]);
   const avgRating = initialReviews.length
     ? initialReviews.reduce((s, r) => s + r.rating, 0) / initialReviews.length
     : 0;
@@ -437,13 +468,21 @@ export function ProductDetailClient({
   };
 
   const doAddToCart = () => {
+    if (needsVariationSelection) { toast.error(`Please select a ${pricedGroupName}`); return; }
     if (!inStock) return;
-    addItem({ productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null, quantity, variation: variationString, stock: product.stock });
+    addItem({
+      productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null,
+      quantity, variation: variationString, variationOption: variationOptionValue, stock: effectiveStock,
+    });
     setShowDialog(true);
   };
   const doBuyNow = () => {
+    if (needsVariationSelection) { toast.error(`Please select a ${pricedGroupName}`); return; }
     if (!inStock) return;
-    addItem({ productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null, quantity, variation: variationString, stock: product.stock });
+    addItem({
+      productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null,
+      quantity, variation: variationString, variationOption: variationOptionValue, stock: effectiveStock,
+    });
     router.push('/checkout');
   };
 
@@ -647,26 +686,38 @@ export function ProductDetailClient({
                       {v.name}{selectedVariations[v.name] && <span className="text-primary font-semibold ml-1">· {selectedVariations[v.name]}</span>}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {v.options.map(opt => (
-                        <button key={opt}
-                          onClick={() => setSelectedVariations(prev => ({ ...prev, [v.name]: opt }))}
-                          className={`px-3 py-1.5 border text-xs font-bold transition-all ${
-                            selectedVariations[v.name] === opt
-                              ? 'border-primary bg-primary text-white'
-                              : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
-                          }`}>
-                          {opt}
-                        </button>
-                      ))}
+                      {v.options.map(opt => {
+                        const optionPricing = v.name === pricedGroupName
+                          ? product.variationPricing?.find((vp) => vp.option === opt)
+                          : undefined;
+                        const optionOutOfStock = v.name === pricedGroupName && optionPricing?.stock === 0;
+                        return (
+                          <button key={opt}
+                            onClick={() => setSelectedVariations(prev => ({ ...prev, [v.name]: opt }))}
+                            disabled={optionOutOfStock}
+                            className={`px-3 py-1.5 border text-xs font-bold transition-all ${
+                              selectedVariations[v.name] === opt
+                                ? 'border-primary bg-primary text-white'
+                                : optionOutOfStock
+                                  ? 'border-gray-100 text-gray-300 cursor-not-allowed'
+                                  : 'border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
+                            }`}>
+                            {opt}{optionOutOfStock ? ' (Out)' : ''}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
+                {needsVariationSelection && (
+                  <p className="text-xs text-primary font-semibold">Select a {pricedGroupName} to see its price and add it to your cart.</p>
+                )}
               </div>
             )}
 
             {/* Stock + Quantity */}
             <div className="px-5 py-2 flex items-center justify-between border-b border-gray-100">
-              <StockBadge stock={product.stock} />
+              <StockBadge stock={effectiveStock} />
               {inStock && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-400 font-medium">Qty</span>
@@ -676,7 +727,7 @@ export function ProductDetailClient({
                       <Minus className="h-3 w-3 text-gray-600" />
                     </button>
                     <span className="w-9 text-center font-black text-sm text-gray-900 border-x border-gray-300">{quantity}</span>
-                    <button onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} disabled={quantity >= product.stock}
+                    <button onClick={() => setQuantity(q => Math.min(effectiveStock, q + 1))} disabled={quantity >= effectiveStock}
                       className="w-8 h-8 flex items-center justify-center hover:bg-gray-50 disabled:opacity-40 transition">
                       <Plus className="h-3 w-3 text-gray-600" />
                     </button>

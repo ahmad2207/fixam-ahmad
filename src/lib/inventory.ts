@@ -34,7 +34,14 @@ type DbOrTx = typeof db | Tx;
 export interface RawCheckoutItem {
   product_id: string;
   quantity: number;
+  // Free-text display label, possibly flattening multiple variation groups
+  // (e.g. "24cm / Blue") — shown on cart/receipts, never used for pricing.
   variation?: string | null;
+  // The exact option value of the product's *priced* variation group (e.g.
+  // just "24cm"), when it has one — this is what pricing/stock is resolved
+  // against. Distinct from `variation` above because that field can mix in
+  // non-priced groups too.
+  variationOption?: string | null;
 }
 
 export interface PricedCheckoutItem {
@@ -44,6 +51,7 @@ export interface PricedCheckoutItem {
   quantity: number;
   price: number;
   variation: string | null;
+  variationOption: string | null;
 }
 
 export interface PricedCheckout {
@@ -70,6 +78,14 @@ export async function priceCheckoutItems(
   const rows = await db.select().from(products).where(inArray(products.id, ids));
   const byId = new Map(rows.map((p) => [p.id, p]));
 
+  // Products with priced variations need their batches grouped by option to
+  // resolve price/stock per option — fetch those up front in one query
+  // rather than one round-trip per line item.
+  const pricedIds = rows.filter((p) => p.pricedVariationName).map((p) => p.id);
+  const variationPricingByProduct = pricedIds.length
+    ? await getVariationPricingForProducts(pricedIds)
+    : new Map<string, VariationPricing[]>();
+
   const items: PricedCheckoutItem[] = [];
   let subtotal = 0;
 
@@ -83,11 +99,29 @@ export async function priceCheckoutItems(
     if (!product || !product.isActive) {
       throw new Error(`"${product?.name ?? raw.product_id}" is no longer available`);
     }
-    if (product.stock < quantity) {
-      throw new Error(`Only ${product.stock} of "${product.name}" left in stock`);
+
+    let price: number;
+    let availableStock: number;
+
+    if (product.pricedVariationName) {
+      const options = variationPricingByProduct.get(product.id) ?? [];
+      const picked = raw.variationOption
+        ? options.find((o) => o.option === raw.variationOption)
+        : undefined;
+      if (!picked) {
+        throw new Error(`Please select a ${product.pricedVariationName} for "${product.name}"`);
+      }
+      price = picked.price;
+      availableStock = picked.stock;
+    } else {
+      price = Number(product.price);
+      availableStock = product.stock;
     }
 
-    const price = Number(product.price);
+    if (availableStock < quantity) {
+      throw new Error(`Only ${availableStock} of "${product.name}" left in stock`);
+    }
+
     subtotal += price * quantity;
     items.push({
       product_id: product.id,
@@ -96,6 +130,7 @@ export async function priceCheckoutItems(
       quantity,
       price,
       variation: raw.variation ?? null,
+      variationOption: product.pricedVariationName ? (raw.variationOption ?? null) : null,
     });
   }
 
@@ -110,48 +145,229 @@ export async function priceCheckoutItems(
   return { items, subtotal, deliveryFee, total };
 }
 
+// FIFO pick shared by whole-product and per-variation pricing: the oldest
+// line that still has stock, else the most recently added line (a real
+// last-known price/cost beats dropping to nothing). `lines` must already be
+// ordered oldest-first by createdAt.
+function pickActiveLine<T extends { quantityAvailable: number }>(lines: T[]): T | undefined {
+  return lines.find((l) => l.quantityAvailable > 0) ?? lines[lines.length - 1];
+}
+
 // ─── Add Inventory Batch ────────────────────────────────────────────────────
-// Adds stock at a given cost price and updates products.stock atomically.
+// Adds stock at a given cost + selling price and re-derives products.stock/
+// price/costPrice atomically. Cost and selling price live on the batch —
+// products.price/costPrice are just a cached mirror of the active one (see
+// syncProductStockFromBatches below). `variationOption` tags this batch as
+// belonging to one option of the product's priced variation group; omit it
+// (or pass null) for products without priced variations.
 export async function addInventoryBatch(
   productId: string,
   quantity: number,
   costPrice: number,
+  sellingPrice: number,
+  variationOption?: string | null,
 ): Promise<string> {
   return db.transaction(async (tx) => {
     const [batch] = await tx
       .insert(inventoryBatches)
-      .values({ productId, quantityAvailable: quantity, costPrice: String(costPrice) })
+      .values({
+        productId,
+        quantityAvailable: quantity,
+        costPrice: String(costPrice),
+        sellingPrice: String(sellingPrice),
+        variationOption: variationOption ?? null,
+      })
       .returning({ id: inventoryBatches.id });
 
-    await tx
-      .update(products)
-      .set({ stock: sql`${products.stock} + ${quantity}` })
-      .where(eq(products.id, productId));
+    await syncProductStockFromBatches(productId, tx);
 
     return batch.id;
   });
 }
 
-// ─── Sync Product Stock From Batches ───────────────────────────────────────
-// Recalculates products.stock as the sum of all batch quantities.
-// Call after any manual batch edit or delete.
+export interface BatchGroupLine {
+  variationOption: string;
+  quantity: number;
+  costPrice: number;
+  sellingPrice: number;
+}
+
+// ─── Add Inventory Batch Group ─────────────────────────────────────────────
+// One "delivery" containing several priced-variation lines (e.g. 20cm + 24cm
+// arriving together), logged in one action. Each line becomes its own
+// inventory_batches row — FIFO/deduction/allocation logic keeps operating on
+// individual rows exactly as everywhere else in this file — but all rows
+// share a freshly generated deliveryGroupId purely so the inventory page can
+// display them nested under one "batch" (see the column's own comment in
+// the schema). Also updates products.defaultVariationOption when provided,
+// in the same transaction, since that's normally chosen right here too.
+export async function addInventoryBatchGroup(
+  productId: string,
+  lines: BatchGroupLine[],
+  defaultVariationOption?: string | null,
+): Promise<{ deliveryGroupId: string; batchIds: string[] }> {
+  if (!lines.length) throw new Error('At least one variation line is required');
+
+  const deliveryGroupId = crypto.randomUUID();
+
+  return db.transaction(async (tx) => {
+    const batchIds: string[] = [];
+    for (const line of lines) {
+      const [batch] = await tx
+        .insert(inventoryBatches)
+        .values({
+          productId,
+          quantityAvailable: line.quantity,
+          costPrice: String(line.costPrice),
+          sellingPrice: String(line.sellingPrice),
+          variationOption: line.variationOption,
+          deliveryGroupId,
+        })
+        .returning({ id: inventoryBatches.id });
+      batchIds.push(batch.id);
+    }
+
+    if (defaultVariationOption) {
+      await tx.update(products).set({ defaultVariationOption }).where(eq(products.id, productId));
+    }
+
+    await syncProductStockFromBatches(productId, tx);
+
+    return { deliveryGroupId, batchIds };
+  });
+}
+
+export interface VariationPricing {
+  option: string;
+  price: number;
+  costPrice: number;
+  stock: number;
+}
+
+interface VariationBatchRow {
+  productId: string;
+  variationOption: string | null;
+  quantityAvailable: number;
+  costPrice: string;
+  sellingPrice: string;
+}
+
+// ─── Variation Pricing ──────────────────────────────────────────────────────
+// Groups each product's batches by variationOption and applies the same
+// FIFO-active-else-latest pick per group as syncProductStockFromBatches does
+// for the whole product. Batches with no variationOption (non-priced
+// products) contribute nothing here. Pass several ids at once to price a
+// cart/listing in one query rather than one round-trip per product.
+//
+// Pass `tx` when calling this from inside an active transaction — see the
+// DbOrTx comment above.
+export async function getVariationPricingForProducts(
+  productIds: string[],
+  tx?: DbOrTx,
+): Promise<Map<string, VariationPricing[]>> {
+  if (!productIds.length) return new Map();
+  const executor = tx ?? db;
+
+  const rows: VariationBatchRow[] = await executor
+    .select({
+      productId: inventoryBatches.productId,
+      variationOption: inventoryBatches.variationOption,
+      quantityAvailable: inventoryBatches.quantityAvailable,
+      costPrice: inventoryBatches.costPrice,
+      sellingPrice: inventoryBatches.sellingPrice,
+    })
+    .from(inventoryBatches)
+    .where(inArray(inventoryBatches.productId, productIds))
+    .orderBy(asc(inventoryBatches.createdAt));
+
+  const byProduct = new Map<string, Map<string, VariationBatchRow[]>>();
+  for (const row of rows) {
+    if (!row.variationOption) continue;
+    if (!byProduct.has(row.productId)) byProduct.set(row.productId, new Map());
+    const byOption = byProduct.get(row.productId)!;
+    if (!byOption.has(row.variationOption)) byOption.set(row.variationOption, []);
+    byOption.get(row.variationOption)!.push(row);
+  }
+
+  const result = new Map<string, VariationPricing[]>();
+  for (const [productId, byOption] of byProduct) {
+    const options: VariationPricing[] = [];
+    for (const [option, lines] of byOption) {
+      const active = pickActiveLine(lines);
+      if (!active) continue;
+      options.push({
+        option,
+        price: Number(active.sellingPrice),
+        costPrice: Number(active.costPrice),
+        stock: lines.reduce((sum, l) => sum + l.quantityAvailable, 0),
+      });
+    }
+    result.set(productId, options);
+  }
+  return result;
+}
+
+export async function getVariationPricing(productId: string, tx?: DbOrTx): Promise<VariationPricing[]> {
+  const map = await getVariationPricingForProducts([productId], tx);
+  return map.get(productId) ?? [];
+}
+
+// ─── Sync Product Stock (& Price) From Batches ─────────────────────────────
+// Recalculates products.stock as the sum of all batch quantities (always
+// the full aggregate, priced variations or not), and mirrors
+// products.price/costPrice from whichever batch is "active" under FIFO. For
+// a product without priced variations that's the FIFO pick across all its
+// batches, same as before. For a product with priced variations, it's the
+// FIFO pick scoped to just the *display* variation's own batches
+// (products.defaultVariationOption) — other variations' prices still exist
+// per-option (see getVariationPricing) but don't feed this mirror. If the
+// display variation has no batches yet, price/cost are left untouched
+// rather than flapping to something arbitrary.
+//
+// Call after any batch insert/edit/delete/deduction that could change stock
+// or which batch is the active one.
 //
 // Pass `tx` when calling this from inside an active transaction — see the
 // DbOrTx comment above for why this matters with this pool's max: 1 config.
 export async function syncProductStockFromBatches(productId: string, tx?: DbOrTx): Promise<number> {
   const executor = tx ?? db;
-  const result = await executor
-    .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
+
+  const [product] = await executor
+    .select({
+      pricedVariationName: products.pricedVariationName,
+      defaultVariationOption: products.defaultVariationOption,
+    })
+    .from(products)
+    .where(eq(products.id, productId));
+
+  const batches = await executor
+    .select({
+      variationOption: inventoryBatches.variationOption,
+      quantityAvailable: inventoryBatches.quantityAvailable,
+      costPrice: inventoryBatches.costPrice,
+      sellingPrice: inventoryBatches.sellingPrice,
+    })
     .from(inventoryBatches)
     .where(eq(inventoryBatches.productId, productId))
-    .then((r) => r[0]?.total ?? 0);
+    .orderBy(asc(inventoryBatches.createdAt));
+
+  const stock = batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
+
+  const pricingSource = product?.pricedVariationName
+    ? batches.filter((b) => b.variationOption === product.defaultVariationOption)
+    : batches;
+  const activeBatch = pickActiveLine(pricingSource);
 
   await executor
     .update(products)
-    .set({ stock: result })
+    .set(
+      activeBatch
+        ? { stock, price: activeBatch.sellingPrice, costPrice: activeBatch.costPrice }
+        : { stock },
+    )
     .where(eq(products.id, productId));
 
-  return result;
+  return stock;
 }
 
 export interface RestoredStockLine {
@@ -174,9 +390,9 @@ export interface RestoredStockLine {
 //    batch_allocations; POS COGS is estimated separately, see that
 //    function's own comment): we know the product and quantity but not
 //    which original batch it was drawn from, so create a new compensating
-//    batch for that quantity instead, using the product's own cost price
-//    as the best available estimate (same approach used for the one-time
-//    inventory reconciliation).
+//    batch for that quantity instead, using the product's own current
+//    price/cost as the best available estimate (same approach used for the
+//    one-time inventory reconciliation).
 //
 // Pass `tx` when calling this from inside an active transaction.
 export async function restoreStockForOrder(
@@ -220,14 +436,36 @@ export async function restoreStockForOrder(
       }
     } else {
       const [product] = await executor
-        .select({ costPrice: products.costPrice })
+        .select({
+          price: products.price,
+          costPrice: products.costPrice,
+          pricedVariationName: products.pricedVariationName,
+        })
         .from(products)
         .where(eq(products.id, item.productId));
+
+      let sellingPrice = product?.price ?? '0';
+      let costPrice = product?.costPrice ?? '0';
+
+      // If this product prices by variation and the order line recorded
+      // which one, use that variation's own current price/cost instead of
+      // the flat product-level mirror — which reflects whichever variation
+      // happens to be the *display* one right now, not necessarily this one.
+      if (product?.pricedVariationName && item.variation) {
+        const options = await getVariationPricing(item.productId, executor);
+        const matched = options.find((o) => o.option === item.variation);
+        if (matched) {
+          sellingPrice = String(matched.price);
+          costPrice = String(matched.costPrice);
+        }
+      }
 
       await executor.insert(inventoryBatches).values({
         productId: item.productId,
         quantityAvailable: item.quantity,
-        costPrice: product?.costPrice ?? '0',
+        costPrice,
+        sellingPrice,
+        variationOption: product?.pricedVariationName ? (item.variation ?? null) : null,
         notes: reason,
       });
     }
@@ -259,16 +497,18 @@ async function deductPOSInventoryInner(
   tx: DbOrTx,
   productId: string,
   quantity: number,
+  variationOption?: string | null,
 ): Promise<boolean> {
+  const conditions = [
+    eq(inventoryBatches.productId, productId),
+    gt(inventoryBatches.quantityAvailable, 0),
+  ];
+  if (variationOption) conditions.push(eq(inventoryBatches.variationOption, variationOption));
+
   const batches = await tx
     .select()
     .from(inventoryBatches)
-    .where(
-      and(
-        eq(inventoryBatches.productId, productId),
-        gt(inventoryBatches.quantityAvailable, 0),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(asc(inventoryBatches.createdAt));
 
   let remaining = quantity;
@@ -291,17 +531,10 @@ async function deductPOSInventoryInner(
     );
   }
 
-  // Sync product stock
-  const newStock = await tx
-    .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
-    .from(inventoryBatches)
-    .where(eq(inventoryBatches.productId, productId))
-    .then((r) => r[0]?.total ?? 0);
-
-  await tx
-    .update(products)
-    .set({ stock: newStock })
-    .where(eq(products.id, productId));
+  // Deducting from the oldest batch first can deplete it entirely, handing
+  // FIFO "active" status (and its price) to the next-oldest batch — re-sync
+  // both stock and price/cost together.
+  await syncProductStockFromBatches(productId, tx);
 
   return true;
 }
@@ -318,9 +551,10 @@ export async function deductPOSInventory(
   productId: string,
   quantity: number,
   tx?: DbOrTx,
+  variationOption?: string | null,
 ): Promise<boolean> {
-  if (tx) return deductPOSInventoryInner(tx, productId, quantity);
-  return db.transaction((innerTx) => deductPOSInventoryInner(innerTx, productId, quantity));
+  if (tx) return deductPOSInventoryInner(tx, productId, quantity, variationOption);
+  return db.transaction((innerTx) => deductPOSInventoryInner(innerTx, productId, quantity, variationOption));
 }
 
 // ─── Create Stock Reservations ─────────────────────────────────────────────
@@ -342,21 +576,23 @@ export async function createStockReservations(
     const items = checkout.items as Array<{
       product_id: string;
       quantity: number;
+      variationOption?: string | null;
     }>;
 
     const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
     let totalReserved = 0;
 
     for (const item of items) {
+      const conditions = [
+        eq(inventoryBatches.productId, item.product_id),
+        gt(inventoryBatches.quantityAvailable, 0),
+      ];
+      if (item.variationOption) conditions.push(eq(inventoryBatches.variationOption, item.variationOption));
+
       const batches = await tx
         .select()
         .from(inventoryBatches)
-        .where(
-          and(
-            eq(inventoryBatches.productId, item.product_id),
-            gt(inventoryBatches.quantityAvailable, 0),
-          ),
-        )
+        .where(and(...conditions))
         .orderBy(asc(inventoryBatches.createdAt));
 
       let remaining = item.quantity;
@@ -390,16 +626,10 @@ export async function createStockReservations(
       }
     }
 
-    // Sync product stocks
+    // Sync product stocks (& FIFO price/cost)
     const productIds = [...new Set(items.map((i) => i.product_id))];
     for (const pid of productIds) {
-      const newStock = await tx
-        .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
-        .from(inventoryBatches)
-        .where(eq(inventoryBatches.productId, pid))
-        .then((r) => r[0]?.total ?? 0);
-
-      await tx.update(products).set({ stock: newStock }).where(eq(products.id, pid));
+      await syncProductStockFromBatches(pid, tx);
     }
 
     return totalReserved;
@@ -413,9 +643,23 @@ export async function consumeStockReservationsForOrder(
   orderId: string,
 ): Promise<number> {
   return db.transaction(async (tx) => {
+    // Joined to the batch it drew from so each reservation's variation is
+    // known — needed below to correctly pair a reservation with the right
+    // checkout item when a cart has two different variations of the same
+    // product (productId alone can't disambiguate that).
     const reservations = await tx
-      .select()
+      .select({
+        id: stockReservations.id,
+        checkoutId: stockReservations.checkoutId,
+        productId: stockReservations.productId,
+        batchId: stockReservations.batchId,
+        quantity: stockReservations.quantity,
+        costPrice: stockReservations.costPrice,
+        status: stockReservations.status,
+        variationOption: inventoryBatches.variationOption,
+      })
       .from(stockReservations)
+      .leftJoin(inventoryBatches, eq(stockReservations.batchId, inventoryBatches.id))
       .where(
         and(
           eq(stockReservations.checkoutId, checkoutId),
@@ -441,13 +685,15 @@ export async function consumeStockReservationsForOrder(
       quantity: number;
       price: number;
       variation: string | null;
+      variationOption?: string | null;
     }>;
 
     let consumed = 0;
 
     for (const item of checkoutItems) {
       const itemReservations = reservations.filter(
-        (r) => r.productId === item.product_id,
+        (r) => r.productId === item.product_id
+          && (r.variationOption ?? null) === (item.variationOption ?? null),
       );
       if (!itemReservations.length) continue;
 
@@ -516,16 +762,10 @@ export async function releaseStockReservations(checkoutId: string): Promise<numb
       released += r.quantity;
     }
 
-    // Sync product stocks
+    // Sync product stocks (& FIFO price/cost)
     const productIds = [...new Set(reservations.map((r) => r.productId))];
     for (const pid of productIds) {
-      const newStock = await tx
-        .select({ total: sql<number>`coalesce(sum(${inventoryBatches.quantityAvailable}), 0)` })
-        .from(inventoryBatches)
-        .where(eq(inventoryBatches.productId, pid))
-        .then((r) => r[0]?.total ?? 0);
-
-      await tx.update(products).set({ stock: newStock }).where(eq(products.id, pid));
+      await syncProductStockFromBatches(pid, tx);
     }
 
     return released;

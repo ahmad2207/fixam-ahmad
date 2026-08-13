@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Heart, ShoppingCart, Star, Bell, Flame, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
@@ -25,6 +26,10 @@ interface Product {
   categoryName?: string | null;
   rating?: number | null;
   reviewsCount?: number | null;
+  // Set when this product's price varies by variation — quick-add from the
+  // grid can't know which option the shopper wants, so it routes to the
+  // product page instead of adding a (potentially wrong-priced) item.
+  pricedVariationName?: string | null;
 }
 
 function PromoTimer({ endsAt }: { endsAt: string | Date }) {
@@ -149,10 +154,12 @@ function RestockTimer({ restockAt }: { restockAt: string | Date }) {
 export function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart();
   const { toggle, has } = useWishlist();
+  const router = useRouter();
   const [showDialog,      setShowDialog     ] = useState(false);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const isWishlisted = has(product.id);
   const inStock = product.stock > 0;
+  const isPriced = !!product.pricedVariationName;
 
   const price = Number(product.price);
   const compareAt = Number(product.compareAtPrice ?? 0);
@@ -162,6 +169,9 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
     if (!inStock) return;
+    // Which option a shopper wants (and its price) can only be chosen on
+    // the product page — send them there instead of guessing.
+    if (isPriced) { router.push(`/products/${product.slug}`); return; }
     addItem({ productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null, quantity: 1, stock: product.stock });
     setShowDialog(true);
   };
@@ -242,6 +252,7 @@ export function ProductCard({ product }: { product: Product }) {
             {/* Price + cart — full-width */}
             <div className="flex items-center justify-between gap-1">
               <div className="min-w-0">
+                {isPriced && <span className="text-[10px] text-gray-400 mr-0.5">From</span>}
                 <span className="text-lg font-semibold text-primary leading-none">
                   {formatCurrency(price)}
                 </span>

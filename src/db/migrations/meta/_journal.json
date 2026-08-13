@@ -155,6 +155,20 @@
       "when": 1786266418698,
       "tag": "0021_payment_notification_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1786613957168,
+      "tag": "0022_batch_selling_price",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1786621073920,
+      "tag": "0023_variation_pricing",
+      "breakpoints": true
     }
   ]
 }

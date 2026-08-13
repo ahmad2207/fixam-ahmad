@@ -52,11 +52,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  // `stock` is deliberately discarded here, no matter what the client sends
-  // — a new product always starts at 0. Real stock only ever comes from a
+  // `stock`, `price` and `costPrice` are deliberately discarded here, no
+  // matter what the client sends — a new product always starts at 0 stock
+  // and 0 price. Real stock, cost and selling price only ever come from a
   // batch created via POST /api/admin/inventory/[productId]/batches, which
-  // is the only place that's allowed to move this number.
-  const { promoEndsAt, restockAt, stock: _stock, ...rest } = body;
+  // is the only place that's allowed to move these numbers.
+  const { promoEndsAt, restockAt, stock: _stock, price: _price, costPrice: _costPrice, ...rest } = body;
   const slug = rest.slug || slugify(rest.name);
 
   try {
@@ -64,6 +65,8 @@ export async function POST(req: NextRequest) {
       ...rest,
       slug,
       stock: 0,
+      price: '0',
+      costPrice: '0',
       promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
       restockAt: restockAt ? new Date(restockAt) : null,
     });

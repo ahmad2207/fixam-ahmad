@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { orders, orderItems, receipts } from '@/db/schema';
+import { orders, orderItems, receipts, products } from '@/db/schema';
+import { inArray } from 'drizzle-orm';
 import { deductPOSInventory, generateReceiptNumber, generateOrderNumber } from '@/lib/inventory';
 
 export async function POST(req: NextRequest) {
@@ -17,6 +18,29 @@ export async function POST(req: NextRequest) {
 
     if (!items?.length) {
       return NextResponse.json({ error: 'No items' }, { status: 400 });
+    }
+
+    // A priced-variation product's stock is tracked per option — without
+    // knowing which one, deduction below would have to guess. Reject the
+    // sale up front rather than deducting from the wrong size's batches.
+    const productIds: string[] = [...new Set<string>(items.map((i: any) => i.productId).filter(Boolean))];
+    if (productIds.length) {
+      const productRows = await db
+        .select({ id: products.id, pricedVariationName: products.pricedVariationName })
+        .from(products)
+        .where(inArray(products.id, productIds));
+      const pricedNameById = new Map(
+        productRows.filter((p) => p.pricedVariationName).map((p) => [p.id, p.pricedVariationName]),
+      );
+      for (const item of items) {
+        const pricedName = item.productId ? pricedNameById.get(item.productId) : undefined;
+        if (pricedName && !item.variation) {
+          return NextResponse.json(
+            { error: `Please choose a ${pricedName} for "${item.name}"` },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     // Generated against the plain `db` connection, BEFORE opening the
@@ -74,7 +98,9 @@ export async function POST(req: NextRequest) {
         if (item.productId) {
           // Pass this transaction's handle so the deduction participates in
           // it rather than opening a second, independent transaction.
-          await deductPOSInventory(item.productId, item.quantity, tx);
+          // `item.variation` is the exact priced-option value for a priced
+          // product (see the check above); undefined/null for others.
+          await deductPOSInventory(item.productId, item.quantity, tx, item.variation ?? null);
         }
       }
 

@@ -136,11 +136,24 @@ export default function CheckoutPage() {
   const checkStock = async () => {
     const res = await fetch('/api/products?' + new URLSearchParams({ ids: items.map(i => i.productId).join(',') }));
     if (!res.ok) return [];
-    const available: { id: string; stock: number; name: string }[] = await res.json();
+    const available: {
+      id: string;
+      stock: number;
+      name: string;
+      pricedVariationName?: string | null;
+      variationPricing?: { option: string; price: number; stock: number }[] | null;
+    }[] = await res.json();
     const errors: typeof stockErrors = [];
     for (const item of items) {
       const p = available.find(a => a.id === item.productId);
-      if (p && p.stock < item.quantity) errors.push({ name: item.name, available: p.stock, requested: item.quantity });
+      if (!p) continue;
+      // A priced product's real stock is per-option, not the aggregate —
+      // check the exact option this line is for (server re-checks this
+      // authoritatively anyway; this is just an earlier, friendlier warning).
+      const optionStock = p.pricedVariationName && item.variationOption
+        ? p.variationPricing?.find((v) => v.option === item.variationOption)?.stock ?? 0
+        : p.stock;
+      if (optionStock < item.quantity) errors.push({ name: item.name, available: optionStock, requested: item.quantity });
     }
     return errors;
   };
@@ -222,7 +235,11 @@ export default function CheckoutPage() {
 
     const shipping = buildShipping();
     const payload = {
-      items: items.map(i => ({ product_id: i.productId, product_name: i.name, product_image: i.imageUrl, quantity: i.quantity, price: i.price, variation: i.variation ?? null })),
+      items: items.map(i => ({
+        product_id: i.productId, product_name: i.name, product_image: i.imageUrl,
+        quantity: i.quantity, price: i.price, variation: i.variation ?? null,
+        variationOption: i.variationOption ?? null,
+      })),
       shippingAddress: shipping,
       subtotal, deliveryFee: finalDeliveryFee, total: grandTotal,
       customerEmail: form.email, customerName: form.fullName,
