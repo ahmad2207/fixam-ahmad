@@ -169,6 +169,13 @@
       "when": 1786621073920,
       "tag": "0023_variation_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786696154157,
+      "tag": "0024_store_pickup",
+      "breakpoints": true
     }
   ]
 }

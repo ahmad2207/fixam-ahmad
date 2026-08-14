@@ -73,6 +73,20 @@ const STATUS_META: Record<string, { label: string; heading: string; message: str
     color: emailColors.muted,
     emoji: '↩️',
   },
+  ready_for_pickup: {
+    label: 'Ready for Pickup',
+    heading: "Your order is ready — come collect it!",
+    message: "Your order is packed and waiting for you at the store. Bring your order number when you come in.",
+    color: emailColors.green,
+    emoji: '🏬',
+  },
+  picked_up: {
+    label: 'Order Picked Up',
+    heading: 'Picked up!',
+    message: "You've picked up your order. Thanks for shopping with us!",
+    color: emailColors.green,
+    emoji: '🎉',
+  },
 };
 
 async function resolveRecipientEmail(order: typeof orders.$inferSelect): Promise<string | null> {
@@ -112,14 +126,27 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
     const receipt = await db.query.receipts.findFirst({ where: eq(receipts.orderId, orderId) });
     const info = await getStoreContactInfo();
 
+    const isPickup = order.deliveryMethod === 'pickup';
+
     const podNote =
       order.paymentMethod === 'pod'
         ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;background:${emailColors.orange}14;border-radius:10px;border:1px solid ${emailColors.orange}33;">
              <tr><td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${emailColors.ink};">
-               💰 <strong>Pay on Delivery</strong> — please have ₦${Number(order.total).toLocaleString()} ready for the courier.
+               💰 <strong>${isPickup ? 'Pay at Pickup' : 'Pay on Delivery'}</strong> — please have ₦${Number(order.total).toLocaleString()} ready ${isPickup ? 'when you collect your order' : 'for the courier'}.
              </td></tr>
            </table>`
         : '';
+
+    // No delivery leg to explain for a pickup order — tell them where and
+    // how to collect it instead.
+    const pickupNote = isPickup
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 0;background:${emailColors.green}14;border-radius:10px;border:1px solid ${emailColors.green}33;">
+           <tr><td style="padding:14px 16px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:${emailColors.ink};line-height:1.6;">
+             🏬 <strong>Pick up in store</strong>${info.storeAddress ? ` — ${info.storeAddress}` : ''}${info.storePhone ? `<br />📞 ${info.storePhone}` : ''}
+             <br />Bring your order number when you come in. We'll email you again as soon as it's ready.
+           </td></tr>
+         </table>`
+      : '';
 
     const bodyHtml = `
       <h1 style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:800;color:${emailColors.ink};">🎉 Thank you for your order!</h1>
@@ -130,11 +157,12 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
       ${renderItemsTable(items.map((i) => ({ name: `${i.productName}${i.variation ? ` (${i.variation})` : ''}`, qty: i.quantity, price: Number(i.price), image: i.productImage })))}
       ${renderTotals([
         { label: 'Subtotal', value: `₦${Number(order.subtotal).toLocaleString()}` },
-        { label: 'Delivery', value: `₦${Number(order.deliveryFee).toLocaleString()}` },
+        { label: isPickup ? 'Pickup' : 'Delivery', value: isPickup ? 'Free' : `₦${Number(order.deliveryFee).toLocaleString()}` },
         { label: 'Total', value: `₦${Number(order.total).toLocaleString()}`, bold: true },
       ])}
       ${receipt ? `<p style="margin:14px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:${emailColors.muted};">Receipt: <strong style="color:${emailColors.ink};">${receipt.receiptNumber}</strong></p>` : ''}
       ${podNote}
+      ${pickupNote}
       ${renderTrackButton(order)}
     `;
 

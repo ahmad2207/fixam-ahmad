@@ -65,6 +65,7 @@ export async function priceCheckoutItems(
   rawItems: RawCheckoutItem[],
   shippingState: string,
   abujaZone?: string,
+  deliveryMethod: 'delivery' | 'pickup' = 'delivery',
 ): Promise<PricedCheckout> {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw new Error('Your cart is empty');
@@ -132,6 +133,13 @@ export async function priceCheckoutItems(
       variation: raw.variation ?? null,
       variationOption: product.pricedVariationName ? (raw.variationOption ?? null) : null,
     });
+  }
+
+  // A pickup order has no delivery leg at all — skip both the state
+  // requirement and the fee calculation entirely rather than pretending a
+  // state was chosen.
+  if (deliveryMethod === 'pickup') {
+    return { items, subtotal, deliveryFee: 0, total: subtotal };
   }
 
   if (!shippingState) {

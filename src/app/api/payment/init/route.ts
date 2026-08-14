@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     const userId = (session?.user as any)?.id ?? null;
 
     const body = await req.json();
-    const { items: rawItems, shippingAddress, customerEmail, customerName, customerPhone } = body;
+    const { items: rawItems, shippingAddress, customerEmail, customerName, customerPhone, deliveryMethod } = body;
+    const method: 'delivery' | 'pickup' = deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
 
     if (!rawItems?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
         rawItems,
         shippingAddress?.state,
         shippingAddress?.abujaZone,
+        method,
       ));
     } catch (err: any) {
       return NextResponse.json({ error: err.message ?? 'Could not price your cart' }, { status: 400 });
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
         guestEmail: customerEmail,
         items,
         shippingAddress,
+        deliveryMethod: method,
         subtotal: String(subtotal),
         deliveryFee: String(deliveryFee ?? 0),
         total: String(total),

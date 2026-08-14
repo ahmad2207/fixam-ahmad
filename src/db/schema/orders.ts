@@ -10,9 +10,20 @@ export const orderStatusEnum = pgEnum('order_status', [
   'delivered',
   'cancelled',
   'refunded',
+  // Pickup-only statuses — a pickup order never passes through
+  // 'shipped'/'delivered', it moves pending/confirmed/processing ->
+  // ready_for_pickup -> picked_up instead.
+  'ready_for_pickup',
+  'picked_up',
 ]);
 
 export const saleTypeEnum = pgEnum('sale_type', ['online', 'pos', 'offline']);
+
+// Whether an order is fulfilled by shipping it out or by the customer
+// collecting it in person. Reused on pendingCheckouts too (see that schema)
+// so the choice survives the checkout -> order pipeline without being
+// threaded as a separate parameter everywhere.
+export const deliveryMethodEnum = pgEnum('delivery_method', ['delivery', 'pickup']);
 
 export const orders = pgTable('orders', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -24,6 +35,7 @@ export const orders = pgTable('orders', {
   paymentMethod: text('payment_method'),
   paymentStatus: text('payment_status').notNull().default('pending'),
   saleType: saleTypeEnum('sale_type').notNull().default('online'),
+  deliveryMethod: deliveryMethodEnum('delivery_method').notNull().default('delivery'),
   subtotal: text('subtotal').notNull(),
   deliveryFee: text('delivery_fee').notNull().default('0'),
   total: text('total').notNull(),

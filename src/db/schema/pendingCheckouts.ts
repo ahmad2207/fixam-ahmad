@@ -1,5 +1,6 @@
 import { pgTable, text, timestamp, jsonb, pgEnum } from 'drizzle-orm/pg-core';
 import { addresses } from './addresses';
+import { deliveryMethodEnum } from './orders';
 
 export const checkoutStatusEnum = pgEnum('checkout_status', ['pending', 'paid', 'expired', 'cancelled']);
 
@@ -10,6 +11,7 @@ export const pendingCheckouts = pgTable('pending_checkouts', {
   addressId: text('address_id').references(() => addresses.id, { onDelete: 'set null' }),
   notes: text('notes'),
   paymentMethod: text('payment_method'),
+  deliveryMethod: deliveryMethodEnum('delivery_method').notNull().default('delivery'),
   items: jsonb('items').notNull().$type<Array<{
     product_id: string;
     product_name: string;
@@ -19,12 +21,14 @@ export const pendingCheckouts = pgTable('pending_checkouts', {
     variation: string | null;
     variationOption: string | null;
   }>>(),
+  // streetAddress/city/state are absent for a pickup order — only
+  // fullName/phone are ever required there (see checkout's buildShipping()).
   shippingAddress: jsonb('shipping_address').$type<{
     fullName: string;
     phone: string;
-    streetAddress: string;
-    city: string;
-    state: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
     abujaZone?: string;
   }>(),
   subtotal: text('subtotal').notNull(),

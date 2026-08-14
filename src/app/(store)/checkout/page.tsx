@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, MapPin, CreditCard, Truck, Banknote,
   ShoppingBag, ChevronRight, AlertTriangle, CheckCircle2,
-  Lock, User, Phone, Mail,
+  Lock, User, Phone, Mail, Store,
 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useStoreSetting } from '@/hooks/useStoreSettings';
@@ -57,7 +57,7 @@ export default function CheckoutPage() {
   const { items, subtotal, clearCart, itemCount } = useCart();
   const { initiatePayment, isLoading: paystackLoading, error: paystackError } = usePaystackPayment();
   const { data: session } = useSession();
-  const { data: storeSettings } = useStoreSetting<{ whatsapp_number?: string }>('general');
+  const { data: storeSettings } = useStoreSetting<{ whatsapp_number?: string; store_address?: string; store_phone?: string }>('general');
   const { data: deliveryConfig } = useStoreDeliveryConfig();
   // Falls back to hardcoded defaults until the admin-configured schedule
   // loads, so the form never blocks on this fetch.
@@ -72,6 +72,7 @@ export default function CheckoutPage() {
   const [podLoading, setPodLoading] = useState(false);
 
   const [form, setForm] = useState({
+    deliveryMethod: 'delivery' as 'delivery' | 'pickup',
     fullName: session?.user?.name ?? '',
     email: session?.user?.email ?? '',
     phone: '',
@@ -82,6 +83,7 @@ export default function CheckoutPage() {
     abujaArea: '',
     notes: '',
   });
+  const isPickup = form.deliveryMethod === 'pickup';
 
   const isAbuja = useMemo(() =>
     ['FCT - Abuja', 'Abuja', 'FCT', 'Federal Capital Territory'].includes(form.state),
@@ -93,11 +95,13 @@ export default function CheckoutPage() {
   );
 
   const deliveryResult = useMemo(() => {
+    // No delivery leg at all for pickup — always "resolved", always free.
+    if (isPickup) return { fee: 0, label: 'Pickup — Free' };
     if (!form.state) return null;
     const state = isAbuja ? 'FCT - Abuja' : form.state;
     if (isAbuja && !form.abujaZone) return null;
     return calculateDeliveryFee(state, subtotal, isAbuja ? form.abujaZone : undefined, effectiveDeliveryConfig);
-  }, [form.state, form.abujaZone, subtotal, isAbuja, effectiveDeliveryConfig]);
+  }, [isPickup, form.state, form.abujaZone, subtotal, isAbuja, effectiveDeliveryConfig]);
 
   const finalDeliveryFee = deliveryResult?.fee ?? 0;
   const grandTotal = subtotal + finalDeliveryFee;
@@ -159,6 +163,10 @@ export default function CheckoutPage() {
   };
 
   const buildShipping = () => {
+    if (isPickup) {
+      const sel = savedAddresses.find(a => a.id === selectedAddressId);
+      return { fullName: form.fullName, phone: form.phone || (sel?.phone ?? '') };
+    }
     const sel = savedAddresses.find(a => a.id === selectedAddressId);
     return sel && !useNewAddress
       ? { fullName: form.fullName, phone: sel.phone, streetAddress: sel.streetAddress, city: sel.city, state: isAbuja ? 'FCT - Abuja' : sel.state, abujaZone: isAbuja ? form.abujaZone : undefined }
@@ -176,23 +184,32 @@ export default function CheckoutPage() {
       lines.push('');
     });
     lines.push(`📦 Subtotal: ${formatCurrency(subtotal)}`);
-    if (deliveryResult) {
+    if (isPickup) {
+      lines.push(`💳 *Grand Total: ${formatCurrency(subtotal)}* (pickup — no delivery fee)`);
+    } else if (deliveryResult) {
       lines.push(`🚚 Delivery (${form.state}${form.abujaZone ? ` · ${form.abujaZone}` : ''}): ${formatCurrency(finalDeliveryFee)}`);
       lines.push(`💳 *Grand Total: ${formatCurrency(grandTotal)}*`);
     } else {
       lines.push(`💳 *Subtotal: ${formatCurrency(subtotal)}* (+ delivery TBD)`);
     }
     lines.push('');
-    lines.push('📍 *Delivery Details:*');
-    lines.push(`👤 Name: ${form.fullName}`);
-    lines.push(`📞 Phone: ${form.phone || (sel?.phone ?? '')}`);
-    if (form.streetAddress) lines.push(`🏠 Address: ${form.streetAddress}, ${form.city}, ${form.state}`);
-    else if (sel?.streetAddress) lines.push(`🏠 Address: ${sel.streetAddress}, ${sel.city}, ${sel.state}`);
-    else if (form.state) lines.push(`📍 State: ${form.state}${form.abujaZone ? ` · ${form.abujaZone}` : ''}`);
+    if (isPickup) {
+      lines.push('🏬 *Pickup in store:*');
+      lines.push(`👤 Name: ${form.fullName}`);
+      lines.push(`📞 Phone: ${form.phone || (sel?.phone ?? '')}`);
+      if (storeSettings?.store_address) lines.push(`📍 Pickup at: ${storeSettings.store_address}`);
+    } else {
+      lines.push('📍 *Delivery Details:*');
+      lines.push(`👤 Name: ${form.fullName}`);
+      lines.push(`📞 Phone: ${form.phone || (sel?.phone ?? '')}`);
+      if (form.streetAddress) lines.push(`🏠 Address: ${form.streetAddress}, ${form.city}, ${form.state}`);
+      else if (sel?.streetAddress) lines.push(`🏠 Address: ${sel.streetAddress}, ${sel.city}, ${sel.state}`);
+      else if (form.state) lines.push(`📍 State: ${form.state}${form.abujaZone ? ` · ${form.abujaZone}` : ''}`);
+    }
     if (form.notes) lines.push(`📝 Notes: ${form.notes}`);
     lines.push('\nPlease confirm my order. Thank you! 🙏');
     return lines.join('\n');
-  }, [items, form, subtotal, deliveryResult, finalDeliveryFee, grandTotal, savedAddresses, selectedAddressId]);
+  }, [items, form, subtotal, isPickup, deliveryResult, finalDeliveryFee, grandTotal, savedAddresses, selectedAddressId, storeSettings]);
 
   const handleWhatsAppCheckout = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -211,17 +228,21 @@ export default function CheckoutPage() {
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       toast.error('Please enter a valid email address'); return;
     }
-    // Street address / city are only collected (and shown) when the customer
-    // isn't reusing a saved address — matches the `showFull` condition that
-    // controls locationFields() and the sel/!useNewAddress branch in buildShipping().
-    const sel = savedAddresses.find(a => a.id === selectedAddressId);
-    const usingSavedAddress = Boolean(sel) && !useNewAddress;
-    if (!usingSavedAddress) {
-      if (!form.streetAddress.trim()) { toast.error('Please enter your street address'); return; }
-      if (!form.city.trim()) { toast.error('Please enter your city or town'); return; }
+    // A pickup order has no address leg at all — name/phone/email above are
+    // the only requirements.
+    if (!isPickup) {
+      // Street address / city are only collected (and shown) when the customer
+      // isn't reusing a saved address — matches the `showFull` condition that
+      // controls locationFields() and the sel/!useNewAddress branch in buildShipping().
+      const sel = savedAddresses.find(a => a.id === selectedAddressId);
+      const usingSavedAddress = Boolean(sel) && !useNewAddress;
+      if (!usingSavedAddress) {
+        if (!form.streetAddress.trim()) { toast.error('Please enter your street address'); return; }
+        if (!form.city.trim()) { toast.error('Please enter your city or town'); return; }
+      }
+      if (!form.state) { toast.error('Please select your delivery state'); return; }
+      if (isAbuja && !form.abujaZone) { toast.error('Please select your Abuja zone'); return; }
     }
-    if (!form.state) { toast.error('Please select your delivery state'); return; }
-    if (isAbuja && !form.abujaZone) { toast.error('Please select your Abuja zone'); return; }
     setStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -241,6 +262,7 @@ export default function CheckoutPage() {
         variationOption: i.variationOption ?? null,
       })),
       shippingAddress: shipping,
+      deliveryMethod: form.deliveryMethod,
       subtotal, deliveryFee: finalDeliveryFee, total: grandTotal,
       customerEmail: form.email, customerName: form.fullName,
       customerPhone: form.phone || (savedAddresses.find(a => a.id === selectedAddressId)?.phone ?? ''),
@@ -369,6 +391,28 @@ export default function CheckoutPage() {
             {/* ── STEP 1: DELIVERY ── */}
             {step === 1 && (
               <form id="delivery-form" onSubmit={handleDeliveryNext} noValidate>
+
+                {/* Fulfillment method */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-3">
+                  <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">How would you like to get it?</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button type="button" onClick={() => setForm(p => ({ ...p, deliveryMethod: 'delivery' }))}
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
+                        !isPickup ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                      }`}>
+                      <Truck className={`h-4 w-4 flex-shrink-0 ${!isPickup ? 'text-white' : 'text-gray-500'}`} />
+                      <span className={`text-sm font-black ${!isPickup ? 'text-white' : 'text-gray-800'}`}>Deliver to me</span>
+                    </button>
+                    <button type="button" onClick={() => setForm(p => ({ ...p, deliveryMethod: 'pickup' }))}
+                      className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
+                        isPickup ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                      }`}>
+                      <Store className={`h-4 w-4 flex-shrink-0 ${isPickup ? 'text-white' : 'text-gray-500'}`} />
+                      <span className={`text-sm font-black ${isPickup ? 'text-white' : 'text-gray-800'}`}>Pick up in store</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
 
                   {/* Contact */}
@@ -396,44 +440,69 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {/* Address */}
+                  {/* Address / Pickup location */}
                   <div className="p-4">
-                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Delivery Address</p>
+                    {isPickup ? (
+                      <>
+                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Pickup Location</p>
+                        <div className="flex items-start gap-3 bg-gray-50 border border-gray-100 rounded-xl p-3.5">
+                          <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center flex-shrink-0">
+                            <Store className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-800">
+                              {storeSettings?.store_address || 'Collect from our store'}
+                            </p>
+                            {storeSettings?.store_phone && (
+                              <p className="text-xs text-gray-400 mt-0.5">{storeSettings.store_phone}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2 bg-brand-green-50 border border-brand-green-100 rounded-lg px-3 py-2">
+                          <CheckCircle2 className="h-4 w-4 text-brand-green-500 flex-shrink-0" />
+                          <span className="text-xs font-bold text-brand-green-700">No delivery fee — pick up free of charge</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3">Delivery Address</p>
 
-                    {session && savedAddresses.length > 0 && (
-                      <div className="space-y-1.5 mb-3">
-                        {savedAddresses.map(addr => (
-                          <label key={addr.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${
-                            selectedAddressId === addr.id ? 'border-primary bg-primary/5' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
-                          }`}>
-                            <input type="radio" name="address" checked={selectedAddressId === addr.id} onChange={() => handleSelectAddress(addr)} className="accent-primary flex-shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-sm font-bold text-gray-800">{addr.fullName}</span>
-                                {addr.isDefault && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">Default</span>}
-                              </div>
-                              <p className="text-xs text-gray-400 truncate">{addr.phone} · {addr.streetAddress}, {addr.city}, {addr.state}</p>
-                            </div>
-                          </label>
-                        ))}
-                        <label className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${
-                          selectedAddressId === 'new' ? 'border-primary bg-primary/5' : 'border-dashed border-gray-200 hover:border-gray-300'
-                        }`}>
-                          <input type="radio" name="address" checked={selectedAddressId === 'new'} onChange={() => { setSelectedAddressId('new'); setUseNewAddress(true); }} className="accent-primary" />
-                          <span className="text-sm font-bold text-gray-500">+ Different address</span>
-                        </label>
-                      </div>
-                    )}
+                        {session && savedAddresses.length > 0 && (
+                          <div className="space-y-1.5 mb-3">
+                            {savedAddresses.map(addr => (
+                              <label key={addr.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                                selectedAddressId === addr.id ? 'border-primary bg-primary/5' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                              }`}>
+                                <input type="radio" name="address" checked={selectedAddressId === addr.id} onChange={() => handleSelectAddress(addr)} className="accent-primary flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-sm font-bold text-gray-800">{addr.fullName}</span>
+                                    {addr.isDefault && <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">Default</span>}
+                                  </div>
+                                  <p className="text-xs text-gray-400 truncate">{addr.phone} · {addr.streetAddress}, {addr.city}, {addr.state}</p>
+                                </div>
+                              </label>
+                            ))}
+                            <label className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                              selectedAddressId === 'new' ? 'border-primary bg-primary/5' : 'border-dashed border-gray-200 hover:border-gray-300'
+                            }`}>
+                              <input type="radio" name="address" checked={selectedAddressId === 'new'} onChange={() => { setSelectedAddressId('new'); setUseNewAddress(true); }} className="accent-primary" />
+                              <span className="text-sm font-bold text-gray-500">+ Different address</span>
+                            </label>
+                          </div>
+                        )}
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {locationFields(useNewAddress || !session || savedAddresses.length === 0)}
-                    </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {locationFields(useNewAddress || !session || savedAddresses.length === 0)}
+                        </div>
 
-                    {deliveryResult && (
-                      <div className="mt-3 flex items-center gap-2 bg-brand-green-50 border border-brand-green-100 rounded-lg px-3 py-2">
-                        <CheckCircle2 className="h-4 w-4 text-brand-green-500 flex-shrink-0" />
-                        <span className="text-xs font-bold text-brand-green-700">{formatCurrency(finalDeliveryFee)} delivery · {deliveryResult.label}</span>
-                      </div>
+                        {deliveryResult && (
+                          <div className="mt-3 flex items-center gap-2 bg-brand-green-50 border border-brand-green-100 rounded-lg px-3 py-2">
+                            <CheckCircle2 className="h-4 w-4 text-brand-green-500 flex-shrink-0" />
+                            <span className="text-xs font-bold text-brand-green-700">{formatCurrency(finalDeliveryFee)} delivery · {deliveryResult.label}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -454,17 +523,25 @@ export default function CheckoutPage() {
             {step === 2 && (
               <form id="payment-form" onSubmit={handleSubmit}>
 
-                {/* Delivery recap */}
+                {/* Delivery / pickup recap */}
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 mb-3 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-brand-green-50 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-4 w-4 text-brand-green-600" />
+                    {isPickup ? <Store className="h-4 w-4 text-brand-green-600" /> : <MapPin className="h-4 w-4 text-brand-green-600" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Delivering to</p>
-                    <p className="text-sm font-bold text-gray-800 truncate">{form.fullName}</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
+                      {isPickup ? 'Pickup at' : 'Delivering to'}
+                    </p>
+                    <p className="text-sm font-bold text-gray-800 truncate">
+                      {isPickup ? (storeSettings?.store_address || 'Our store') : form.fullName}
+                    </p>
                     <p className="text-xs text-gray-400 truncate">
-                      {form.state}{form.abujaZone ? ` · ${form.abujaZone}` : ''}
-                      {deliveryResult && <span className="text-brand-green-600 font-semibold"> · {formatCurrency(finalDeliveryFee)}</span>}
+                      {isPickup
+                        ? <span className="text-brand-green-600 font-semibold">Free — no delivery fee</span>
+                        : <>{form.state}{form.abujaZone ? ` · ${form.abujaZone}` : ''}
+                            {deliveryResult && <span className="text-brand-green-600 font-semibold"> · {formatCurrency(finalDeliveryFee)}</span>}
+                          </>
+                      }
                     </p>
                   </div>
                   <button type="button" onClick={() => setStep(1)} className="text-xs text-primary font-bold hover:underline">Edit</button>
@@ -501,10 +578,14 @@ export default function CheckoutPage() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5">
-                            <p className={`text-sm font-black ${paymentMethod === 'pod' ? 'text-white' : 'text-gray-800'}`}>Pay on Delivery</p>
+                            <p className={`text-sm font-black ${paymentMethod === 'pod' ? 'text-white' : 'text-gray-800'}`}>
+                              {isPickup ? 'Pay at Pickup' : 'Pay on Delivery'}
+                            </p>
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${paymentMethod === 'pod' ? 'bg-white/20 text-white' : 'bg-brand-green-100 text-brand-green-700'}`}>Popular</span>
                           </div>
-                          <p className={`text-xs ${paymentMethod === 'pod' ? 'text-white/60' : 'text-gray-400'}`}>No upfront payment</p>
+                          <p className={`text-xs ${paymentMethod === 'pod' ? 'text-white/60' : 'text-gray-400'}`}>
+                            {isPickup ? 'Cash when you collect' : 'No upfront payment'}
+                          </p>
                         </div>
                         <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pod' ? 'border-white' : 'border-gray-300'}`}>
                           {paymentMethod === 'pod' && <div className="w-2 h-2 rounded-full bg-white" />}
@@ -570,10 +651,12 @@ export default function CheckoutPage() {
                   <span className="font-semibold tabular-nums">{formatCurrency(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">Delivery</span>
-                  {deliveryResult
-                    ? <span className="font-semibold tabular-nums">{formatCurrency(finalDeliveryFee)}</span>
-                    : <span className="text-gray-400 italic">Select state</span>
+                  <span className="text-gray-500">{isPickup ? 'Pickup' : 'Delivery'}</span>
+                  {isPickup
+                    ? <span className="font-semibold text-brand-green-600">Free</span>
+                    : deliveryResult
+                      ? <span className="font-semibold tabular-nums">{formatCurrency(finalDeliveryFee)}</span>
+                      : <span className="text-gray-400 italic">Select state</span>
                   }
                 </div>
               </div>
@@ -620,7 +703,7 @@ export default function CheckoutPage() {
                     {isLoading ? (
                       <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Processing…</>
                     ) : paymentMethod === 'pod' ? (
-                      <><Banknote className="h-4 w-4" /> Place Order — Pay on Delivery</>
+                      <><Banknote className="h-4 w-4" /> {isPickup ? 'Place Order — Pay at Pickup' : 'Place Order — Pay on Delivery'}</>
                     ) : (
                       <><Lock className="h-4 w-4" /> Pay {formatCurrency(grandTotal)} Securely</>
                     )}

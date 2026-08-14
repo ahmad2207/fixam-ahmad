@@ -7,7 +7,7 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import {
   Search, Package, TruckIcon, Clock, DollarSign, ReceiptText,
-  ChevronDown, ChevronLeft, ChevronRight, ShoppingCart,
+  ChevronDown, ChevronLeft, ChevronRight, ShoppingCart, Store,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -15,8 +15,15 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-const STATUS_TABS = ['All', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const;
+const STATUS_TABS = ['All', 'pending', 'confirmed', 'ready_for_pickup', 'shipped', 'delivered', 'picked_up', 'cancelled'] as const;
 type StatusTab = (typeof STATUS_TABS)[number];
+
+const ALL_ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'ready_for_pickup', 'shipped', 'delivered', 'picked_up', 'cancelled', 'refunded'];
+
+const STATUS_LABELS: Record<string, string> = {
+  ready_for_pickup: 'Ready for Pickup',
+  picked_up: 'Picked Up',
+};
 
 const PAYMENT_METHOD_OPTIONS = [
   { value: '', label: 'All Methods' },
@@ -28,13 +35,15 @@ const PAYMENT_METHOD_OPTIONS = [
 ];
 
 const STATUS_STYLES: Record<string, string> = {
-  delivered:  'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  confirmed:  'bg-blue-50 text-blue-700 border border-blue-200',
-  shipped:    'bg-indigo-50 text-indigo-700 border border-indigo-200',
-  cancelled:  'bg-red-50 text-red-700 border border-red-200',
-  pending:    'bg-amber-50 text-amber-700 border border-amber-200',
-  processing: 'bg-orange-50 text-orange-700 border border-orange-200',
-  refunded:   'bg-gray-50 text-gray-600 border border-gray-200',
+  delivered:        'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  confirmed:        'bg-blue-50 text-blue-700 border border-blue-200',
+  shipped:          'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  cancelled:        'bg-red-50 text-red-700 border border-red-200',
+  pending:          'bg-amber-50 text-amber-700 border border-amber-200',
+  processing:       'bg-orange-50 text-orange-700 border border-orange-200',
+  refunded:         'bg-gray-50 text-gray-600 border border-gray-200',
+  ready_for_pickup: 'bg-violet-50 text-violet-700 border border-violet-200',
+  picked_up:        'bg-emerald-50 text-emerald-700 border border-emerald-200',
 };
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
@@ -53,12 +62,14 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 const TAB_COLORS: Record<string, string> = {
-  All:       'bg-foreground text-background border-foreground',
-  pending:   'bg-amber-500 text-white border-amber-500',
-  confirmed: 'bg-blue-500 text-white border-blue-500',
-  shipped:   'bg-indigo-500 text-white border-indigo-500',
-  delivered: 'bg-emerald-500 text-white border-emerald-500',
-  cancelled: 'bg-red-500 text-white border-red-500',
+  All:              'bg-foreground text-background border-foreground',
+  pending:          'bg-amber-500 text-white border-amber-500',
+  confirmed:        'bg-blue-500 text-white border-blue-500',
+  ready_for_pickup: 'bg-violet-500 text-white border-violet-500',
+  shipped:          'bg-indigo-500 text-white border-indigo-500',
+  delivered:        'bg-emerald-500 text-white border-emerald-500',
+  picked_up:        'bg-emerald-500 text-white border-emerald-500',
+  cancelled:        'bg-red-500 text-white border-red-500',
 };
 
 export default function AdminOrdersPage() {
@@ -159,13 +170,14 @@ export default function AdminOrdersPage() {
               key={tab}
               onClick={() => { setActiveTab(tab); setPage(1); }}
               className={cn(
-                'px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap capitalize',
+                'px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap',
+                STATUS_LABELS[tab] ? '' : 'capitalize',
                 activeTab === tab
                   ? (TAB_COLORS[tab] ?? 'bg-foreground text-background border-foreground')
                   : 'bg-transparent text-muted-foreground border-transparent hover:bg-muted hover:border-border',
               )}
             >
-              {tab}
+              {STATUS_LABELS[tab] ?? tab}
             </button>
           ))}
         </div>
@@ -224,13 +236,14 @@ export default function AdminOrdersPage() {
                   </div>
                   <p className="text-sm text-muted-foreground">{row.shippingFullName || row.guestEmail || '—'}</p>
                   <div className="flex flex-wrap gap-1.5">
-                    <span className={cn('inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold capitalize', STATUS_STYLES[row.status] ?? 'bg-secondary text-secondary-foreground border border-border')}>
-                      {row.status}
+                    <span className={cn('inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold', STATUS_LABELS[row.status] ? '' : 'capitalize', STATUS_STYLES[row.status] ?? 'bg-secondary text-secondary-foreground border border-border')}>
+                      {STATUS_LABELS[row.status] ?? row.status}
                     </span>
                     <span className={cn('inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold capitalize', PAYMENT_STATUS_STYLES[row.paymentStatus ?? 'pending'] ?? 'bg-secondary text-secondary-foreground border border-border')}>
                       {row.paymentStatus ?? 'pending'}
                     </span>
-                    <span className="inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary text-secondary-foreground border border-border capitalize">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary text-secondary-foreground border border-border capitalize">
+                      {row.deliveryMethod === 'pickup' && <Store className="w-3 h-3" />}
                       {row.saleType}
                     </span>
                   </div>
@@ -256,8 +269,8 @@ export default function AdminOrdersPage() {
                       onChange={(e) => handleStatusChange(row.id, e.target.value)}
                       className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary bg-background"
                     >
-                      {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'].map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                      {ALL_ORDER_STATUSES.map((s) => (
+                        <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
                       ))}
                     </select>
                     <button
@@ -325,7 +338,10 @@ export default function AdminOrdersPage() {
                         <span className="text-sm font-bold text-foreground">{formatCurrency(Number(row.total))}</span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="text-xs text-muted-foreground capitalize bg-secondary px-2 py-1 rounded-md">{row.saleType}</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground capitalize bg-secondary px-2 py-1 rounded-md">
+                          {row.deliveryMethod === 'pickup' && <Store className="w-3 h-3" />}
+                          {row.saleType}
+                        </span>
                       </td>
                       <td className="px-4 py-3.5">
                         <span className={cn('inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold capitalize', PAYMENT_STATUS_STYLES[row.paymentStatus ?? 'pending'] ?? 'bg-secondary text-secondary-foreground')}>
@@ -336,8 +352,8 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className={cn('inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold capitalize', STATUS_STYLES[row.status] ?? 'bg-secondary text-secondary-foreground')}>
-                          {row.status}
+                        <span className={cn('inline-block px-2.5 py-1 rounded-full text-[11px] font-semibold', STATUS_LABELS[row.status] ? '' : 'capitalize', STATUS_STYLES[row.status] ?? 'bg-secondary text-secondary-foreground')}>
+                          {STATUS_LABELS[row.status] ?? row.status}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
@@ -351,8 +367,8 @@ export default function AdminOrdersPage() {
                             className="text-xs border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary bg-background"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'].map((s) => (
-                              <option key={s} value={s}>{s}</option>
+                            {ALL_ORDER_STATUSES.map((s) => (
+                              <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
                             ))}
                           </select>
                           <button

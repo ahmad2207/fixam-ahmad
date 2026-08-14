@@ -28,6 +28,7 @@ export interface StoreContactInfo {
   storeName: string;
   storeEmail: string | null;
   storePhone: string | null;
+  storeAddress: string | null;
   whatsappNumber: string | null;
   instagramUrl: string | null;
   twitterUrl: string | null;
@@ -46,6 +47,7 @@ export async function getStoreContactInfo(): Promise<StoreContactInfo> {
     storeName: row?.storeName || 'Fixam Africa',
     storeEmail: row?.storeEmail || 'support@fixam.africa',
     storePhone: row?.storePhone || null,
+    storeAddress: row?.storeAddress || null,
     whatsappNumber: row?.whatsappNumber || null,
     instagramUrl: row?.instagramUrl || null,
     twitterUrl: row?.twitterUrl || null,

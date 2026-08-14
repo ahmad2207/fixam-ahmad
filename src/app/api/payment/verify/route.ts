@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
         paymentMethod: 'paystack',
         paymentStatus: 'paid',
         saleType: 'online',
+        deliveryMethod: checkout.deliveryMethod,
         subtotal: checkout.subtotal,
         deliveryFee: checkout.deliveryFee,
         total: checkout.total,

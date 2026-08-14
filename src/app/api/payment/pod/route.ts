@@ -20,27 +20,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       items: rawItems, shippingAddress,
-      customerEmail, customerName, customerPhone, notes,
+      customerEmail, customerName, customerPhone, notes, deliveryMethod,
     } = body;
+    const method: 'delivery' | 'pickup' = deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
 
     if (!rawItems?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (!shippingAddress?.state) {
+    if (method === 'delivery' && !shippingAddress?.state) {
       return NextResponse.json({ error: 'Delivery state is required' }, { status: 400 });
     }
 
     // Recompute everything from the products table and the delivery-fee
     // calculator — never trust price/subtotal/total from the client. This
-    // is the only backstop on POD orders: there's no payment gateway to
-    // catch a tampered total later.
+    // is the only backstop on POD/pickup orders: there's no payment gateway
+    // to catch a tampered total later.
     let items, subtotal, deliveryFee, total;
     try {
       ({ items, subtotal, deliveryFee, total } = await priceCheckoutItems(
         rawItems,
-        shippingAddress.state,
-        shippingAddress.abujaZone,
+        shippingAddress?.state,
+        shippingAddress?.abujaZone,
+        method,
       ));
     } catch (err: any) {
       return NextResponse.json({ error: err.message ?? 'Could not price your cart' }, { status: 400 });
@@ -55,6 +57,7 @@ export async function POST(req: NextRequest) {
         guestEmail: customerEmail,
         items,
         shippingAddress,
+        deliveryMethod: method,
         subtotal: String(subtotal),
         deliveryFee: String(deliveryFee ?? 0),
         total: String(total),
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest) {
         paymentMethod: 'pod',
         paymentStatus: 'pending',
         saleType: 'online',
+        deliveryMethod: method,
         subtotal: String(subtotal),
         deliveryFee: String(deliveryFee ?? 0),
         total: String(total),

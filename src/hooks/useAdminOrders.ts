@@ -44,6 +44,7 @@ export interface Order {
   paymentStatus: string;
   paymentMethod: string | null;
   saleType: string;
+  deliveryMethod: string;
   subtotal: string;
   deliveryFee: string;
   total: string;

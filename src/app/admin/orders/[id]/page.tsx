@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock,
   CreditCard, ReceiptText, ChevronDown, ChevronRight,
-  DollarSign, TrendingDown, TrendingUp,
+  DollarSign, TrendingDown, TrendingUp, Store,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,8 +15,14 @@ import {
   useAdminOrder, useUpdateOrderStatus, useConfirmOrderPayment,
   useGenerateOrderReceipt,
 } from '@/hooks/useAdminOrders';
+import { useStoreSetting } from '@/hooks/useStoreSettings';
 
-const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'ready_for_pickup', 'shipped', 'delivered', 'picked_up', 'cancelled', 'refunded'];
+
+const STATUS_LABELS: Record<string, string> = {
+  ready_for_pickup: 'Ready for Pickup',
+  picked_up: 'Picked Up',
+};
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   paystack:      'Paystack',
@@ -28,13 +34,15 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 const statusConfig: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
-  pending:    { icon: <Clock className="w-4 h-4" />,        bg: 'bg-gray-100',    text: 'text-gray-700' },
-  confirmed:  { icon: <Package className="w-4 h-4" />,      bg: 'bg-blue-100',    text: 'text-blue-700' },
-  processing: { icon: <Package className="w-4 h-4" />,      bg: 'bg-amber-100',   text: 'text-amber-700' },
-  shipped:    { icon: <Truck className="w-4 h-4" />,        bg: 'bg-indigo-100',  text: 'text-indigo-700' },
-  delivered:  { icon: <CheckCircle className="w-4 h-4" />,  bg: 'bg-primary/10',  text: 'text-primary' },
-  cancelled:  { icon: <XCircle className="w-4 h-4" />,      bg: 'bg-red-100',     text: 'text-red-700' },
-  refunded:   { icon: <XCircle className="w-4 h-4" />,      bg: 'bg-red-50',      text: 'text-red-500' },
+  pending:          { icon: <Clock className="w-4 h-4" />,        bg: 'bg-gray-100',    text: 'text-gray-700' },
+  confirmed:        { icon: <Package className="w-4 h-4" />,      bg: 'bg-blue-100',    text: 'text-blue-700' },
+  processing:       { icon: <Package className="w-4 h-4" />,      bg: 'bg-amber-100',   text: 'text-amber-700' },
+  ready_for_pickup: { icon: <Store className="w-4 h-4" />,        bg: 'bg-violet-100',  text: 'text-violet-700' },
+  shipped:          { icon: <Truck className="w-4 h-4" />,        bg: 'bg-indigo-100',  text: 'text-indigo-700' },
+  delivered:        { icon: <CheckCircle className="w-4 h-4" />,  bg: 'bg-primary/10',  text: 'text-primary' },
+  picked_up:        { icon: <CheckCircle className="w-4 h-4" />,  bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  cancelled:        { icon: <XCircle className="w-4 h-4" />,      bg: 'bg-red-100',     text: 'text-red-700' },
+  refunded:         { icon: <XCircle className="w-4 h-4" />,      bg: 'bg-red-50',      text: 'text-red-500' },
 };
 
 const txStatusBadge: Record<string, string> = {
@@ -50,6 +58,7 @@ export default function AdminOrderDetailPage() {
   const router = useRouter();
 
   const { data: order, isLoading, refetch } = useAdminOrder(id);
+  const { data: storeSettings } = useStoreSetting<{ store_address?: string; store_phone?: string }>('general');
   const updateStatus = useUpdateOrderStatus();
   const confirmPayment = useConfirmOrderPayment();
   const generateReceipt = useGenerateOrderReceipt();
@@ -135,6 +144,11 @@ export default function AdminOrderDetailPage() {
             {new Date(order.createdAt).toLocaleDateString('en-NG', { dateStyle: 'full' })}
             {' · '}
             <span className="capitalize">{order.saleType}</span>
+            {(order as any).deliveryMethod === 'pickup' && (
+              <span className="inline-flex items-center gap-1 ml-1.5 text-violet-600 font-medium">
+                <Store className="w-3 h-3" /> Pickup
+              </span>
+            )}
           </p>
         </div>
         {/* O8 — Generate Receipt */}
@@ -157,7 +171,7 @@ export default function AdminOrderDetailPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${cfg.bg} ${cfg.text}`}>
                   {cfg.icon}
-                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                  {STATUS_LABELS[order.status] ?? (order.status.charAt(0).toUpperCase() + order.status.slice(1))}
                 </span>
                 <select
                   value={statusToShow}
@@ -165,7 +179,7 @@ export default function AdminOrderDetailPage() {
                   className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {ORDER_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    <option key={s} value={s}>{STATUS_LABELS[s] ?? (s.charAt(0).toUpperCase() + s.slice(1))}</option>
                   ))}
                 </select>
                 <button
@@ -340,25 +354,39 @@ export default function AdminOrderDetailPage() {
               <p className="font-medium text-gray-900">{order.shippingFullName ?? '—'}</p>
               {order.guestEmail && <p>{order.guestEmail}</p>}
               {order.shippingPhone && <p>{order.shippingPhone}</p>}
-              <p className="text-xs text-gray-400 mt-1 capitalize">{order.saleType} order</p>
+              <p className="text-xs text-gray-400 mt-1 capitalize">
+                {order.saleType} order{(order as any).deliveryMethod === 'pickup' ? ' · Pickup' : ''}
+              </p>
             </div>
           </div>
 
           <div className="bg-white border rounded-xl p-6">
-            <h2 className="font-semibold mb-3">Shipping Address</h2>
-            <div className="space-y-0.5 text-sm text-gray-600">
-              {order.shippingStreetAddress && <p>{order.shippingStreetAddress}</p>}
-              {order.shippingCity && <p>{order.shippingCity}</p>}
-              {order.shippingState && (
-                <p>
-                  {order.shippingState}
-                  {(order as any).shippingAbujaZone ? ` (${(order as any).shippingAbujaZone})` : ''}
-                </p>
-              )}
-              {!order.shippingStreetAddress && (
-                <p className="text-gray-400">No address on file</p>
-              )}
-            </div>
+            {(order as any).deliveryMethod === 'pickup' ? (
+              <>
+                <h2 className="font-semibold mb-3 flex items-center gap-1.5"><Store className="w-4 h-4 text-gray-400" /> Pickup Details</h2>
+                <div className="space-y-0.5 text-sm text-gray-600">
+                  <p className="font-medium text-gray-900">{storeSettings?.store_address || 'Store pickup location'}</p>
+                  {storeSettings?.store_phone && <p>{storeSettings.store_phone}</p>}
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="font-semibold mb-3">Shipping Address</h2>
+                <div className="space-y-0.5 text-sm text-gray-600">
+                  {order.shippingStreetAddress && <p>{order.shippingStreetAddress}</p>}
+                  {order.shippingCity && <p>{order.shippingCity}</p>}
+                  {order.shippingState && (
+                    <p>
+                      {order.shippingState}
+                      {(order as any).shippingAbujaZone ? ` (${(order as any).shippingAbujaZone})` : ''}
+                    </p>
+                  )}
+                  {!order.shippingStreetAddress && (
+                    <p className="text-gray-400">No address on file</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

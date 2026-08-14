@@ -13,14 +13,17 @@ interface CheckoutPayload {
     variation: string | null;
     variationOption?: string | null;
   }>;
+  // streetAddress/city/state are absent for a pickup order — see
+  // deliveryMethod below.
   shippingAddress: {
     fullName: string;
     phone: string;
-    streetAddress: string;
-    city: string;
-    state: string;
+    streetAddress?: string;
+    city?: string;
+    state?: string;
     abujaZone?: string;
   };
+  deliveryMethod?: 'delivery' | 'pickup';
   subtotal: number;
   deliveryFee: number;
   total: number;
