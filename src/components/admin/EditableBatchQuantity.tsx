@@ -141,3 +141,124 @@ export function EditableBatchQuantity({
     />
   );
 }
+
+/**
+ * Landing date — informational only (see inventory_batches.landingDate's
+ * own comment), so unlike the fields above it's a tri-state edit rather
+ * than a plain number swap: "same as upload date" (null) vs an explicit
+ * date. Click to reveal the same checkbox + date-picker control used when
+ * first logging the batch, so the edit affordance matches what the admin
+ * already knows from the Add Batch form. Edits to this field specifically
+ * get an admin-audit-log entry (see the PATCH route) — the other batch
+ * fields don't, but this one exists for auditors, so a silent edit here
+ * would undermine its own purpose.
+ */
+export function EditableLandingDate({
+  productId, batchId, landingDate, createdAt, className,
+}: { productId: string; batchId: string; landingDate: string | null; createdAt: string; className?: string }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [sameAsUpload, setSameAsUpload] = useState(landingDate === null);
+  const [dateInput, setDateInput] = useState(landingDate ? landingDate.slice(0, 10) : '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setSameAsUpload(landingDate === null);
+      setDateInput(landingDate ? landingDate.slice(0, 10) : '');
+    }
+  }, [landingDate, editing]);
+
+  const cancel = () => {
+    setSameAsUpload(landingDate === null);
+    setDateInput(landingDate ? landingDate.slice(0, 10) : '');
+    setEditing(false);
+  };
+
+  const commit = async () => {
+    if (!sameAsUpload && !dateInput) {
+      toast.error('Choose a landing date, or check "same as upload date"');
+      return;
+    }
+    const nextValue = sameAsUpload ? null : dateInput;
+    const currentValue = landingDate ? landingDate.slice(0, 10) : null;
+    if (nextValue === currentValue) {
+      setEditing(false);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/inventory/${productId}/batches/${batchId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ landingDate: nextValue }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update landing date');
+      toast.success('Landing date corrected');
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to update landing date');
+      cancel();
+    } finally {
+      setSaving(false);
+      setEditing(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className={cn('inline-flex flex-col items-start gap-1', className)} onClick={(e) => e.stopPropagation()}>
+        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={sameAsUpload}
+            disabled={saving}
+            onChange={(e) => setSameAsUpload(e.target.checked)}
+            className="rounded border-gray-300"
+          />
+          Same as upload date
+        </label>
+        {!sameAsUpload && (
+          <input
+            type="date"
+            autoFocus
+            disabled={saving}
+            value={dateInput}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setDateInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commit(); }
+              if (e.key === 'Escape') cancel();
+            }}
+            className="border border-primary/50 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        )}
+        <div className="flex gap-2">
+          <button type="button" disabled={saving} onClick={commit} className="text-[10px] font-semibold text-primary hover:underline disabled:opacity-50">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button type="button" disabled={saving} onClick={cancel} className="text-[10px] text-gray-400 hover:underline disabled:opacity-50">
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+      title="Click to correct the landing date"
+      className={cn(
+        'inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-primary/10 hover:text-primary transition-colors text-gray-400',
+        className,
+      )}
+    >
+      {landingDate
+        ? `Landed: ${new Date(landingDate).toLocaleDateString('en-NG')}`
+        : `Landed: ${new Date(createdAt).toLocaleDateString('en-NG')} (same as upload)`}
+    </button>
+  );
+}

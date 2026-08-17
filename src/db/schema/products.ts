@@ -38,6 +38,18 @@ export const products = pgTable('products', {
   isFeatured: boolean('is_featured').default(false).notNull(),
   isPromo: boolean('is_promo').default(false).notNull(),
   promoEndsAt: timestamp('promo_ends_at', { mode: 'date' }),
+  // When the next delivery is expected — shown to customers (a countdown)
+  // only while stock is 0; see the storefront's `!inStock && restockAt`
+  // guard in ProductCard/ProductDetailClient. Not part of the create/edit
+  // product form at all — set exclusively via the "Set restock date"
+  // action in the admin product list's actions menu
+  // (src/app/admin/products/page.tsx), which only offers it while the
+  // product is out of stock. PATCH /api/admin/products/[id] enforces both
+  // rules server-side too: rejects a change while stock > 0, and rejects
+  // any value that isn't strictly in the future. Auto-cleared back to null
+  // the moment a batch brings stock above 0 again, by
+  // syncProductStockFromBatches in lib/inventory.ts, so a stale date can
+  // never resurface on the next stockout.
   restockAt: timestamp('restock_at', { mode: 'date' }),
   isActive: boolean('is_active').default(true).notNull(),
   weight: numeric('weight', { precision: 8, scale: 3 }),

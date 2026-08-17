@@ -32,6 +32,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   const { productId } = await params;
   const body = await req.json();
 
+  // Informational only (see inventory_batches.landingDate's own comment) —
+  // never touches FIFO/pricing. Absent or null means "same as upload date."
+  let landingDate: Date | null = null;
+  if (body.landingDate) {
+    const parsed = new Date(body.landingDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return NextResponse.json({ error: 'Invalid landing date' }, { status: 400 });
+    }
+    landingDate = parsed;
+  }
+
   // Priced-variation products submit a whole delivery at once — one line
   // per variation option that actually arrived, plus (optionally) which
   // option's price should now be "the" storefront price. Non-priced
@@ -69,6 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
       productId,
       parsedLines,
       body.defaultVariationOption || undefined,
+      landingDate,
     );
     return NextResponse.json({ deliveryGroupId, batchIds }, { status: 201 });
   }
@@ -79,6 +91,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
     return NextResponse.json({ error: 'quantity, costPrice and sellingPrice are required' }, { status: 400 });
   }
 
-  const batchId = await addInventoryBatch(productId, Number(quantity), Number(costPrice), Number(sellingPrice));
+  const batchId = await addInventoryBatch(productId, Number(quantity), Number(costPrice), Number(sellingPrice), null, landingDate);
   return NextResponse.json({ batchId }, { status: 201 });
 }

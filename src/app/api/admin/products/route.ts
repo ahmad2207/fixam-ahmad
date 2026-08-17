@@ -57,7 +57,12 @@ export async function POST(req: NextRequest) {
   // and 0 price. Real stock, cost and selling price only ever come from a
   // batch created via POST /api/admin/inventory/[productId]/batches, which
   // is the only place that's allowed to move these numbers.
-  const { promoEndsAt, restockAt, stock: _stock, price: _price, costPrice: _costPrice, ...rest } = body;
+  // restockAt is intentionally not accepted here — it's set exclusively via
+  // the "Set restock date" action on the admin product list (PATCH
+  // /api/admin/products/[id]), which is also the only place that guards it
+  // (out-of-stock only, future dates only). A brand-new product has no
+  // batches yet, so there's nothing to "restock".
+  const { promoEndsAt, restockAt: _restockAt, stock: _stock, price: _price, costPrice: _costPrice, ...rest } = body;
   const slug = rest.slug || slugify(rest.name);
 
   try {
@@ -68,7 +73,6 @@ export async function POST(req: NextRequest) {
       price: '0',
       costPrice: '0',
       promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
-      restockAt: restockAt ? new Date(restockAt) : null,
     });
 
     return NextResponse.json(product, { status: 201 });

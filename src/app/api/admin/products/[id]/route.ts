@@ -35,15 +35,56 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // POST /api/admin/inventory/[productId]/batches.
   const { promoEndsAt, restockAt, stock: _stock, price: _price, costPrice: _costPrice, ...rest } = body;
 
+  const updates: Record<string, unknown> = { ...rest, updatedAt: new Date() };
+
+  // Only touch these when the caller actually included the key — plenty of
+  // callers PATCH a single unrelated field (toggleActive, barcode
+  // generation) and were, before this check, silently wiping whichever
+  // promo/restock date was already set just by omitting it from the body.
+  if ('promoEndsAt' in body) {
+    updates.promoEndsAt = promoEndsAt ? new Date(promoEndsAt) : null;
+  }
+
+  if ('restockAt' in body) {
+    const [existing] = await db
+      .select({ stock: products.stock, restockAt: products.restockAt })
+      .from(products)
+      .where(eq(products.id, id));
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    let nextRestockAt: Date | null = null;
+    if (restockAt) {
+      nextRestockAt = new Date(restockAt);
+      if (Number.isNaN(nextRestockAt.getTime())) {
+        return NextResponse.json({ error: 'Invalid restock date' }, { status: 400 });
+      }
+      // A restock date is a promise about the future — a past one is never
+      // legitimate, it can only be a stale value or a mistake.
+      if (nextRestockAt.getTime() < Date.now()) {
+        return NextResponse.json({ error: 'Restock date must be in the future' }, { status: 400 });
+      }
+    }
+
+    const currentTime = existing.restockAt ? existing.restockAt.getTime() : null;
+    const nextTime = nextRestockAt ? nextRestockAt.getTime() : null;
+
+    // restockAt only means something while there's no real stock (see the
+    // column's own comment) — block setting/changing it while stock is > 0
+    // rather than let it go stale the moment a delivery lands. Re-submitting
+    // the same value unchanged (or clearing an already-null value) is fine.
+    if (existing.stock > 0 && nextTime !== currentTime) {
+      return NextResponse.json(
+        { error: 'Restock date can only be set while this product is out of stock' },
+        { status: 400 },
+      );
+    }
+    updates.restockAt = nextRestockAt;
+  }
+
   try {
     const [updated] = await db
       .update(products)
-      .set({
-        ...rest,
-        promoEndsAt: promoEndsAt ? new Date(promoEndsAt) : null,
-        restockAt: restockAt ? new Date(restockAt) : null,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(products.id, id))
       .returning();
 

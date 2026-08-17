@@ -36,7 +36,6 @@ export interface ProductFormValues {
   isFeatured: boolean;
   isPromo: boolean;
   promoEndsAt: string;
-  restockAt: string;
   isActive: boolean;
   tags: string;
   images: string[];
@@ -63,7 +62,6 @@ const DEFAULT_VALUES: ProductFormValues = {
   isFeatured: false,
   isPromo: false,
   promoEndsAt: '',
-  restockAt: '',
   isActive: true,
   tags: '',
   images: [],
@@ -303,7 +301,6 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
       isFeatured: form.isFeatured,
       isPromo: form.isPromo,
       promoEndsAt: form.promoEndsAt ? new Date(form.promoEndsAt).toISOString() : null,
-      restockAt: form.restockAt ? new Date(form.restockAt).toISOString() : null,
       isActive: form.isActive,
       imageUrl: form.images[0] ?? null,
       images: form.images.slice(1),
@@ -391,18 +388,6 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
                 Stock is tracked by real inventory batches, not set here — {mode === 'edit' ? 'use the Inventory page to add or adjust it' : 'you\'ll add opening stock from the Inventory page once this product is created'}.
               </p>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Restock date</label>
-            <input
-              type="datetime-local"
-              name="restockAt"
-              value={form.restockAt}
-              onChange={handleChange}
-              className="w-full border border-blue-200 rounded-xl px-3 py-2.5 text-sm bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300/40 focus:border-blue-400 transition-all"
-            />
-            <p className="text-[11px] text-muted-foreground mt-1">If set, customers see a countdown to this date while stock is 0.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

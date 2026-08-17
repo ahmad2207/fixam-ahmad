@@ -5,7 +5,7 @@ import { inventoryBatches, products, stockNotifications } from '@/db/schema';
 import { eq, asc, desc } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { AddBatchForm } from './AddBatchForm';
-import { BatchGroupRow } from './BatchGroupRow';
+import { BatchHistoryTable } from './BatchHistoryTable';
 import { WaitlistTable } from '@/components/admin/WaitlistTable';
 
 interface Props {
@@ -38,20 +38,11 @@ export default async function InventoryProductPage({ params }: Props) {
     createdAt:  w.createdAt.toISOString(),
   }));
 
-  // Deliveries logged as several variation lines at once (see AddBatchForm)
-  // share a deliveryGroupId — group by that, falling back to each row's own
-  // id so legacy/non-priced batches each still render as their own single
-  // "batch," exactly as before.
-  const groups = new Map<string, typeof batches>();
-  for (const b of batches) {
-    const key = b.deliveryGroupId ?? b.id;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(b);
-  }
-  const serializedGroups = [...groups.entries()].map(([key, lines]) => [
-    key,
-    lines.map((b) => ({ ...b, createdAt: b.createdAt.toISOString() })),
-  ] as const);
+  const serializedBatches = batches.map((b) => ({
+    ...b,
+    createdAt: b.createdAt.toISOString(),
+    landingDate: b.landingDate ? b.landingDate.toISOString() : null,
+  }));
 
   return (
     <div className="max-w-2xl">
@@ -78,34 +69,13 @@ export default async function InventoryProductPage({ params }: Props) {
         />
       </div>
 
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b">
-          <h2 className="font-semibold">Batch History</h2>
-        </div>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Date</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">{product.pricedVariationName ? 'Variation' : 'Qty Available'}</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Cost Price</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Selling Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {serializedGroups.map(([key, lines]) => (
-              <BatchGroupRow
-                key={key}
-                productId={productId}
-                lines={lines}
-                defaultVariationOption={product.defaultVariationOption}
-              />
-            ))}
-          </tbody>
-        </table>
-        {batches.length === 0 && (
-          <p className="text-center py-6 text-gray-500 text-sm">No batches yet.</p>
-        )}
-      </div>
+      <BatchHistoryTable
+        productId={productId}
+        batches={serializedBatches}
+        pricedVariationName={product.pricedVariationName}
+        variationOptions={variationOptions}
+        defaultVariationOption={product.defaultVariationOption}
+      />
 
       <WaitlistTable entries={serializedWaitlist} />
     </div>

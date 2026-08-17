@@ -37,11 +37,51 @@ export function AddBatchForm({ productId, pricedVariationName, variationOptions 
   const [lines, setLines] = useState<Record<string, Line>>(() => emptyLines(variationOptions));
   const [displayOption, setDisplayOption] = useState(defaultVariationOption || variationOptions[0] || '');
 
+  // ── Landing date: informational only, shared by both forms below.
+  // Checked by default — the common case is "it landed the day it was
+  // logged." Unchecking reveals a date picker for when goods sat in
+  // transit/customs, or a delivery entered days after it actually arrived.
+  // Never affects FIFO/pricing — see inventory_batches.landingDate.
+  const [sameAsUpload, setSameAsUpload] = useState(true);
+  const [landingDateInput, setLandingDateInput] = useState('');
+
+  const resetLandingDate = () => {
+    setSameAsUpload(true);
+    setLandingDateInput('');
+  };
+
+  const landingDateField = (
+    <div>
+      <label className="flex items-center gap-2 text-xs font-medium text-gray-500 mb-1 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={sameAsUpload}
+          onChange={(e) => setSameAsUpload(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        Landing date same as upload date
+      </label>
+      {!sameAsUpload && (
+        <input
+          type="date"
+          value={landingDateInput}
+          onChange={(e) => setLandingDateInput(e.target.value)}
+          max={new Date().toISOString().slice(0, 10)}
+          className="border rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      )}
+    </div>
+  );
+
   const updateLine = (option: string, field: keyof Line, value: string) =>
     setLines((prev) => ({ ...prev, [option]: { ...prev[option], [field]: value } }));
 
   const handleSingleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!sameAsUpload && !landingDateInput) {
+      toast.error('Choose a landing date, or check "same as upload date"');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/inventory/${productId}/batches`, {
@@ -51,6 +91,7 @@ export function AddBatchForm({ productId, pricedVariationName, variationOptions 
           quantity: Number(quantity),
           costPrice: Number(costPrice),
           sellingPrice: Number(sellingPrice),
+          landingDate: sameAsUpload ? null : landingDateInput,
         }),
       });
       const data = await res.json();
@@ -59,6 +100,7 @@ export function AddBatchForm({ productId, pricedVariationName, variationOptions 
       setQuantity('');
       setCostPrice('');
       setSellingPrice('');
+      resetLandingDate();
       router.refresh();
     } catch (err: any) {
       toast.error(err.message);
@@ -92,18 +134,27 @@ export function AddBatchForm({ productId, pricedVariationName, variationOptions 
       toast.error('Choose which price should show on the storefront');
       return;
     }
+    if (!sameAsUpload && !landingDateInput) {
+      toast.error('Choose a landing date, or check "same as upload date"');
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/inventory/${productId}/batches`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lines: activeLines, defaultVariationOption: displayOption }),
+        body: JSON.stringify({
+          lines: activeLines,
+          defaultVariationOption: displayOption,
+          landingDate: sameAsUpload ? null : landingDateInput,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed');
       toast.success('Delivery added successfully');
       setLines(emptyLines(variationOptions));
+      resetLandingDate();
       router.refresh();
     } catch (err: any) {
       toast.error(err.message);
@@ -153,6 +204,7 @@ export function AddBatchForm({ productId, pricedVariationName, variationOptions 
             className="border rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
+        {landingDateField}
         <div className="flex items-end">
           <button
             type="submit"
@@ -225,6 +277,7 @@ export function AddBatchForm({ productId, pricedVariationName, variationOptions 
             ))}
           </select>
         </div>
+        {landingDateField}
         <button
           type="submit"
           disabled={loading}

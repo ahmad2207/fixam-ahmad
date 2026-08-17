@@ -174,6 +174,9 @@ export async function addInventoryBatch(
   costPrice: number,
   sellingPrice: number,
   variationOption?: string | null,
+  // Informational only — see the column's own comment. Omit (or pass null)
+  // for the common case of "landed the same day it was logged."
+  landingDate?: Date | null,
 ): Promise<string> {
   return db.transaction(async (tx) => {
     const [batch] = await tx
@@ -184,6 +187,7 @@ export async function addInventoryBatch(
         costPrice: String(costPrice),
         sellingPrice: String(sellingPrice),
         variationOption: variationOption ?? null,
+        landingDate: landingDate ?? null,
       })
       .returning({ id: inventoryBatches.id });
 
@@ -213,6 +217,12 @@ export async function addInventoryBatchGroup(
   productId: string,
   lines: BatchGroupLine[],
   defaultVariationOption?: string | null,
+  // Informational only (see the column's own comment) — one shared landing
+  // date for the whole delivery, applied to every line in it. A delivery is
+  // one physical arrival event; if a truck showed up with 3 sizes on it,
+  // they all landed the same day. Omit (or pass null) for "landed the same
+  // day it was logged."
+  landingDate?: Date | null,
 ): Promise<{ deliveryGroupId: string; batchIds: string[] }> {
   if (!lines.length) throw new Error('At least one variation line is required');
 
@@ -230,6 +240,7 @@ export async function addInventoryBatchGroup(
           sellingPrice: String(line.sellingPrice),
           variationOption: line.variationOption,
           deliveryGroupId,
+          landingDate: landingDate ?? null,
         })
         .returning({ id: inventoryBatches.id });
       batchIds.push(batch.id);
@@ -400,12 +411,20 @@ export async function syncProductStockFromBatches(productId: string, tx?: DbOrTx
     activeBatch = pickActiveLine(batches);
   }
 
+  const baseUpdate = activeBatch
+    ? { stock, price: activeBatch.sellingPrice, costPrice: activeBatch.costPrice }
+    : { stock };
+
   await executor
     .update(products)
     .set(
-      activeBatch
-        ? { stock, price: activeBatch.sellingPrice, costPrice: activeBatch.costPrice }
-        : { stock },
+      // restockAt is only meaningful while a product is out of stock (see
+      // its own comment on the schema) — once a delivery brings stock back
+      // above 0, clear it so a stale date can't resurface on the next
+      // stockout. Never set it TO anything here — only the "Set restock
+      // date" action on the admin product list does that, and only while
+      // stock is still 0 (see that route's own guard).
+      stock > 0 ? { ...baseUpdate, restockAt: null } : baseUpdate,
     )
     .where(eq(products.id, productId));
 

@@ -32,7 +32,6 @@ export default function EditProductPage() {
           isFeatured: product.isFeatured ?? false,
           isPromo: product.isPromo ?? false,
           promoEndsAt: product.promoEndsAt ? new Date(product.promoEndsAt).toISOString().slice(0, 16) : '',
-          restockAt: product.restockAt ? new Date(product.restockAt).toISOString().slice(0, 16) : '',
           isActive: product.isActive ?? true,
           tags: (product.tags ?? []).join(', '),
           images,

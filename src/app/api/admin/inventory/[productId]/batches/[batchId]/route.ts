@@ -4,12 +4,14 @@ import { db } from '@/lib/db';
 import { inventoryBatches } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { syncProductStockFromBatches } from '@/lib/inventory';
+import { logAdminAction } from '@/lib/auditLog';
 
-// Corrects a mis-entered batch quantity, cost price, or selling price (e.g.
-// a cashier fat-fingered "500" instead of "50" when logging a delivery, or
-// typo'd a price). All three are editable here — this is a correction to a
-// mistake, not a way to rewrite what actually happened; the batch's
-// identity (product, variation, delivery) stays put.
+// Corrects a mis-entered batch quantity, cost price, selling price, or
+// landing date (e.g. a cashier fat-fingered "500" instead of "50" when
+// logging a delivery, typo'd a price, or got the physical arrival date
+// wrong). All four are editable here — this is a correction to a mistake,
+// not a way to rewrite what actually happened; the batch's identity
+// (product, variation, delivery) stays put.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ productId: string; batchId: string }> },
@@ -21,7 +23,7 @@ export async function PATCH(
   }
 
   const { productId, batchId } = await params;
-  const { quantityAvailable, costPrice, sellingPrice } = await req.json();
+  const { quantityAvailable, costPrice, sellingPrice, landingDate } = await req.json();
 
   const updates: Record<string, unknown> = {};
 
@@ -52,12 +54,30 @@ export async function PATCH(
     updates.sellingPrice = String(selling);
   }
 
+  // landingDate is informational only (see the column's own comment) — it
+  // never touches FIFO/pricing/stock, so it's not part of the productStock
+  // re-derivation below. `null` is a valid, meaningful value here ("reset to
+  // same as upload date"), distinct from the key being absent entirely.
+  let landingDateProvided = false;
+  if (landingDate !== undefined) {
+    landingDateProvided = true;
+    if (landingDate === null) {
+      updates.landingDate = null;
+    } else {
+      const parsed = new Date(landingDate);
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: 'Invalid landing date' }, { status: 400 });
+      }
+      updates.landingDate = parsed;
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
   }
 
   const [batch] = await db
-    .select({ id: inventoryBatches.id, productId: inventoryBatches.productId })
+    .select({ id: inventoryBatches.id, productId: inventoryBatches.productId, landingDate: inventoryBatches.landingDate })
     .from(inventoryBatches)
     .where(eq(inventoryBatches.id, batchId));
 
@@ -77,6 +97,23 @@ export async function PATCH(
 
     return syncProductStockFromBatches(productId, tx);
   });
+
+  // landingDate exists specifically so an auditor can trust when goods
+  // physically arrived — unlike the other batch corrections above, an edit
+  // to this one specifically gets its own paper trail (who changed it, and
+  // from/to what), since a silently-editable audit field undermines its own
+  // purpose.
+  if (landingDateProvided) {
+    await logAdminAction({
+      userId: session.user?.id ?? '',
+      adminName: session.user?.name ?? 'Admin',
+      action: 'update',
+      entityType: 'inventory_batch',
+      entityId: batchId,
+      before: { landingDate: batch.landingDate },
+      after: { landingDate: updates.landingDate },
+    });
+  }
 
   return NextResponse.json({ id: batchId, ...updates, productStock });
 }

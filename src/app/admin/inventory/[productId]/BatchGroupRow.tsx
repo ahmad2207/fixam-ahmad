@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { EditableBatchQuantity, EditableBatchField } from '@/components/admin/EditableBatchQuantity';
+import { EditableBatchQuantity, EditableBatchField, EditableLandingDate } from '@/components/admin/EditableBatchQuantity';
 import { formatCurrency } from '@/lib/utils';
 
 export interface BatchLine {
@@ -12,6 +12,7 @@ export interface BatchLine {
   costPrice: string;
   sellingPrice: string;
   variationOption: string | null;
+  landingDate: string | null;
 }
 
 interface Props {
@@ -36,7 +37,16 @@ export function BatchGroupRow({ productId, lines, defaultVariationOption }: Prop
     const b = lines[0];
     return (
       <tr className="border-t">
-        <td className="px-4 py-3 text-gray-500">{date}</td>
+        <td className="px-4 py-3 text-gray-500">
+          {date}
+          <EditableLandingDate
+            productId={productId}
+            batchId={b.id}
+            landingDate={b.landingDate}
+            createdAt={b.createdAt}
+            className="block text-[10px] mt-0.5"
+          />
+        </td>
         <td className={`px-4 py-3 font-medium ${b.quantityAvailable === 0 ? 'text-gray-400' : 'text-primary'}`}>
           <EditableBatchQuantity productId={productId} batchId={b.id} quantity={b.quantityAvailable} />
           {b.variationOption && <span className="ml-2 text-xs font-normal text-gray-400">({b.variationOption})</span>}
@@ -76,6 +86,13 @@ export function BatchGroupRow({ productId, lines, defaultVariationOption }: Prop
             {b.variationOption === defaultVariationOption && (
               <span className="ml-1.5 bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full">Displayed</span>
             )}
+            <EditableLandingDate
+              productId={productId}
+              batchId={b.id}
+              landingDate={b.landingDate}
+              createdAt={b.createdAt}
+              className="block text-[10px] mt-0.5"
+            />
           </td>
           <td className={`px-4 py-2 text-xs font-medium ${b.quantityAvailable === 0 ? 'text-gray-400' : 'text-primary'}`}>
             <EditableBatchQuantity productId={productId} batchId={b.id} quantity={b.quantityAvailable} className="text-xs" />

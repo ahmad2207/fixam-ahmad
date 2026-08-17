@@ -7,7 +7,7 @@ import {
   Search, Package, ArrowUpDown, ArrowUp, ArrowDown,
   RotateCcw, Trash2, CheckSquare, Square, MinusSquare,
   Plus, TrendingUp, AlertTriangle, X, Edit2, Eye, EyeOff,
-  Filter, Printer, Camera,
+  Filter, Printer, Camera, MoreVertical, CalendarClock,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -32,6 +32,7 @@ interface AdminProduct {
   pricedVariationName: string | null;
   defaultVariationOption: string | null;
   variations: { name: string; options: string[] }[] | null;
+  restockAt: string | null;
 }
 
 type SortKey = 'name' | 'price' | 'stock' | 'margin';
@@ -247,6 +248,98 @@ function RestockDialog({ product, onClose }: { product: AdminProduct; onClose: (
   );
 }
 
+// "Restock date" is a distinct thing from the RestockDialog above — that
+// one *adds real stock* (a batch); this one only sets the expected-arrival
+// date shown to customers as a countdown while stock is still 0 (see
+// products.restockAt's own comment). Only ever reachable from the actions
+// menu below, and only while `product.stock === 0` — the server enforces
+// the same rule, plus rejecting a past date, in case that ever drifts.
+function RestockDateDialog({
+  product, onClose, onSaved,
+}: { product: AdminProduct; onClose: () => void; onSaved: () => void }) {
+  const [value, setValue] = useState(
+    product.restockAt ? new Date(product.restockAt).toISOString().slice(0, 16) : '',
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // A restock date is a promise about the future — the input can't even be
+  // set to "now or earlier" (also re-checked server-side).
+  const minValue = new Date().toISOString().slice(0, 16);
+
+  const save = async (nextValue: string | null) => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restockAt: nextValue ? new Date(nextValue).toISOString() : null }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update restock date');
+      toast.success(nextValue ? 'Restock date set' : 'Restock date cleared');
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to update restock date');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!value) { toast.error('Choose a date, or use Clear instead'); return; }
+    save(value);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-card rounded-2xl shadow-2xl border border-border w-full max-w-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div>
+            <h3 className="font-bold text-foreground">Set Restock Date</h3>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">{product.name}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-foreground mb-1.5">Expected back in stock</label>
+            <input
+              type="datetime-local"
+              value={value}
+              min={minValue}
+              onChange={(e) => setValue(e.target.value)}
+              required
+              disabled={isSubmitting}
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background disabled:opacity-50"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Customers see a countdown to this date while the product is out of stock. Must be in the future.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-1">
+            {product.restockAt && (
+              <button
+                type="button" disabled={isSubmitting} onClick={() => save(null)}
+                className="flex-1 border border-border rounded-xl py-2.5 text-sm font-semibold hover:bg-muted transition disabled:opacity-50"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              type="submit" disabled={isSubmitting}
+              className="flex-1 bg-primary text-white rounded-xl py-2.5 text-sm font-bold hover:bg-primary/90 transition disabled:opacity-50"
+            >
+              {isSubmitting ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminProductsPage() {
   const { data: products, isLoading } = useAdminProducts();
   const qc = useQueryClient();
@@ -257,9 +350,16 @@ export default function AdminProductsPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [restockProduct, setRestockProduct] = useState<AdminProduct | null>(null);
+  const [restockDateProduct, setRestockDateProduct] = useState<AdminProduct | null>(null);
   const [labelProduct, setLabelProduct] = useState<AdminProduct | null>(null);
   const [bulkAction, setBulkAction] = useState('');
   const [showScanner, setShowScanner] = useState(false);
+  // Actions dropdown for a row — `top`/`left` are computed from the trigger
+  // button's own position and rendered `fixed`, so the menu isn't clipped by
+  // the table's `overflow-x-auto` wrapper (a `position: absolute` version
+  // would be, since setting overflow-x on an element implicitly computes
+  // overflow-y to `auto` too when it isn't set explicitly).
+  const [actionsMenu, setActionsMenu] = useState<{ id: string; top: number; left: number } | null>(null);
 
   const filtered = useMemo(() => {
     let list = products ?? [];
@@ -453,6 +553,13 @@ export default function AdminProductsPage() {
       </div>
 
       {restockProduct && <RestockDialog product={restockProduct} onClose={() => setRestockProduct(null)} />}
+      {restockDateProduct && (
+        <RestockDateDialog
+          product={restockDateProduct}
+          onClose={() => setRestockDateProduct(null)}
+          onSaved={() => qc.invalidateQueries({ queryKey: ['admin-products-list'] })}
+        />
+      )}
       {labelProduct && (
         <BarcodeLabelPreview
           productName={labelProduct.name}
@@ -467,6 +574,45 @@ export default function AdminProductsPage() {
           onClose={() => setShowScanner(false)}
         />
       )}
+
+      {actionsMenu && (() => {
+        const row = filtered.find((p) => p.id === actionsMenu.id);
+        if (!row) return null;
+        const item = 'w-full flex items-center gap-2 px-3.5 py-2 text-sm text-left hover:bg-muted transition';
+        const close = () => setActionsMenu(null);
+        return (
+          <>
+            <div className="fixed inset-0 z-40" onClick={close} />
+            <div
+              className="fixed z-50 w-52 bg-card border border-border rounded-xl shadow-lg py-1.5"
+              style={{ top: actionsMenu.top, left: Math.max(8, actionsMenu.left) }}
+            >
+              <Link href={`/admin/products/${row.id}/edit`} onClick={close} className={cn(item, 'text-foreground')}>
+                <Edit2 className="w-3.5 h-3.5" /> Edit
+              </Link>
+              <button onClick={() => { setRestockProduct(row); close(); }} className={cn(item, 'text-foreground')}>
+                <RotateCcw className="w-3.5 h-3.5" /> Add stock
+              </button>
+              {row.stock === 0 && (
+                <button onClick={() => { setRestockDateProduct(row); close(); }} className={cn(item, 'text-foreground')}>
+                  <CalendarClock className="w-3.5 h-3.5" /> {row.restockAt ? 'Edit restock date' : 'Set restock date'}
+                </button>
+              )}
+              <button onClick={() => { openLabel(row); close(); }} className={cn(item, 'text-foreground')}>
+                <Printer className="w-3.5 h-3.5" /> Print label
+              </button>
+              <button onClick={() => { toggleActive(row.id, row.isActive); close(); }} className={cn(item, 'text-foreground')}>
+                {row.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {row.isActive ? 'Deactivate' : 'Activate'}
+              </button>
+              <div className="my-1 border-t border-border" />
+              <button onClick={() => { deleteProduct(row.id, row.name); close(); }} className={cn(item, 'text-destructive hover:bg-destructive/10')}>
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Table ── */}
       <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -571,27 +717,18 @@ export default function AdminProductsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center justify-end gap-1">
-                          <Link href={`/admin/products/${row.id}/edit`}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition" title="Edit">
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </Link>
-                          <button onClick={() => setRestockProduct(row)}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition" title="Quick Restock">
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => openLabel(row)}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition" title="Print barcode label">
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => toggleActive(row.id, row.isActive)}
-                            className={cn('p-2 rounded-lg transition', row.isActive ? 'text-muted-foreground hover:text-amber-600 hover:bg-amber-50' : 'text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50')}
-                            title={row.isActive ? 'Deactivate' : 'Activate'}>
-                            {row.isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                          <button onClick={() => deleteProduct(row.id, row.name)}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition" title="Delete">
-                            <Trash2 className="w-3.5 h-3.5" />
+                        <div className="flex items-center justify-end">
+                          <button
+                            onClick={(e) => {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setActionsMenu((cur) => (cur?.id === row.id
+                                ? null
+                                : { id: row.id, top: rect.bottom + 4, left: rect.right - 208 }));
+                            }}
+                            className={cn('p-2 rounded-lg transition', actionsMenu?.id === row.id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted')}
+                            title="Actions"
+                          >
+                            <MoreVertical className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
