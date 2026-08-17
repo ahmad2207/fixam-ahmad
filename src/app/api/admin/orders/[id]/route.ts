@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import {
   orders, orderItems, batchAllocations, inventoryBatches, paymentTransactions,
 } from '@/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and } from 'drizzle-orm';
 import { logAdminAction } from '@/lib/auditLog';
 import { sendPaymentConfirmedEmail } from '@/lib/orderNotifications';
 import { restoreStockForOrder } from '@/lib/inventory';
@@ -116,6 +116,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // PATCH, and not repeatedly if it's already confirmed.
   if (body.paymentStatus === 'paid' && existing.paymentStatus !== 'paid') {
     await sendPaymentConfirmedEmail(id);
+
+    // Mirror the confirmation onto the POD transaction record created at
+    // checkout (/api/payment/pod) so it shows up as collected in the admin
+    // Transactions ledger — mirrors what /api/payment/verify does for the
+    // Paystack flow. Guarded to 'pending' rows only: a Paystack order's
+    // transaction is already 'successful' by the time paymentStatus flips
+    // here, so this only ever touches POD rows in practice.
+    await db
+      .update(paymentTransactions)
+      .set({ status: 'successful', updatedAt: new Date() })
+      .where(and(
+        eq(paymentTransactions.orderId, id),
+        eq(paymentTransactions.provider, 'pod'),
+        eq(paymentTransactions.status, 'pending'),
+      ));
   }
 
   return NextResponse.json(updated);

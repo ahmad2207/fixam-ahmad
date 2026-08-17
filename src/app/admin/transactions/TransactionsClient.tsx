@@ -10,13 +10,15 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700',
   initiated: 'bg-gray-100 text-gray-600',
   pending: 'bg-amber-100 text-amber-800',
+  refunded: 'bg-violet-100 text-violet-700',
 };
 
-const STATUS_OPTIONS = ['All', 'successful', 'failed', 'pending', 'initiated', 'cancelled'];
+const STATUS_OPTIONS = ['All', 'successful', 'failed', 'pending', 'initiated', 'cancelled', 'refunded'];
 
 export interface TransactionRow {
   id: string;
   orderId: string | null;
+  provider: string;
   paystackReference: string | null;
   paystackTransactionId: string | null;
   amount: string;
@@ -26,8 +28,10 @@ export interface TransactionRow {
   createdAt: Date;
   updatedAt: Date;
   orderStatus: string | null;
+  deliveryMethod: string | null;
   shippingFullName: string | null;
   guestEmail: string | null;
+  methodLabel: string;
 }
 
 interface Props {
@@ -35,9 +39,10 @@ interface Props {
 }
 
 function downloadCSV(transactions: TransactionRow[]) {
-  const header = ['Date', 'TX Reference', 'Paystack ID', 'Customer', 'Amount', 'Currency', 'Status', 'Order ID'];
+  const header = ['Date', 'Method', 'TX Reference', 'Paystack ID', 'Customer', 'Amount', 'Currency', 'Status', 'Order ID'];
   const rows = transactions.map((tx) => [
     new Date(tx.createdAt).toLocaleDateString('en-NG'),
+    tx.methodLabel,
     tx.paystackReference ?? '',
     tx.paystackTransactionId ?? '',
     tx.shippingFullName ?? tx.guestEmail ?? '',
@@ -75,7 +80,8 @@ export default function TransactionsClient({ transactions }: Props) {
           (tx.paystackTransactionId ?? '').toLowerCase().includes(q) ||
           (tx.shippingFullName ?? '').toLowerCase().includes(q) ||
           (tx.guestEmail ?? '').toLowerCase().includes(q) ||
-          (tx.orderId ?? '').toLowerCase().includes(q);
+          (tx.orderId ?? '').toLowerCase().includes(q) ||
+          tx.methodLabel.toLowerCase().includes(q);
         return matchStatus && matchSearch;
       })
       .sort((a, b) => {
@@ -148,6 +154,7 @@ export default function TransactionsClient({ transactions }: Props) {
                     )}
                   </button>
                 </th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">Method</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">TX Reference</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Customer</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-500">Amount</th>
@@ -163,6 +170,11 @@ export default function TransactionsClient({ transactions }: Props) {
                 >
                   <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                     {new Date(tx.createdAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                      {tx.methodLabel}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono">
@@ -214,6 +226,7 @@ export default function TransactionsClient({ transactions }: Props) {
             </div>
 
             <div className="space-y-3 text-sm">
+              <Row label="Method" value={selected.methodLabel} />
               <Row label="TX Reference" value={selected.paystackReference ?? '—'} mono />
               <Row label="Paystack TX ID" value={selected.paystackTransactionId ?? '—'} mono />
               <Row label="Amount" value={`${selected.currency} ${formatCurrency(Number(selected.amount))}`} />

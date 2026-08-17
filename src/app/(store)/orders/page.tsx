@@ -7,25 +7,36 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import {
   Package, ShoppingBag, ChevronRight,
-  Clock, Truck, CircleCheckBig, XCircle, Banknote, CreditCard,
+  Clock, Truck, CircleCheckBig, XCircle, Banknote, CreditCard, Store,
 } from 'lucide-react';
+import { getPaymentMethodLabel } from '@/lib/orders';
 
+// A pickup order never reaches 'shipped'/'delivered' — it moves pending ->
+// confirmed -> processing -> ready_for_pickup -> picked_up instead (see the
+// order_status enum's own comment). Without these two entries, both statuses
+// fell through to STATUS_CONFIG.pending below — a customer whose order was
+// sitting ready at the store, or one they'd already collected, saw it
+// labeled "Pending" with a clock icon.
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
-  pending:    { label: 'Pending',    cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  confirmed:  { label: 'Confirmed',  cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
-  processing: { label: 'Processing', cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
-  shipped:    { label: 'Shipped',    cls: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
-  delivered:  { label: 'Delivered',  cls: 'bg-brand-green-50 text-brand-green-700 border border-brand-green-200' },
-  cancelled:  { label: 'Cancelled',  cls: 'bg-red-50 text-red-600 border border-red-200' },
-  refunded:   { label: 'Refunded',   cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
+  pending:          { label: 'Pending',          cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+  confirmed:        { label: 'Confirmed',        cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
+  processing:       { label: 'Processing',       cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
+  shipped:          { label: 'Shipped',          cls: 'bg-indigo-50 text-indigo-700 border border-indigo-200' },
+  delivered:        { label: 'Delivered',        cls: 'bg-brand-green-50 text-brand-green-700 border border-brand-green-200' },
+  ready_for_pickup: { label: 'Ready for Pickup', cls: 'bg-violet-50 text-violet-700 border border-violet-200' },
+  picked_up:        { label: 'Picked Up',        cls: 'bg-brand-green-50 text-brand-green-700 border border-brand-green-200' },
+  cancelled:        { label: 'Cancelled',        cls: 'bg-red-50 text-red-600 border border-red-200' },
+  refunded:         { label: 'Refunded',         cls: 'bg-gray-100 text-gray-600 border border-gray-200' },
 };
 
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
-    case 'delivered': return <CircleCheckBig className="h-3 w-3" />;
-    case 'shipped':   return <Truck className="h-3 w-3" />;
-    case 'cancelled': return <XCircle className="h-3 w-3" />;
-    default:          return <Clock className="h-3 w-3" />;
+    case 'delivered':
+    case 'picked_up':        return <CircleCheckBig className="h-3 w-3" />;
+    case 'shipped':          return <Truck className="h-3 w-3" />;
+    case 'ready_for_pickup': return <Store className="h-3 w-3" />;
+    case 'cancelled':        return <XCircle className="h-3 w-3" />;
+    default:                 return <Clock className="h-3 w-3" />;
   }
 }
 
@@ -114,7 +125,7 @@ export default async function OrdersPage() {
                             : 'bg-gray-100 text-gray-500 border border-gray-200'
                         }`}>
                           {isPod ? <Banknote className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
-                          {isPaid ? 'Paid' : isPod ? 'Pay on Delivery' : 'Unpaid'}
+                          {isPaid ? 'Paid' : isPod ? getPaymentMethodLabel(order.paymentMethod, order.deliveryMethod) : 'Unpaid'}
                         </span>
                         {/* Status badge */}
                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${cfg.cls}`}>

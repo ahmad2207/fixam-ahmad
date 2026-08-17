@@ -4,10 +4,11 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, CircleCheckBig, Clock, Package, Truck,
-  XCircle, Loader2, CreditCard, Banknote, MapPin,
+  XCircle, Loader2, CreditCard, Banknote, MapPin, Store,
   ChevronRight, MessageSquare,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { getPaymentMethodLabel } from '@/lib/orders';
 
 /* ─── Types ─── */
 export interface OrderDetailData {
@@ -16,6 +17,7 @@ export interface OrderDetailData {
   status: string;
   paymentStatus: string;
   paymentMethod: string | null;
+  deliveryMethod: string | null;
   subtotal: string;
   deliveryFee: string;
   total: string;
@@ -37,28 +39,40 @@ export interface OrderItemData {
   price: string;
 }
 
-/* ─── Status config ─── */
-const STATUS_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+/* ─── Status config ───
+   A pickup order never passes through 'shipped'/'delivered' — it moves
+   pending -> confirmed -> processing -> ready_for_pickup -> picked_up
+   instead (see the order_status enum's own comment). Two separate step
+   lists, picked by deliveryMethod, rather than one list that silently
+   returns -1 from indexOf() for a pickup order's real statuses — which
+   used to render the tracker as 0% complete even for an order already
+   picked up. */
+const DELIVERY_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+const PICKUP_STEPS   = ['pending', 'confirmed', 'processing', 'ready_for_pickup', 'picked_up'];
 
 const STATUS_LABELS: Record<string, string> = {
-  pending:    'Order Placed',
-  confirmed:  'Confirmed',
-  processing: 'Processing',
-  shipped:    'Shipped',
-  delivered:  'Delivered',
-  cancelled:  'Cancelled',
-  refunded:   'Refunded',
+  pending:          'Order Placed',
+  confirmed:        'Confirmed',
+  processing:       'Processing',
+  shipped:          'Shipped',
+  delivered:        'Delivered',
+  ready_for_pickup: 'Ready for Pickup',
+  picked_up:        'Picked Up',
+  cancelled:        'Cancelled',
+  refunded:         'Refunded',
 };
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    pending:    'bg-amber-50 text-amber-700 border-amber-200',
-    confirmed:  'bg-blue-50 text-blue-700 border-blue-200',
-    processing: 'bg-orange-50 text-orange-700 border-orange-200',
-    shipped:    'bg-indigo-50 text-indigo-700 border-indigo-200',
-    delivered:  'bg-brand-green-50 text-brand-green-700 border-brand-green-200',
-    cancelled:  'bg-red-50 text-red-600 border-red-200',
-    refunded:   'bg-gray-100 text-gray-600 border-gray-200',
+    pending:          'bg-amber-50 text-amber-700 border-amber-200',
+    confirmed:        'bg-blue-50 text-blue-700 border-blue-200',
+    processing:       'bg-orange-50 text-orange-700 border-orange-200',
+    shipped:          'bg-indigo-50 text-indigo-700 border-indigo-200',
+    delivered:        'bg-brand-green-50 text-brand-green-700 border-brand-green-200',
+    ready_for_pickup: 'bg-violet-50 text-violet-700 border-violet-200',
+    picked_up:        'bg-brand-green-50 text-brand-green-700 border-brand-green-200',
+    cancelled:        'bg-red-50 text-red-600 border-red-200',
+    refunded:         'bg-gray-100 text-gray-600 border-gray-200',
   };
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${colors[status] ?? colors.pending}`}>
@@ -68,9 +82,10 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* ─── Progress tracker ─── */
-function OrderProgress({ status }: { status: string }) {
+function OrderProgress({ status, deliveryMethod }: { status: string; deliveryMethod: string | null }) {
   if (status === 'cancelled' || status === 'refunded') return null;
-  const currentIdx = STATUS_STEPS.indexOf(status);
+  const steps = deliveryMethod === 'pickup' ? PICKUP_STEPS : DELIVERY_STEPS;
+  const currentIdx = steps.indexOf(status);
 
   return (
     <div className="relative flex items-start justify-between">
@@ -78,10 +93,10 @@ function OrderProgress({ status }: { status: string }) {
       <div className="absolute top-3.5 left-[calc(10%)] right-[calc(10%)] h-0.5 bg-gray-200 z-0" />
       <div
         className="absolute top-3.5 left-[calc(10%)] h-0.5 bg-primary z-0 transition-all duration-700"
-        style={{ width: `${Math.max(0, (currentIdx / (STATUS_STEPS.length - 1)) * 80)}%` }}
+        style={{ width: `${Math.max(0, (currentIdx / (steps.length - 1)) * 80)}%` }}
       />
 
-      {STATUS_STEPS.map((step, i) => {
+      {steps.map((step, i) => {
         const done   = i <= currentIdx;
         const active = i === currentIdx;
         return (
@@ -114,7 +129,9 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
 
   const isPaid = order.paymentStatus === 'paid';
   const isPod  = order.paymentMethod === 'pod';
+  const isPickup = order.deliveryMethod === 'pickup';
   const isCancelled = order.status === 'cancelled';
+  const podLabel = getPaymentMethodLabel(order.paymentMethod, order.deliveryMethod);
 
   const orderRef = order.orderNumber ?? `#${order.id.slice(0, 10).toUpperCase()}`;
 
@@ -198,7 +215,7 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
               : isPaid
               ? 'Thank you for your order. It is now being prepared.'
               : isPod
-              ? 'Your order is confirmed. Please have cash ready upon delivery.'
+              ? `Your order is confirmed. Please have cash ready ${isPickup ? 'at pickup' : 'upon delivery'}.`
               : 'Complete your payment to confirm this order.'}
           </p>
         </div>
@@ -221,7 +238,7 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
                 : 'bg-gray-100 text-gray-500 border-gray-200'
               }`}>
                 {isPod ? <Banknote className="h-3 w-3" /> : <CreditCard className="h-3 w-3" />}
-                {isPaid ? 'Paid' : isPod ? 'Pay on Delivery' : 'Unpaid'}
+                {isPaid ? 'Paid' : isPod ? podLabel : 'Unpaid'}
               </span>
             </div>
           </div>
@@ -229,7 +246,7 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
           {/* Progress tracker */}
           {!isCancelled && (
             <div className="pt-2 pb-1">
-              <OrderProgress status={order.status} />
+              <OrderProgress status={order.status} deliveryMethod={order.deliveryMethod} />
             </div>
           )}
         </div>
@@ -273,10 +290,15 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
               <span className="text-gray-500">Subtotal</span>
               <span className="font-semibold text-gray-800">{formatCurrency(Number(order.subtotal))}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Delivery Fee</span>
-              <span className="font-semibold text-gray-800">{formatCurrency(Number(order.deliveryFee))}</span>
-            </div>
+            {/* Pickup orders never carry a delivery fee (see priceCheckoutItems),
+                and a delivery order can legitimately have one waived — hide the
+                row rather than show a confusing ₦0 either way. */}
+            {Number(order.deliveryFee) > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Delivery Fee</span>
+                <span className="font-semibold text-gray-800">{formatCurrency(Number(order.deliveryFee))}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-2 border-t border-gray-100">
               <span className="font-extrabold text-gray-900">Total</span>
               <span className="font-extrabold text-xl text-primary">{formatCurrency(Number(order.total))}</span>
@@ -285,19 +307,26 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
               <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mt-2">
                 <Banknote className="h-4 w-4 text-amber-600 flex-shrink-0" />
                 <p className="text-xs text-amber-700 font-medium">
-                  Please have <strong>{formatCurrency(Number(order.total))}</strong> cash ready for the delivery rider.
+                  Please have <strong>{formatCurrency(Number(order.total))}</strong> cash ready {isPickup ? 'when you come to collect it' : 'for the delivery rider'}.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── SHIPPING ADDRESS ── */}
+        {/* ── SHIPPING ADDRESS / PICKUP CONTACT ──
+             Checkout saves only fullName + phone for a pickup order (no
+             street/city/state — see checkout/page.tsx), so shippingFullName
+             is truthy for pickup orders too. Without this branch this card
+             was titled "Delivery Address" and showed a MapPin icon even when
+             there's no address at all, just a pickup contact. */}
         {order.shippingFullName && (
           <div className="bg-white rounded-2xl shadow-sm p-5 mb-3">
             <div className="flex items-center gap-2 mb-3">
-              <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
-              <h2 className="font-extrabold text-gray-900">Delivery Address</h2>
+              {isPickup
+                ? <Store className="h-4 w-4 text-primary flex-shrink-0" />
+                : <MapPin className="h-4 w-4 text-primary flex-shrink-0" />}
+              <h2 className="font-extrabold text-gray-900">{isPickup ? 'Pickup Contact' : 'Delivery Address'}</h2>
             </div>
             <div className="text-sm text-gray-600 leading-relaxed space-y-0.5">
               <p className="font-semibold text-gray-800">{order.shippingFullName}</p>
@@ -307,6 +336,9 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
               )}
               {order.shippingPhone && <p className="text-primary font-medium">{order.shippingPhone}</p>}
             </div>
+            {isPickup && (
+              <p className="text-xs text-gray-400 mt-2">We'll use this to reach you when your order is ready for pickup.</p>
+            )}
             {order.notes && (
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-start gap-2">
                 <MessageSquare className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />

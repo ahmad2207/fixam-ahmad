@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { getPaymentMethodLabel, getSelectableOrderStatuses } from '@/lib/orders';
 
 const STATUS_TABS = ['All', 'pending', 'confirmed', 'ready_for_pickup', 'shipped', 'delivered', 'picked_up', 'cancelled'] as const;
 type StatusTab = (typeof STATUS_TABS)[number];
@@ -28,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 const PAYMENT_METHOD_OPTIONS = [
   { value: '', label: 'All Methods' },
   { value: 'paystack', label: 'Paystack' },
-  { value: 'pod', label: 'Pay on Delivery' },
+  { value: 'pod', label: 'Pay on Delivery / Pickup' },
   { value: 'cash', label: 'Cash' },
   { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'card', label: 'Card' },
@@ -50,15 +51,6 @@ const PAYMENT_STATUS_STYLES: Record<string, string> = {
   paid:    'bg-emerald-50 text-emerald-700 border border-emerald-200',
   pending: 'bg-amber-50 text-amber-700 border border-amber-200',
   failed:  'bg-red-50 text-red-700 border border-red-200',
-};
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  paystack:      'Paystack',
-  pod:           'Pay on Delivery',
-  cash:          'Cash',
-  bank_transfer: 'Bank Transfer',
-  card:          'Card',
-  card_pos:      'Card (POS)',
 };
 
 const TAB_COLORS: Record<string, string> = {
@@ -112,8 +104,8 @@ export default function AdminOrdersPage() {
     try {
       await updateStatus.mutateAsync({ orderId, status: newStatus });
       toast.success('Order status updated');
-    } catch {
-      toast.error('Failed to update status');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
 
@@ -269,7 +261,7 @@ export default function AdminOrdersPage() {
                       onChange={(e) => handleStatusChange(row.id, e.target.value)}
                       className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary bg-background"
                     >
-                      {ALL_ORDER_STATUSES.map((s) => (
+                      {getSelectableOrderStatuses(ALL_ORDER_STATUSES, row.paymentStatus).map((s) => (
                         <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
                       ))}
                     </select>
@@ -348,7 +340,7 @@ export default function AdminOrdersPage() {
                           {row.paymentStatus ?? 'pending'}
                         </span>
                         {row.paymentMethod && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{PAYMENT_METHOD_LABELS[row.paymentMethod] ?? row.paymentMethod.replace('_', ' ')}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{getPaymentMethodLabel(row.paymentMethod, row.deliveryMethod)}</p>
                         )}
                       </td>
                       <td className="px-4 py-3.5">
@@ -367,7 +359,7 @@ export default function AdminOrdersPage() {
                             className="text-xs border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary bg-background"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {ALL_ORDER_STATUSES.map((s) => (
+                            {getSelectableOrderStatuses(ALL_ORDER_STATUSES, row.paymentStatus).map((s) => (
                               <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
                             ))}
                           </select>

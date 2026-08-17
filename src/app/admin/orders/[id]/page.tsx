@@ -16,21 +16,13 @@ import {
   useGenerateOrderReceipt,
 } from '@/hooks/useAdminOrders';
 import { useStoreSetting } from '@/hooks/useStoreSettings';
+import { getPaymentMethodLabel, getSelectableOrderStatuses } from '@/lib/orders';
 
 const ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'ready_for_pickup', 'shipped', 'delivered', 'picked_up', 'cancelled', 'refunded'];
 
 const STATUS_LABELS: Record<string, string> = {
   ready_for_pickup: 'Ready for Pickup',
   picked_up: 'Picked Up',
-};
-
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  paystack:      'Paystack',
-  pod:           'Pay on Delivery',
-  cash:          'Cash',
-  bank_transfer: 'Bank Transfer',
-  card:          'Card',
-  card_pos:      'Card (POS)',
 };
 
 const statusConfig: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
@@ -51,6 +43,7 @@ const txStatusBadge: Record<string, string> = {
   failed:     'bg-red-100 text-red-700',
   cancelled:  'bg-red-50 text-red-500',
   initiated:  'bg-gray-100 text-gray-600',
+  refunded:   'bg-violet-100 text-violet-700',
 };
 
 export default function AdminOrderDetailPage() {
@@ -84,8 +77,8 @@ export default function AdminOrderDetailPage() {
       await updateStatus.mutateAsync({ orderId: id, status: newStatus });
       toast.success('Status updated');
       refetch();
-    } catch {
-      toast.error('Failed to update status');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
 
@@ -178,7 +171,7 @@ export default function AdminOrderDetailPage() {
                   onChange={(e) => setNewStatus(e.target.value)}
                   className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  {ORDER_STATUSES.map((s) => (
+                  {getSelectableOrderStatuses(ORDER_STATUSES, order.paymentStatus).map((s) => (
                     <option key={s} value={s}>{STATUS_LABELS[s] ?? (s.charAt(0).toUpperCase() + s.slice(1))}</option>
                   ))}
                 </select>
@@ -202,7 +195,7 @@ export default function AdminOrderDetailPage() {
                   {order.paymentStatus ?? 'pending'}
                 </span>
                 {order.paymentMethod && (
-                  <span className="text-xs text-gray-400">{PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod.replace('_', ' ')}</span>
+                  <span className="text-xs text-gray-400">{getPaymentMethodLabel(order.paymentMethod, order.deliveryMethod)}</span>
                 )}
               </div>
               {order.paymentStatus !== 'paid' && (

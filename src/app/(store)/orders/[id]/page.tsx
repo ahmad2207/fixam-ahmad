@@ -39,6 +39,7 @@ async function OrderDetailFetcher({ id }: { id: string }) {
         status: order.status,
         paymentStatus: order.paymentStatus,
         paymentMethod: order.paymentMethod,
+        deliveryMethod: order.deliveryMethod,
         subtotal: order.subtotal,
         deliveryFee: order.deliveryFee,
         total: order.total,

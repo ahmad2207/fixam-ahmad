@@ -5,6 +5,7 @@ import { paymentTransactions, orders } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard } from 'lucide-react';
+import { getPaymentMethodLabel } from '@/lib/orders';
 import TransactionsClient, { type TransactionRow } from './TransactionsClient';
 
 export default async function AdminTransactionsPage() {
@@ -12,6 +13,7 @@ export default async function AdminTransactionsPage() {
     .select({
       id: paymentTransactions.id,
       orderId: paymentTransactions.orderId,
+      provider: paymentTransactions.provider,
       paystackReference: paymentTransactions.paystackReference,
       paystackTransactionId: paymentTransactions.paystackTransactionId,
       amount: paymentTransactions.amount,
@@ -21,6 +23,7 @@ export default async function AdminTransactionsPage() {
       createdAt: paymentTransactions.createdAt,
       updatedAt: paymentTransactions.updatedAt,
       orderStatus: orders.status,
+      deliveryMethod: orders.deliveryMethod,
       shippingFullName: orders.shippingFullName,
       guestEmail: orders.guestEmail,
     })
@@ -34,6 +37,7 @@ export default async function AdminTransactionsPage() {
   const transactions: TransactionRow[] = rows.map((r) => ({
     ...r,
     orderStatus: r.orderStatus ?? null,
+    methodLabel: getPaymentMethodLabel(r.provider, r.deliveryMethod),
   }));
 
   const failedCount = rows.filter((r) => r.status === 'failed' || r.status === 'cancelled').length;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { pendingCheckouts, orders } from '@/db/schema';
+import { pendingCheckouts, orders, paymentTransactions } from '@/db/schema';
 import { consumeStockReservationsForOrder, generateOrderNumber, createStockReservations, priceCheckoutItems } from '@/lib/inventory';
 import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
 import { eq } from 'drizzle-orm';
@@ -96,6 +96,23 @@ export async function POST(req: NextRequest) {
         checkoutId: checkout.id,
       })
       .returning({ id: orders.id, orderNumber: orders.orderNumber });
+
+    // Record this as a payment transaction too, same as the Paystack flow
+    // does in /api/payment/init — otherwise a POD/pickup order never shows
+    // up anywhere in the admin Transactions ledger, even after it's paid.
+    // Starts 'pending' (cash not yet collected); flipped to 'successful' when
+    // an admin confirms payment (see /api/admin/orders/[id]), or 'cancelled'
+    // if the order is cancelled before that happens (see the status route).
+    await db.insert(paymentTransactions).values({
+      orderId: order.id,
+      checkoutId: checkout.id,
+      provider: 'pod',
+      amount: String(total),
+      currency: 'NGN',
+      status: 'pending',
+      customerName,
+      customerEmail,
+    });
 
     // Consume reservations → creates order_items + batch_allocations
     await consumeStockReservationsForOrder(checkout.id, order.id);

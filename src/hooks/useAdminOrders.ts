@@ -126,7 +126,14 @@ export function useUpdateOrderStatus() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error('Failed to update order status');
+      if (!res.ok) {
+        // Surface the route's own message when it has one (e.g. the
+        // cancel-vs-refund guard's explanation) instead of a generic
+        // string — that guard exists specifically to educate the admin on
+        // what to do instead, which is lost if we discard it here.
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? 'Failed to update order status');
+      }
       return res.json();
     },
     onSuccess: () => {
