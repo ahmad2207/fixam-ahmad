@@ -44,8 +44,16 @@ export default function BarcodeSvg({ value, height = 50, fontSize = 14, margin =
       // CSS rescale the internal artwork instead of cropping it; max-width
       // (rather than width) means it only ever shrinks to fit a tighter
       // container — a barcode that already fits renders at its normal size.
-      const w = svg.getAttribute('width');
-      const h = svg.getAttribute('height');
+      // JsBarcode writes these attributes as e.g. "254px" (unit included), so they
+      // must be parsed to plain numbers first — a viewBox built from the raw string
+      // ("0 0 254px 45px") is invalid, and browsers silently drop the whole
+      // attribute rather than scale to it. With no working viewBox the box still
+      // shrinks (that part comes from the width/height attrs' intrinsic aspect
+      // ratio) but the artwork inside doesn't rescale with it, so whatever falls
+      // outside the new, smaller box — typically the trailing bars and the
+      // human-readable number below them — gets clipped instead of shrinking.
+      const w = parseFloat(svg.getAttribute('width') ?? '');
+      const h = parseFloat(svg.getAttribute('height') ?? '');
       if (w && h) {
         svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
         svg.style.maxWidth = '100%';
