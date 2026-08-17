@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { orders, orderItems, users, products, inventoryBatches, stockReservations } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { formatCurrency } from '@/lib/utils';
+import { isOrderPaid } from '@/lib/orders';
 import Link from 'next/link';
 import { DashboardChartsClient } from '@/components/admin/DashboardChartsClient';
 import {
@@ -38,7 +39,7 @@ export default async function AdminDashboardPage() {
         .where(eq(stockReservations.status, 'active')),
     ]);
 
-  const paidOrders      = allOrders.filter((o) => ['confirmed', 'shipped', 'delivered'].includes(o.status));
+  const paidOrders      = allOrders.filter(isOrderPaid);
   const deliveredOrders = allOrders.filter((o) => o.status === 'delivered');
   const inTransitOrders = allOrders.filter((o) => ['confirmed', 'shipped'].includes(o.status));
   const offlineOrders   = allOrders.filter((o) => o.saleType === 'pos' || o.saleType === 'offline');

@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders } from '@/db/schema';
 import { gte } from 'drizzle-orm';
+import { isOrderPaid } from '@/lib/orders';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -34,15 +35,14 @@ export async function GET(req: NextRequest) {
       total: orders.total,
       saleType: orders.saleType,
       status: orders.status,
+      paymentStatus: orders.paymentStatus,
       createdAt: orders.createdAt,
     })
     .from(orders)
     .where(gte(orders.createdAt, rangeStart));
 
   // Only count paid orders
-  const paidOrders = allOrders.filter((o) =>
-    ['confirmed', 'shipped', 'delivered'].includes(o.status),
-  );
+  const paidOrders = allOrders.filter(isOrderPaid);
 
   type Bucket = { label: string; online: number; offline: number };
   const buckets: Bucket[] = [];

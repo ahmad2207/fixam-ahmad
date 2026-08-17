@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderItems } from '@/db/schema';
 import { eq, and, desc, inArray, count } from 'drizzle-orm';
+import { isOrderPaid } from '@/lib/orders';
 
 const ORDERS_PER_PAGE = 50;
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       totalOrders: rows.length,
       totalRevenue: rows
-        .filter((r) => ['confirmed', 'shipped', 'delivered'].includes(r.status))
+        .filter(isOrderPaid)
         .reduce((s, r) => s + Number(r.total), 0),
       inTransit: rows.filter((r) => r.status === 'shipped').length,
       awaitingPayment: rows.filter((r) => r.paymentStatus === 'pending').length,

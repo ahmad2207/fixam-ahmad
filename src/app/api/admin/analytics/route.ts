@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderItems, users, products, categories } from '@/db/schema';
 import { eq, and, gte, lt, desc, count } from 'drizzle-orm';
+import { isOrderPaid } from '@/lib/orders';
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
       id: orders.id,
       total: orders.total,
       status: orders.status,
+      paymentStatus: orders.paymentStatus,
       userId: orders.userId,
       createdAt: orders.createdAt,
     }).from(orders).where(and(gte(orders.createdAt, priorStart), lt(orders.createdAt, rangeStart))),
@@ -42,8 +44,9 @@ export async function GET(req: NextRequest) {
     db.select().from(categories),
   ]);
 
-  // Revenue from all paid orders (confirmed, shipped, delivered)
-  const paidOrders = allOrders.filter((o) => ['confirmed', 'shipped', 'delivered'].includes(o.status));
+  // Revenue from all paid orders — see isOrderPaid for why this is
+  // paymentStatus-based rather than a fulfillment-status proxy.
+  const paidOrders = allOrders.filter(isOrderPaid);
   const totalRevenue = paidOrders.reduce((s, o) => s + Number(o.total), 0);
   const totalOrders = allOrders.length;
   const avgOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
   const newCustomers = allUsers.filter((u) => new Date(u.createdAt) >= rangeStart).length;
 
   // Prior period metrics for % comparisons
-  const priorPaidOrders = priorOrders.filter((o) => ['confirmed', 'shipped', 'delivered'].includes(o.status));
+  const priorPaidOrders = priorOrders.filter(isOrderPaid);
   const priorRevenue = priorPaidOrders.reduce((s, o) => s + Number(o.total), 0);
   const priorTotalOrders = priorOrders.length;
   const priorAvgOrderValue = priorPaidOrders.length > 0 ? priorRevenue / priorPaidOrders.length : 0;

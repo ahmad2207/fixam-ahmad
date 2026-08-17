@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderItems, users, products, inventoryBatches } from '@/db/schema';
 import { gte, eq, inArray, sum, count, and, lt, desc, sql } from 'drizzle-orm';
+import { isOrderPaid } from '@/lib/orders';
 
 export async function GET() {
   const session = await auth();
@@ -31,9 +32,7 @@ export async function GET() {
     }).from(inventoryBatches),
   ]);
 
-  const paidOrders = allOrders.filter((o) =>
-    ['confirmed', 'shipped', 'delivered'].includes(o.status),
-  );
+  const paidOrders = allOrders.filter(isOrderPaid);
   const deliveredOrders = allOrders.filter((o) => o.status === 'delivered');
   const inTransitOrders = allOrders.filter((o) =>
     ['confirmed', 'shipped'].includes(o.status),

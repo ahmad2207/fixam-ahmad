@@ -325,12 +325,20 @@ export async function getVariationPricing(productId: string, tx?: DbOrTx): Promi
 // the full aggregate, priced variations or not), and mirrors
 // products.price/costPrice from whichever batch is "active" under FIFO. For
 // a product without priced variations that's the FIFO pick across all its
-// batches, same as before. For a product with priced variations, it's the
-// FIFO pick scoped to just the *display* variation's own batches
-// (products.defaultVariationOption) — other variations' prices still exist
-// per-option (see getVariationPricing) but don't feed this mirror. If the
-// display variation has no batches yet, price/cost are left untouched
-// rather than flapping to something arbitrary.
+// batches, same as before.
+//
+// For a product with priced variations, the mirror prefers the admin's
+// chosen *display* variation (products.defaultVariationOption) while it
+// still has real stock. Once that variation sells out, it auto-follows
+// whichever other variation is actually in stock — picking whichever has
+// been sitting longest, the same "sell the oldest first" principle FIFO
+// already applies within one variation, just extended across variations for
+// this fallback only. If the display variation gets restocked later, the
+// mirror reverts back to it automatically (nothing is persisted — this is
+// recomputed fresh every call). If literally nothing has stock, it falls
+// back to the display variation's own last-known price rather than
+// flapping to something arbitrary; if that variation has no batches at all
+// yet, price/cost are left untouched.
 //
 // Call after any batch insert/edit/delete/deduction that could change stock
 // or which batch is the active one.
@@ -354,6 +362,7 @@ export async function syncProductStockFromBatches(productId: string, tx?: DbOrTx
       quantityAvailable: inventoryBatches.quantityAvailable,
       costPrice: inventoryBatches.costPrice,
       sellingPrice: inventoryBatches.sellingPrice,
+      createdAt: inventoryBatches.createdAt,
     })
     .from(inventoryBatches)
     .where(eq(inventoryBatches.productId, productId))
@@ -361,10 +370,35 @@ export async function syncProductStockFromBatches(productId: string, tx?: DbOrTx
 
   const stock = batches.reduce((sum, b) => sum + b.quantityAvailable, 0);
 
-  const pricingSource = product?.pricedVariationName
-    ? batches.filter((b) => b.variationOption === product.defaultVariationOption)
-    : batches;
-  const activeBatch = pickActiveLine(pricingSource);
+  let activeBatch: (typeof batches)[number] | undefined;
+
+  if (product?.pricedVariationName) {
+    const byOption = new Map<string, typeof batches>();
+    for (const b of batches) {
+      if (!b.variationOption) continue;
+      if (!byOption.has(b.variationOption)) byOption.set(b.variationOption, []);
+      byOption.get(b.variationOption)!.push(b);
+    }
+
+    const defaultLines = product.defaultVariationOption ? byOption.get(product.defaultVariationOption) : undefined;
+    const defaultActive = defaultLines ? pickActiveLine(defaultLines) : undefined;
+
+    if (defaultActive && defaultActive.quantityAvailable > 0) {
+      activeBatch = defaultActive;
+    } else {
+      let fallback: (typeof batches)[number] | undefined;
+      for (const [option, lines] of byOption) {
+        if (option === product.defaultVariationOption) continue;
+        const active = pickActiveLine(lines);
+        if (active && active.quantityAvailable > 0) {
+          if (!fallback || active.createdAt < fallback.createdAt) fallback = active;
+        }
+      }
+      activeBatch = fallback ?? defaultActive;
+    }
+  } else {
+    activeBatch = pickActiveLine(batches);
+  }
 
   await executor
     .update(products)
