@@ -9,6 +9,23 @@ export interface ThermalItem {
   variation?: string;
   quantity: number;
   price: string | number;
+  // Legacy shape some already-saved receipts were stored with, before the
+  // POS sale/manual-receipt endpoints were fixed to write product_name/
+  // quantity — kept readable here as a fallback so old receipts don't show
+  // blank items forever.
+  name?: string;
+  qty?: number;
+}
+
+// Normalizes either shape to product_name/quantity so every render path
+// below (thermal print HTML, thermal preview, and any other item list) only
+// ever has to deal with one field name.
+export function normalizeItem(item: ThermalItem): ThermalItem & { product_name: string; quantity: number } {
+  return {
+    ...item,
+    product_name: item.product_name ?? item.name ?? 'Item',
+    quantity: item.quantity ?? item.qty ?? 1,
+  };
 }
 
 export interface ThermalReceipt {
@@ -35,6 +52,7 @@ interface Props {
 
 export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl: string, storeAddress: string, storePhone: string): string {
   const rows = items
+    .map(normalizeItem)
     .map(
       (item) =>
         `<div style="margin-bottom:3px">
@@ -62,7 +80,16 @@ export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], 
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
     <title>Receipt-${receipt.receiptNumber}</title>
     <style>
-      body{margin:0;padding:0;font-family:"Courier New",Courier,monospace;font-size:11px;color:#000}
+      /* Base weight bumped to 700 for darker/bolder print output. A
+         multi-layer text-shadow trick was tried here too (to thicken
+         strokes on drivers that ignore font-weight), but thermal receipt
+         printers are typically driven through very limited legacy Windows
+         drivers — not a full browser rendering path — and that kind of
+         exotic per-glyph CSS is exactly what can make such a driver choke
+         and print blank/garbled instead of just ignoring it. Keeping this
+         to plain font-weight is the safe, universally-supported way to get
+         bolder output. */
+      body{margin:0;padding:0;font-family:"Courier New",Courier,monospace;font-size:11px;color:#000;font-weight:700}
       @page{size:80mm auto;margin:0}
       @media print{body{width:80mm}}
     </style>
@@ -130,25 +157,47 @@ export function printThermalReceipt(
 
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
-  iframe.style.right = '0';
-  iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
+  // Off-screen with real dimensions, not width:0/height:0. A zero-size
+  // iframe never gets a real layout/paint box in some browsers, so the
+  // print dialog's own preview pane renders blank even though the content
+  // is technically "there" in the DOM — moving it off-screen instead of
+  // collapsing it to nothing keeps it invisible while still giving the
+  // browser something real to lay out and show a preview of.
+  iframe.style.top = '-10000px';
+  iframe.style.left = '-10000px';
+  iframe.style.width = '80mm';
+  iframe.style.height = '100vh';
   iframe.style.border = '0';
   iframe.setAttribute('aria-hidden', 'true');
 
-  const cleanup = () => setTimeout(() => iframe.remove(), 1000);
+  // Idempotent — both the `afterprint` listener and the fallback timer
+  // below can end up calling this, and removing an already-removed element
+  // is a harmless no-op.
+  const cleanup = () => iframe.remove();
 
   // Attach the load handler and append to the DOM BEFORE setting srcdoc —
   // srcdoc triggers an async navigation inside the iframe, so the handler
   // must already be registered for `load` to fire reliably.
   iframe.onload = () => {
-    try {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    } finally {
-      cleanup();
-    }
+    const win = iframe.contentWindow;
+    if (!win) { cleanup(); return; }
+
+    // window.print() used to be synchronous/blocking, so removing the
+    // iframe right after it returned (behind a fixed 1s buffer) was safe.
+    // Chrome's print UI has been async for years now — print() returns
+    // immediately while the preview is generated in the background — so
+    // that fixed delay was a race: it could rip the iframe (and the
+    // document the preview was still reading from) out of the DOM before
+    // the preview finished rendering, leaving the dialog showing nothing.
+    // `afterprint` fires only once the dialog/preview has actually closed
+    // (printed or cancelled), so wait for that instead of guessing a delay.
+    win.addEventListener('afterprint', cleanup, { once: true });
+    win.focus();
+    win.print();
+    // Fallback for engines that never fire `afterprint` on an iframe's
+    // window — long enough to never race a real print job, short enough
+    // not to leak the iframe indefinitely if it does fire.
+    setTimeout(cleanup, 60000);
   };
 
   document.body.appendChild(iframe);
@@ -157,7 +206,7 @@ export function printThermalReceipt(
 
 export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, FCT, Nigeria', storePhone = '', onClose }: Props) {
   let items: ThermalItem[] = [];
-  try { items = JSON.parse(receipt.items); } catch { items = []; }
+  try { items = JSON.parse(receipt.items).map(normalizeItem); } catch { items = []; }
 
   const handlePrintThermal = () => printThermalReceipt(receipt, items, storeAddress, storePhone);
 
@@ -178,7 +227,14 @@ export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, 
         <div className="overflow-y-auto flex-1 bg-gray-200 p-4 flex justify-center">
           <div
             className="bg-white shadow-sm"
-            style={{ width: '80mm', fontFamily: '"Courier New", Courier, monospace', fontSize: '11px', lineHeight: '1.45' }}
+            style={{
+              width: '80mm',
+              fontFamily: '"Courier New", Courier, monospace',
+              fontSize: '11px',
+              lineHeight: '1.45',
+              fontWeight: 700,
+              color: '#000',
+            }}
           >
             <div style={{ padding: '4mm' }}>
               {/* Store header */}

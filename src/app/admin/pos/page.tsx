@@ -5,7 +5,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { formatCurrency } from '@/lib/utils';
 import { isLikelyScannerBurst } from '@/lib/barcode';
 import BarcodeScannerModal from '@/components/admin/BarcodeScannerModal';
-import { printThermalReceipt } from '@/components/admin/ThermalReceiptPreview';
+import ThermalReceiptPreview, { printThermalReceipt, type ThermalReceipt } from '@/components/admin/ThermalReceiptPreview';
 import { useStoreSetting } from '@/hooks/useStoreSettings';
 import {
   Search, Plus, Minus, CheckCircle, ShoppingCart,
@@ -106,6 +106,13 @@ export default function POSPage() {
   const [discountValue, setDiscountValue]   = useState('');
   const [isSubmitting, setIsSubmitting]     = useState(false);
   const [saleResult, setSaleResult]         = useState<SaleResult | null>(null);
+  // Rendered as a real on-screen dialog on the success ticket, not just
+  // fired blind at a hidden print iframe — the auto-print below is
+  // best-effort (and can fail silently on a browser/printer that blocks or
+  // mishandles it), so the cashier always has something visible to check
+  // the items on and re-print from.
+  const [thermalReceipt, setThermalReceipt] = useState<ThermalReceipt | null>(null);
+  const [thermalDialogOpen, setThermalDialogOpen] = useState(false);
   const [cartOpen, setCartOpen]             = useState(false);
   const [showScanner, setShowScanner]       = useState(false);
   const scanBufferRef = useRef({ chars: '', lastTime: 0, maxGap: 0 });
@@ -402,27 +409,29 @@ export default function POSPage() {
       if (!res.ok) throw new Error(data.error ?? 'Sale failed');
       setSaleResult({ receiptNumber: data.receiptNumber, orderId: data.orderId, receiptId: data.receiptId });
 
-      // Print the receipt immediately — capture the sale's data now, before
-      // clearCart() below resets it for the next customer.
-      printThermalReceipt(
-        {
-          receiptNumber: data.receiptNumber,
-          customerName: customer.name || null,
-          customerPhone: customer.phone || null,
-          subtotal: String(subtotal),
-          deliveryFee: '0',
-          total: String(total),
-          paymentMethod,
-          notes: notes || null,
-          salesRep: salesRepName,
-          items: JSON.stringify(cart.map((i) => ({ product_name: i.name, quantity: i.quantity, price: i.price }))),
-          createdAt: new Date(),
-          type: 'pos',
-        },
-        cart.map((i) => ({ product_name: i.name, quantity: i.quantity, price: i.price })),
-        storeSettings?.store_address,
-        storeSettings?.store_phone,
-      );
+      // Built once, before clearCart() below resets the cart for the next
+      // customer — used both for the best-effort auto-print and as the
+      // receipt handed to the visible <ThermalReceiptPreview> dialog, so the
+      // cashier always has an on-screen, itemized copy to check and, if the
+      // auto-print didn't come out, re-print manually.
+      const items = cart.map((i) => ({ product_name: i.name, variation: i.variation ?? undefined, quantity: i.quantity, price: i.price }));
+      const receipt: ThermalReceipt = {
+        receiptNumber: data.receiptNumber,
+        customerName: customer.name || null,
+        customerPhone: customer.phone || null,
+        subtotal: String(subtotal),
+        deliveryFee: '0',
+        total: String(total),
+        paymentMethod,
+        notes: notes || null,
+        salesRep: salesRepName,
+        items: JSON.stringify(items),
+        createdAt: new Date(),
+        type: 'pos',
+      };
+      setThermalReceipt(receipt);
+      setThermalDialogOpen(true);
+      printThermalReceipt(receipt, items, storeSettings?.store_address, storeSettings?.store_phone);
 
       clearCart();
     } catch (err: any) {
@@ -445,7 +454,15 @@ export default function POSPage() {
             <p className="text-muted-foreground text-[11px] uppercase tracking-widest mb-1">Receipt #</p>
             <p className="font-receipt text-2xl font-bold text-primary tracking-wide">{saleResult.receiptNumber}</p>
           </div>
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-3 justify-center flex-wrap">
+            {thermalReceipt && (
+              <button
+                onClick={() => setThermalDialogOpen(true)}
+                className="flex items-center gap-2 border-2 border-border rounded-2xl px-5 py-3 text-sm font-bold hover:bg-muted transition text-foreground"
+              >
+                <ReceiptText className="w-4 h-4" /> Preview Receipt
+              </button>
+            )}
             {saleResult.receiptId && (
               <Link
                 href={`/admin/receipts/${saleResult.receiptId}`}
@@ -455,13 +472,22 @@ export default function POSPage() {
               </Link>
             )}
             <button
-              onClick={() => setSaleResult(null)}
+              onClick={() => { setSaleResult(null); setThermalReceipt(null); setThermalDialogOpen(false); }}
               className="bg-primary text-primary-foreground px-8 py-3 rounded-2xl text-sm font-display uppercase tracking-wide font-bold hover:bg-primary/90 transition"
             >
               New Sale
             </button>
           </div>
         </div>
+
+        {thermalReceipt && thermalDialogOpen && (
+          <ThermalReceiptPreview
+            receipt={thermalReceipt}
+            storeAddress={storeSettings?.store_address}
+            storePhone={storeSettings?.store_phone}
+            onClose={() => setThermalDialogOpen(false)}
+          />
+        )}
       </div>
     );
   }

@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils';
 import { ArrowLeft, Share2, Copy, MessageCircle, Mail, Printer, FileText, CheckCircle2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import ThermalReceiptPreview from '@/components/admin/ThermalReceiptPreview';
+import ThermalReceiptPreview, { normalizeItem } from '@/components/admin/ThermalReceiptPreview';
 
 interface GeneralSettings {
   store_name: string;
@@ -67,7 +67,10 @@ export default function AdminReceiptDetailPage() {
   }
 
   let items: Array<{ product_name: string; variation?: string; quantity: number; price: string | number }> = [];
-  try { items = JSON.parse(receipt.items); } catch { items = []; }
+  // .map(normalizeItem) covers receipts saved before the POS sale/manual
+  // receipt endpoints were fixed to write product_name/quantity — those
+  // rows are still stored keyed as name/qty and would otherwise render blank.
+  try { items = JSON.parse(receipt.items).map(normalizeItem); } catch { items = []; }
 
   const subtotal    = Number(receipt.subtotal ?? receipt.total);
   const deliveryFee = Number(receipt.deliveryFee ?? 0);
@@ -126,7 +129,12 @@ export default function AdminReceiptDetailPage() {
       </div>
 
       {/* ── Receipt card ── */}
-      <div className="bg-white shadow-2xl print:shadow-none overflow-hidden">
+      {/* print:[zoom:1.4] — the card is sized to look right on screen at
+          560px wide, which prints small on a full page at the browser's
+          default 100% scale; zooming it up under print is the same visual
+          result as a cashier manually setting "Scale: 140%" in the print
+          dialog every time, but baked in so they don't have to. */}
+      <div className="bg-white shadow-2xl print:shadow-none print:[zoom:1.4] overflow-hidden">
 
         {/* ── Brand header ── */}
         <div className="bg-primary px-8 pt-8 pb-6">

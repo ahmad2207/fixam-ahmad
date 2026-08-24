@@ -116,7 +116,19 @@ export async function POST(req: NextRequest) {
           subtotal: String(subtotal),
           deliveryFee: String(deliveryFee ?? 0),
           total: String(total),
-          items: JSON.stringify(items),
+          // Stored keyed as product_name/quantity to match what every
+          // receipt renderer (ThermalReceiptPreview, the admin and public
+          // receipt pages) reads — the request body itself comes in keyed
+          // as `name` from the POS cart, which those renderers don't know
+          // about, so items silently printed blank on any reprint.
+          items: JSON.stringify(
+            items.map((item: any) => ({
+              product_name: item.name,
+              variation: item.variation ?? null,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          ),
           notes,
           createdBy: session.user?.id ?? null,
           salesRep: salesRepBody || (session.user as any)?.name || null,

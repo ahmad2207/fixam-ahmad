@@ -63,7 +63,7 @@ export default function NewReceiptPage() {
         customerName: customerName || undefined,
         customerEmail: customerEmail || undefined,
         customerPhone: customerPhone || undefined,
-        items: items.map((i) => ({ name: i.name, qty: i.quantity, price: i.price })),
+        items: items.map((i) => ({ product_name: i.name, quantity: i.quantity, price: i.price })),
         subtotal,
         deliveryFee: 0,
         total: subtotal,

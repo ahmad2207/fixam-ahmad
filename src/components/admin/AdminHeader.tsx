@@ -35,7 +35,7 @@ export function AdminHeader() {
 
   return (
     <>
-      <header className="h-14 bg-card border-b border-border flex items-center gap-4 px-4 md:px-6 flex-shrink-0">
+      <header className="h-14 bg-card border-b border-border flex items-center gap-4 px-4 md:px-6 flex-shrink-0 print:hidden">
 
         {/* Mobile hamburger */}
         <button

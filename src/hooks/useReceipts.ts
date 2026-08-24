@@ -56,7 +56,7 @@ export function useCreateManualReceipt() {
       customerName?: string;
       customerEmail?: string;
       customerPhone?: string;
-      items: Array<{ name: string; qty: number; price: number; variation?: string }>;
+      items: Array<{ product_name: string; quantity: number; price: number; variation?: string }>;
       subtotal: number;
       deliveryFee: number;
       total: number;

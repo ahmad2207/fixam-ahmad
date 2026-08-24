@@ -22,7 +22,7 @@ export function AdminSidebar() {
   const userRole = (session?.user as any)?.role ?? 'admin';
 
   return (
-    <aside className="hidden md:flex flex-col w-60 bg-sidebar border-r border-sidebar-border flex-shrink-0">
+    <aside className="hidden md:flex flex-col w-60 bg-sidebar border-r border-sidebar-border flex-shrink-0 print:hidden">
 
       {/* ── Logo ── */}
       <div className="h-16 flex items-center gap-3 px-5 border-b border-sidebar-border flex-shrink-0">

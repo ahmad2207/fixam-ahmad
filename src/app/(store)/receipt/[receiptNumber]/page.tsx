@@ -32,7 +32,16 @@ export default async function PublicReceiptPage({ params }: Props) {
   }
 
   let items: Array<{ product_name: string; variation?: string; quantity: number; price: string | number }> = [];
-  try { items = JSON.parse(receipt.items); } catch { items = []; }
+  try {
+    // Some receipts were saved before the POS sale/manual receipt endpoints
+    // were fixed to write product_name/quantity — those rows are still
+    // stored keyed as name/qty and would otherwise render blank here.
+    items = JSON.parse(receipt.items).map((item: any) => ({
+      ...item,
+      product_name: item.product_name ?? item.name ?? 'Item',
+      quantity: item.quantity ?? item.qty ?? 1,
+    }));
+  } catch { items = []; }
 
   const subtotal    = Number(receipt.subtotal ?? receipt.total);
   const deliveryFee = Number(receipt.deliveryFee ?? 0);
@@ -49,7 +58,10 @@ export default async function PublicReceiptPage({ params }: Props) {
       <div className="max-w-[560px] mx-auto">
 
         {/* ── Receipt card ── */}
-        <div className="bg-white shadow-2xl print:shadow-none overflow-hidden">
+        {/* print:[zoom:1.4] — matches the admin receipt page's default print
+            scale so a customer printing this link doesn't get a page-sized
+            card at 100% browser scale. */}
+        <div className="bg-white shadow-2xl print:shadow-none print:[zoom:1.4] overflow-hidden">
 
           {/* ── Brand header ── */}
           <div className="bg-primary px-8 pt-8 pb-6">

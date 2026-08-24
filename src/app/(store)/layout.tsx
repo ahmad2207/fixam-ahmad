@@ -1,6 +1,7 @@
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { MobileBottomNav } from '@/components/store/MobileBottomNav';
 import { StickyHeader } from '@/components/store/StickyHeader';
+import { TawkChat } from '@/components/store/TawkChat';
 import { db } from '@/lib/db';
 import { categories, products } from '@/db/schema';
 import { eq, and, gt, count, asc } from 'drizzle-orm';
@@ -33,6 +34,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       <main className="flex-1 pb-16 lg:pb-0">{children}</main>
       <StoreFooter />
       <MobileBottomNav />
+      <TawkChat />
     </>
   );
 }
