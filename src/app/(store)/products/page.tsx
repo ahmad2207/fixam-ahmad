@@ -12,7 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatCurrency, hasProductImage } from '@/lib/utils';
+import { formatCurrency, formatProductPrice, hasProductImage, hasProductPrice } from '@/lib/utils';
 
 const PRODUCTS_PER_PAGE = 16;
 
@@ -204,7 +204,7 @@ function ProductSearchBar({
                     )}
                   </div>
                   <p className="text-sm font-bold text-primary flex-shrink-0">
-                    {formatCurrency(Number(p.price))}
+                    {formatProductPrice(p.price)}
                   </p>
                 </button>
               ))}
@@ -346,9 +346,13 @@ function ProductsInner() {
   const [inStockOnly,         setInStockOnly]         = useState(false);
 
   const { data: rawProducts = [], isLoading: productsLoading, isError: productsError, refetch: refetchProducts } = useProducts();
-  // Don't publish products with no image on the storefront — filter server data
-  // before it feeds categories, price range, search, and the grid below.
-  const products = useMemo(() => rawProducts.filter(hasProductImage), [rawProducts]);
+  // Don't publish products with no image, or no price set yet, on the
+  // storefront — filter server data before it feeds categories, price range,
+  // search, and the grid below.
+  const products = useMemo(
+    () => rawProducts.filter(hasProductImage).filter(hasProductPrice),
+    [rawProducts]
+  );
 
   useEffect(() => {
     const urlSearch = searchParams.get('search') ?? '';

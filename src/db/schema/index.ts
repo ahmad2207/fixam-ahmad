@@ -12,6 +12,7 @@ export * from './pendingCheckouts';
 export * from './stockReservations';
 export * from './orders';
 export * from './orderItems';
+export * from './comboDeals';
 export * from './paymentTransactions';
 export * from './receipts';
 export * from './storeSettings';

@@ -54,7 +54,7 @@ function F({ label, req, children, wide }: { label: string; req?: boolean; child
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, clearCart, itemCount } = useCart();
+  const { items, combos, subtotal, clearCart, itemCount } = useCart();
   const { initiatePayment, isLoading: paystackLoading, error: paystackError } = usePaystackPayment();
   const { data: session } = useSession();
   const { data: storeSettings } = useStoreSetting<{ whatsapp_number?: string; store_address?: string; store_phone?: string }>('general');
@@ -176,8 +176,18 @@ export default function CheckoutPage() {
   const buildWhatsAppMessage = useCallback(() => {
     const sel = savedAddresses.find(a => a.id === selectedAddressId);
     const lines: string[] = ["Hi Fixam Africa! 👋 I'd like to order:\n"];
-    items.forEach((item, i) => {
-      lines.push(`${i + 1}. *${item.name}* × ${item.quantity}`);
+    let n = 0;
+    combos.forEach((combo) => {
+      n++;
+      lines.push(`${n}. *${combo.name}* (Bundle) × ${combo.quantity}`);
+      lines.push(`   📦 Includes: ${combo.components.map((c) => c.name).join(', ')}`);
+      lines.push(`   💰 ${formatCurrency(combo.price)} × ${combo.quantity} = *${formatCurrency(combo.price * combo.quantity)}*`);
+      if (combo.imageUrl) lines.push(`   🖼️ ${combo.imageUrl}`);
+      lines.push('');
+    });
+    items.forEach((item) => {
+      n++;
+      lines.push(`${n}. *${item.name}* × ${item.quantity}`);
       if (item.variation) lines.push(`   📐 Variant: ${item.variation}`);
       lines.push(`   💰 ${formatCurrency(item.price)} × ${item.quantity} = *${formatCurrency(item.price * item.quantity)}*`);
       if (item.imageUrl) lines.push(`   🖼️ ${item.imageUrl}`);
@@ -209,7 +219,7 @@ export default function CheckoutPage() {
     if (form.notes) lines.push(`📝 Notes: ${form.notes}`);
     lines.push('\nPlease confirm my order. Thank you! 🙏');
     return lines.join('\n');
-  }, [items, form, subtotal, isPickup, deliveryResult, finalDeliveryFee, grandTotal, savedAddresses, selectedAddressId, storeSettings]);
+  }, [items, combos, form, subtotal, isPickup, deliveryResult, finalDeliveryFee, grandTotal, savedAddresses, selectedAddressId, storeSettings]);
 
   const handleWhatsAppCheckout = useCallback((e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -249,7 +259,7 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) { toast.error('Cart is empty'); return; }
+    if (items.length === 0 && combos.length === 0) { toast.error('Cart is empty'); return; }
     setStockErrors([]);
     const errors = await checkStock();
     if (errors.length > 0) { setStockErrors(errors); toast.error('Some items have stock issues'); return; }
@@ -261,6 +271,7 @@ export default function CheckoutPage() {
         quantity: i.quantity, price: i.price, variation: i.variation ?? null,
         variationOption: i.variationOption ?? null,
       })),
+      combos: combos.map(c => ({ combo_id: c.comboId, quantity: c.quantity })),
       shippingAddress: shipping,
       deliveryMethod: form.deliveryMethod,
       subtotal, deliveryFee: finalDeliveryFee, total: grandTotal,
@@ -288,7 +299,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && combos.length === 0) {
     return (
       <div className="min-h-[70vh] bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
@@ -625,6 +636,24 @@ export default function CheckoutPage() {
               </p>
 
               <div className="space-y-2.5 mb-4 max-h-52 overflow-y-auto pr-1">
+                {combos.map(combo => (
+                  <div key={combo.comboId} className="flex gap-2.5">
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">
+                      {combo.imageUrl
+                        ? <Image src={combo.imageUrl} alt={combo.name} fill className="object-contain p-0.5" />
+                        : <div className="absolute inset-0 flex items-center justify-center text-lg text-gray-200">🎁</div>
+                      }
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-gray-800 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                        {combo.quantity}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                      <p className="text-xs font-semibold text-gray-800 line-clamp-2 leading-snug">{combo.name}</p>
+                      <p className="text-[10px] text-gray-400">Bundle</p>
+                      <p className="text-xs font-black text-primary tabular-nums">{formatCurrency(combo.price * combo.quantity)}</p>
+                    </div>
+                  </div>
+                ))}
                 {items.map(item => (
                   <div key={`${item.productId}:${item.variation}`} className="flex gap-2.5">
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">

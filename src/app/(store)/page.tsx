@@ -4,7 +4,9 @@ import { eq, and, desc, asc, count, sql, gt } from 'drizzle-orm';
 import { LoadMoreProducts } from '@/components/store/LoadMoreProducts';
 import { HeroProductCarousel } from '@/components/store/HeroProductCarousel';
 import { ProductPageSlider } from '@/components/store/ProductPageSlider';
+import { ComboDealSlider } from '@/components/store/ComboDealSlider';
 import { getActiveBanners } from '@/lib/serverBanners';
+import { getActiveComboDeals } from '@/lib/combos';
 import { hasProductImageSql } from '@/lib/productFilters';
 import { BANNER_THEMES } from '@/db/schema/banners';
 import Link from 'next/link';
@@ -72,18 +74,12 @@ function BannerImage({ src, alt, className }: { src: string; alt: string; classN
 
 export default async function HomePage() {
   const [
-    flashProducts, topSellerProducts, recommendedProducts,
+    activeCombos, topSellerProducts, recommendedProducts,
     categoriesWithCount, allCategoryProducts,
     promoBanners, ctaBanners,
   ] = await Promise.all([
-    // Combo deals — featured products
-    db
-      .select(productFields)
-      .from(products)
-      .leftJoin(categories, eq(products.categoryId, categories.id))
-      .where(and(eq(products.isActive, true), eq(products.isPromo, true), gt(products.stock, 0)))
-      .orderBy(desc(products.createdAt))
-      .limit(16),
+    // Combo deals — real multi-product bundles (see src/lib/combos.ts)
+    getActiveComboDeals(),
 
     // Top sellers — ranked by actual units sold
     db
@@ -180,8 +176,8 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          {flashProducts.length > 0 ? (
-            <ProductPageSlider products={flashProducts as any} itemsPerPage={4} />
+          {activeCombos.length > 0 ? (
+            <ComboDealSlider combos={activeCombos} itemsPerPage={4} />
           ) : (
             <div className="text-center py-10">
               <p className="text-gray-400 text-sm">No combo deals right now — check back soon!</p>

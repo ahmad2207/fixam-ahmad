@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useSession } from 'next-auth/react';
-import { formatCurrency, hasProductImage } from '@/lib/utils';
+import { formatCurrency, formatProductPrice, hasProductImage, hasProductPrice } from '@/lib/utils';
 import {
   ShoppingCart, Heart, Star, Truck, Shield, RotateCcw,
   Zap, Minus, Plus, Edit2, Trash2, ArrowRight, ChevronLeft, ChevronRight,
@@ -400,8 +400,8 @@ export function ProductDetailClient({
   const [showDialog, setShowDialog] = useState(false);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
 
-  // Don't publish products with no image on the storefront.
-  const visibleRelatedProducts = relatedProducts.filter(hasProductImage);
+  // Don't publish products with no image, or no price set yet, on the storefront.
+  const visibleRelatedProducts = relatedProducts.filter(hasProductImage).filter(hasProductPrice);
 
   const isWishlisted = has(product.id);
 
@@ -441,7 +441,7 @@ export function ProductDetailClient({
 
   const waNumber = storeSettings?.whatsapp_number?.replace(/\D/g, '') ?? '';
   const whatsappUrl = waNumber
-    ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`Hi! I'm interested in *${product.name}* (${formatCurrency(price)}). Is it available?`)}`
+    ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`Hi! I'm interested in *${product.name}* (${formatProductPrice(price)}). Is it available?`)}`
     : null;
 
   const prevImage = () => setActiveImage(i => (i - 1 + allImages.length) % allImages.length);
@@ -657,7 +657,7 @@ export function ProductDetailClient({
 
               {/* Price */}
               <div className="flex items-center gap-3 mt-3 flex-wrap">
-                <span className="text-2xl sm:text-3xl font-black text-primary leading-none">{formatCurrency(price)}</span>
+                <span className="text-2xl sm:text-3xl font-black text-primary leading-none">{formatProductPrice(price)}</span>
                 {compareAt > price && (
                   <span className="text-base text-gray-400 line-through leading-none">{formatCurrency(compareAt)}</span>
                 )}

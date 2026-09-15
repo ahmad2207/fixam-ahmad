@@ -7,7 +7,7 @@ import { Heart, ShoppingCart, Star, Bell, Flame, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatProductPrice } from '@/lib/utils';
 import { AddToCartDialog } from './AddToCartDialog';
 import { NotifyMeModal } from './NotifyMeModal';
 
@@ -254,7 +254,7 @@ export function ProductCard({ product }: { product: Product }) {
               <div className="min-w-0">
                 {isPriced && <span className="text-[10px] text-gray-400 mr-0.5">From</span>}
                 <span className="text-lg font-semibold text-primary leading-none">
-                  {formatCurrency(price)}
+                  {formatProductPrice(price)}
                 </span>
                 {compareAt > price && (
                   <span className="text-xs text-gray-400 line-through leading-none ml-1">

@@ -238,6 +238,11 @@ export default function AdminOrderDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{item.productName}</p>
                       {item.variation && <p className="text-xs text-gray-400">{item.variation}</p>}
+                      {item.comboDealName && (
+                        <span className="inline-block mt-1 text-[10px] font-bold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                          Part of bundle: {item.comboDealName}
+                        </span>
+                      )}
                       {hasAllocations && (
                         <button
                           onClick={() => toggleItem(item.id)}

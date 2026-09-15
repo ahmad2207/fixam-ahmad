@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
     const userId = (session?.user as any)?.id ?? null;
 
     const body = await req.json();
-    const { items: rawItems, shippingAddress, customerEmail, customerName, customerPhone, deliveryMethod } = body;
+    const { items: rawItems, combos, shippingAddress, customerEmail, customerName, customerPhone, deliveryMethod } = body;
     const method: 'delivery' | 'pickup' = deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
 
-    if (!rawItems?.length) {
+    if (!rawItems?.length && !combos?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -28,10 +28,11 @@ export async function POST(req: NextRequest) {
     let items, subtotal, deliveryFee, total;
     try {
       ({ items, subtotal, deliveryFee, total } = await priceCheckoutItems(
-        rawItems,
+        rawItems ?? [],
         shippingAddress?.state,
         shippingAddress?.abujaZone,
         method,
+        combos ?? [],
       ));
     } catch (err: any) {
       return NextResponse.json({ error: err.message ?? 'Could not price your cart' }, { status: 400 });

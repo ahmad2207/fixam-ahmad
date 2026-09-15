@@ -16,6 +16,9 @@ export interface OrderItem {
   quantity: number;
   price: string;
   variation: string | null;
+  // Set only when this line was purchased as part of a combo deal — see
+  // orderItems.comboDealName in the schema.
+  comboDealName?: string | null;
   allocations?: {
     batchId: string;
     quantity: number;

@@ -23,3 +23,18 @@ import { products } from '@/db/schema';
  * for a customer-facing view.
  */
 export const hasProductImageSql = sql`(${products.imageUrl} is not null and ${products.imageUrl} <> '') or jsonb_array_length(coalesce(${products.images}, '[]'::jsonb)) > 0`;
+
+/**
+ * A raw SQL condition matching products that actually have a price set.
+ * `products.price` defaults to '0' and is only ever written once an admin
+ * adds the product's first inventory batch (see `syncProductStockFromBatches`
+ * in `@/lib/inventory`), so a brand-new product can be active and listed
+ * before it has a real price — showing shoppers a broken "₦0"/"N0" tag (see
+ * `formatProductPrice` in `@/lib/utils`).
+ *
+ * Same rules as `hasProductImageSql`: use this in server-side queries that
+ * feed customer-facing listings, not the shared `/api/products` endpoint by
+ * default — POS and the admin panel need to find every product regardless of
+ * whether its price has been set up yet.
+ */
+export const hasProductPriceSql = sql`${products.price} > 0`;

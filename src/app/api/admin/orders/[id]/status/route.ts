@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { orders, paymentTransactions } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { sendOrderStatusEmail } from '@/lib/orderNotifications';
+import { sendOrderStatusWhatsApp } from '@/lib/whatsappNotifications';
 import { restoreStockForOrder } from '@/lib/inventory';
 import { logAdminAction } from '@/lib/auditLog';
 import { invalidTerminalStatusFor } from '@/lib/orders';
@@ -131,14 +132,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
   }
 
-  // Only email if the status actually changed — re-saving the same status
+  // Only notify if the status actually changed — re-saving the same status
   // (e.g. an accidental double-click) shouldn't re-notify the customer.
-  // Awaited so the email is guaranteed to attempt before this function
-  // returns; see payment/verify's route for why fire-and-forget was unsafe.
-  // Sent outside the transaction — an email send is a slow external side
-  // effect that has no business holding a DB transaction open.
+  // Awaited so the notifications are guaranteed to attempt before this
+  // function returns; see payment/verify's route for why fire-and-forget was
+  // unsafe. Sent outside the transaction — these are slow external side
+  // effects that have no business holding a DB transaction open.
   if (status !== existing.status) {
-    await sendOrderStatusEmail(id, status);
+    await Promise.all([sendOrderStatusEmail(id, status), sendOrderStatusWhatsApp(id, status)]);
   }
 
   return NextResponse.json({ ...updated, stockRestored: restored });

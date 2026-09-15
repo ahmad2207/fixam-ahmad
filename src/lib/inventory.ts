@@ -6,6 +6,8 @@ import {
   orderItems,
   products,
   pendingCheckouts,
+  comboDeals,
+  comboDealItems,
 } from '@/db/schema';
 import { eq, and, gt, asc, sql, inArray } from 'drizzle-orm';
 import { calculateDeliveryFee } from '@/lib/deliveryFees';
@@ -52,6 +54,17 @@ export interface PricedCheckoutItem {
   price: number;
   variation: string | null;
   variationOption: string | null;
+  // Set only when this line was expanded from a combo deal (see
+  // expandComboForCheckout below) — `price` here is this product's
+  // proportional share of the combo's total price, not its own standalone
+  // price. comboDealName is carried as a snapshot alongside the id.
+  comboDealId?: string | null;
+  comboDealName?: string | null;
+}
+
+export interface RawComboCheckoutItem {
+  combo_id: string;
+  quantity: number;
 }
 
 export interface PricedCheckout {
@@ -61,78 +74,184 @@ export interface PricedCheckout {
   total: number;
 }
 
+// ─── Expand Combo For Checkout ─────────────────────────────────────────────
+// Loads a combo deal fresh from the DB (never trusts anything the client
+// sent), validates every component is active with enough stock for
+// `comboQuantity` bundles, and expands it into one PricedCheckoutItem per
+// component product — each carrying a *proportional share* of the combo's
+// admin-set total price rather than the component's own live price.
+//
+// Allocating price this way (instead of, say, inserting one combo-level line)
+// means every downstream consumer — createStockReservations,
+// consumeStockReservationsForOrder, restoreStockForOrder, batch COGS — needs
+// zero changes: they only ever key off product_id/quantity, never price, so
+// a combo's components flow through exactly like any other cart line. Only
+// the *returned subtotal* (comboPrice * comboQuantity, computed directly —
+// not re-derived from the per-line prices below) is what actually determines
+// the order's stored total, so per-line rounding noise here can never drift
+// the charged amount.
+async function expandComboForCheckout(
+  comboId: string,
+  comboQuantity: number,
+): Promise<{ items: PricedCheckoutItem[]; subtotal: number }> {
+  const [combo] = await db.select().from(comboDeals).where(eq(comboDeals.id, comboId));
+  if (!combo || !combo.isActive) {
+    throw new Error('One of the combo deals in your cart is no longer available');
+  }
+
+  const componentRows = await db
+    .select({
+      productId: comboDealItems.productId,
+      quantity: comboDealItems.quantity,
+      product: products,
+    })
+    .from(comboDealItems)
+    .leftJoin(products, eq(comboDealItems.productId, products.id))
+    .where(eq(comboDealItems.comboDealId, comboId))
+    .orderBy(asc(comboDealItems.position));
+
+  if (!componentRows.length) {
+    throw new Error(`"${combo.name}" has no products configured`);
+  }
+
+  let sumOfParts = 0;
+  for (const row of componentRows) {
+    if (!row.product || !row.product.isActive) {
+      throw new Error(`A product in "${combo.name}" is no longer available`);
+    }
+    const neededQty = row.quantity * comboQuantity;
+    if (row.product.stock < neededQty) {
+      throw new Error(`Only enough stock for ${Math.floor(row.product.stock / row.quantity)} of "${combo.name}" left`);
+    }
+    sumOfParts += Number(row.product.price) * row.quantity;
+  }
+
+  if (sumOfParts <= 0) {
+    throw new Error(`"${combo.name}" is not available right now`);
+  }
+
+  const comboPrice = Number(combo.price);
+  const bundleTotal = comboPrice * comboQuantity;
+  const items: PricedCheckoutItem[] = [];
+  let allocated = 0;
+
+  componentRows.forEach((row, idx) => {
+    const product = row.product!;
+    const lineQuantity = row.quantity * comboQuantity;
+    const isLast = idx === componentRows.length - 1;
+
+    // Proportional share of the *whole bundle's* price, by this component's
+    // own live price weight. The last line absorbs whatever's left over so
+    // the lines sum to exactly bundleTotal regardless of rounding.
+    const share = (Number(product.price) * row.quantity) / sumOfParts;
+    const lineTotal = isLast ? bundleTotal - allocated : Math.round(share * bundleTotal * 100) / 100;
+    allocated += lineTotal;
+
+    items.push({
+      product_id: product.id,
+      product_name: product.name,
+      product_image: product.imageUrl,
+      quantity: lineQuantity,
+      price: Math.round((lineTotal / lineQuantity) * 100) / 100,
+      variation: null,
+      variationOption: null,
+      comboDealId: combo.id,
+      comboDealName: combo.name,
+    });
+  });
+
+  return { items, subtotal: bundleTotal };
+}
+
 export async function priceCheckoutItems(
   rawItems: RawCheckoutItem[],
   shippingState: string,
   abujaZone?: string,
   deliveryMethod: 'delivery' | 'pickup' = 'delivery',
+  combos: RawComboCheckoutItem[] = [],
 ): Promise<PricedCheckout> {
-  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+  const hasRawItems = Array.isArray(rawItems) && rawItems.length > 0;
+  const hasCombos = Array.isArray(combos) && combos.length > 0;
+  if (!hasRawItems && !hasCombos) {
     throw new Error('Your cart is empty');
   }
-
-  const ids = rawItems.map((i) => i?.product_id).filter((id): id is string => typeof id === 'string' && id.length > 0);
-  if (ids.length !== rawItems.length) {
-    throw new Error('One of the items in your cart is invalid');
-  }
-
-  const rows = await db.select().from(products).where(inArray(products.id, ids));
-  const byId = new Map(rows.map((p) => [p.id, p]));
-
-  // Products with priced variations need their batches grouped by option to
-  // resolve price/stock per option — fetch those up front in one query
-  // rather than one round-trip per line item.
-  const pricedIds = rows.filter((p) => p.pricedVariationName).map((p) => p.id);
-  const variationPricingByProduct = pricedIds.length
-    ? await getVariationPricingForProducts(pricedIds)
-    : new Map<string, VariationPricing[]>();
 
   const items: PricedCheckoutItem[] = [];
   let subtotal = 0;
 
-  for (const raw of rawItems) {
-    const quantity = Number(raw.quantity);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new Error('One of the items in your cart has an invalid quantity');
+  if (hasRawItems) {
+    const ids = rawItems.map((i) => i?.product_id).filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (ids.length !== rawItems.length) {
+      throw new Error('One of the items in your cart is invalid');
     }
 
-    const product = byId.get(raw.product_id);
-    if (!product || !product.isActive) {
-      throw new Error(`"${product?.name ?? raw.product_id}" is no longer available`);
-    }
+    const rows = await db.select().from(products).where(inArray(products.id, ids));
+    const byId = new Map(rows.map((p) => [p.id, p]));
 
-    let price: number;
-    let availableStock: number;
+    // Products with priced variations need their batches grouped by option to
+    // resolve price/stock per option — fetch those up front in one query
+    // rather than one round-trip per line item.
+    const pricedIds = rows.filter((p) => p.pricedVariationName).map((p) => p.id);
+    const variationPricingByProduct = pricedIds.length
+      ? await getVariationPricingForProducts(pricedIds)
+      : new Map<string, VariationPricing[]>();
 
-    if (product.pricedVariationName) {
-      const options = variationPricingByProduct.get(product.id) ?? [];
-      const picked = raw.variationOption
-        ? options.find((o) => o.option === raw.variationOption)
-        : undefined;
-      if (!picked) {
-        throw new Error(`Please select a ${product.pricedVariationName} for "${product.name}"`);
+    for (const raw of rawItems) {
+      const quantity = Number(raw.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error('One of the items in your cart has an invalid quantity');
       }
-      price = picked.price;
-      availableStock = picked.stock;
-    } else {
-      price = Number(product.price);
-      availableStock = product.stock;
-    }
 
-    if (availableStock < quantity) {
-      throw new Error(`Only ${availableStock} of "${product.name}" left in stock`);
-    }
+      const product = byId.get(raw.product_id);
+      if (!product || !product.isActive) {
+        throw new Error(`"${product?.name ?? raw.product_id}" is no longer available`);
+      }
 
-    subtotal += price * quantity;
-    items.push({
-      product_id: product.id,
-      product_name: product.name,
-      product_image: product.imageUrl,
-      quantity,
-      price,
-      variation: raw.variation ?? null,
-      variationOption: product.pricedVariationName ? (raw.variationOption ?? null) : null,
-    });
+      let price: number;
+      let availableStock: number;
+
+      if (product.pricedVariationName) {
+        const options = variationPricingByProduct.get(product.id) ?? [];
+        const picked = raw.variationOption
+          ? options.find((o) => o.option === raw.variationOption)
+          : undefined;
+        if (!picked) {
+          throw new Error(`Please select a ${product.pricedVariationName} for "${product.name}"`);
+        }
+        price = picked.price;
+        availableStock = picked.stock;
+      } else {
+        price = Number(product.price);
+        availableStock = product.stock;
+      }
+
+      if (availableStock < quantity) {
+        throw new Error(`Only ${availableStock} of "${product.name}" left in stock`);
+      }
+
+      subtotal += price * quantity;
+      items.push({
+        product_id: product.id,
+        product_name: product.name,
+        product_image: product.imageUrl,
+        quantity,
+        price,
+        variation: raw.variation ?? null,
+        variationOption: product.pricedVariationName ? (raw.variationOption ?? null) : null,
+      });
+    }
+  }
+
+  if (hasCombos) {
+    for (const combo of combos) {
+      const quantity = Number(combo?.quantity);
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error('One of the combo deals in your cart has an invalid quantity');
+      }
+      const expanded = await expandComboForCheckout(combo.combo_id, quantity);
+      items.push(...expanded.items);
+      subtotal += expanded.subtotal;
+    }
   }
 
   // A pickup order has no delivery leg at all — skip both the state
@@ -747,6 +866,8 @@ export async function consumeStockReservationsForOrder(
       price: number;
       variation: string | null;
       variationOption?: string | null;
+      comboDealId?: string | null;
+      comboDealName?: string | null;
     }>;
 
     let consumed = 0;
@@ -769,6 +890,8 @@ export async function consumeStockReservationsForOrder(
           price: String(item.price),
           variation: item.variation,
           fromReservation: true,
+          comboDealId: item.comboDealId ?? null,
+          comboDealName: item.comboDealName ?? null,
         })
         .returning({ id: orderItems.id });
 

@@ -1,48 +1,25 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
-import { ProductCard } from '@/components/store/ProductCard';
+// Same pagination/swipe mechanics as ProductPageSlider, just rendering
+// ComboDealCard instead of ProductCard — kept as its own component rather
+// than generalizing ProductPageSlider, since that one is used by several
+// other product-listing sections on this page and elsewhere.
+import { useState, useCallback, useRef } from 'react';
+import { ComboDealCard } from '@/components/store/ComboDealCard';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { hasProductImage, hasProductPrice } from '@/lib/utils';
+import type { ComboDealWithComponents } from '@/lib/comboPricing';
 
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  price: string;
-  compareAtPrice?: string | null;
-  imageUrl?: string | null;
-  stock: number;
-  isFeatured?: boolean;
-  categoryName?: string | null;
-  rating?: string | null;
-  reviewsCount?: number | null;
-}
+const SWIPE_THRESHOLD = 40;
 
-const SWIPE_THRESHOLD = 40; // px of horizontal drag before a page change fires
-
-export function ProductPageSlider({
-  products,
-  itemsPerPage = 5,
-}: {
-  products: Product[];
-  itemsPerPage?: number;
-}) {
+export function ComboDealSlider({ combos, itemsPerPage = 5 }: { combos: ComboDealWithComponents[]; itemsPerPage?: number }) {
   const [page, setPage] = useState(0);
-  // Don't publish products with no image, or no price set yet — they render
-  // as a broken-looking placeholder/"N0" card in every carousel that reuses
-  // this component.
-  const visibleProducts = useMemo(() => products.filter(hasProductImage).filter(hasProductPrice), [products]);
-  const totalPages = Math.ceil(visibleProducts.length / itemsPerPage);
+  const totalPages = Math.ceil(combos.length / itemsPerPage);
 
-  const pages = Array.from({ length: totalPages }, (_, i) =>
-    visibleProducts.slice(i * itemsPerPage, (i + 1) * itemsPerPage),
-  );
+  const pages = Array.from({ length: totalPages }, (_, i) => combos.slice(i * itemsPerPage, (i + 1) * itemsPerPage));
 
-  const prev = useCallback(() => setPage(p => (p - 1 + totalPages) % totalPages), [totalPages]);
-  const next = useCallback(() => setPage(p => (p + 1) % totalPages), [totalPages]);
+  const prev = useCallback(() => setPage((p) => (p - 1 + totalPages) % totalPages), [totalPages]);
+  const next = useCallback(() => setPage((p) => (p + 1) % totalPages), [totalPages]);
 
-  // ── Swipe / drag support (mouse + touch, via Pointer Events) ──
   const dragState = useRef<{ pointerId: number; startX: number; startY: number; dragging: boolean } | null>(null);
   const [dragDeltaX, setDragDeltaX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -59,16 +36,12 @@ export function ProductPageSlider({
     if (!state || state.pointerId !== e.pointerId) return;
     const dx = e.clientX - state.startX;
     const dy = e.clientY - state.startY;
-
     if (!state.dragging) {
-      // Only claim the gesture once movement is clearly horizontal —
-      // otherwise let the page scroll vertically as normal.
       if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
       state.dragging = true;
       setIsDragging(true);
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     }
-
     setDragDeltaX(dx);
   };
 
@@ -79,8 +52,6 @@ export function ProductPageSlider({
       const dx = e.clientX - state.startX;
       if (dx <= -SWIPE_THRESHOLD) next();
       else if (dx >= SWIPE_THRESHOLD) prev();
-      // Swallow the click that (synthetically) follows a drag so it
-      // doesn't navigate into whatever product card was under the pointer.
       wasDraggedRef.current = true;
     }
     dragState.current = null;
@@ -119,17 +90,15 @@ export function ProductPageSlider({
             className={`flex ${isDragging ? '' : 'transition-transform duration-300 ease-in-out'}`}
             style={{ transform: `translateX(calc(-${page * 100}% + ${dragDeltaX}px))` }}
           >
-            {pages.map((pageProducts, i) => (
+            {pages.map((pageCombos, i) => (
               <div
                 key={i}
                 className={`w-full flex-shrink-0 grid gap-3 sm:gap-6 ${
-                  itemsPerPage === 4
-                    ? 'grid-cols-2 lg:grid-cols-4'
-                    : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+                  itemsPerPage === 4 ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
                 }`}
               >
-                {pageProducts.map(product => (
-                  <ProductCard key={product.id} product={product as any} />
+                {pageCombos.map((combo) => (
+                  <ComboDealCard key={combo.id} combo={combo} />
                 ))}
               </div>
             ))}
@@ -151,9 +120,7 @@ export function ProductPageSlider({
             <button
               key={i}
               onClick={() => setPage(i)}
-              className={`h-1.5 rounded-full transition-all duration-200 ${
-                i === page ? 'w-4 bg-primary' : 'w-1.5 bg-gray-300'
-              }`}
+              className={`h-1.5 rounded-full transition-all duration-200 ${i === page ? 'w-4 bg-primary' : 'w-1.5 bg-gray-300'}`}
             />
           ))}
         </div>

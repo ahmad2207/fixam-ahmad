@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { ProductCard } from './ProductCard';
 import { Loader2 } from 'lucide-react';
-import { hasProductImage } from '@/lib/utils';
+import { hasProductImage, hasProductPrice } from '@/lib/utils';
 
 interface Product {
   id: string;
@@ -24,7 +24,7 @@ interface Product {
 const PAGE_SIZE = 24;
 
 export function LoadMoreProducts({ initialProducts }: { initialProducts: Product[] }) {
-  const [items, setItems] = useState<Product[]>(initialProducts.filter(hasProductImage));
+  const [items, setItems] = useState<Product[]>(initialProducts.filter(hasProductImage).filter(hasProductPrice));
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialProducts.length === PAGE_SIZE);
   const [isPending, startTransition] = useTransition();
@@ -32,17 +32,19 @@ export function LoadMoreProducts({ initialProducts }: { initialProducts: Product
   const loadMore = () => {
     startTransition(async () => {
       const nextPage = page + 1;
-      // hasImage=true — same filtering as the SSR'd first page, applied
-      // server-side rather than after the fact. Without it, a page ranked/
-      // paginated with no idea about images could come back mostly filtered
-      // away client-side, making "See More" feel like it did nothing.
-      const res = await fetch(`/api/products?page=${nextPage}&limit=${PAGE_SIZE}&hasImage=true`);
+      // hasImage=true & hasPrice=true — same filtering as the SSR'd first
+      // page, applied server-side rather than after the fact. Without it, a
+      // page ranked/paginated with no idea about images/prices could come
+      // back mostly filtered away client-side, making "See More" feel like it
+      // did nothing.
+      const res = await fetch(`/api/products?page=${nextPage}&limit=${PAGE_SIZE}&hasImage=true&hasPrice=true`);
       const data: Product[] = await res.json();
       setItems((prev) => {
         const existingIds = new Set(prev.map((p) => p.id));
-        // .filter(hasProductImage) here is just a defensive backstop — the
-        // server already only returns image-having products for this request.
-        return [...prev, ...data.filter((p) => !existingIds.has(p.id) && hasProductImage(p))];
+        // .filter(hasProductImage/hasProductPrice) here is just a defensive
+        // backstop — the server already only returns matching products for
+        // this request.
+        return [...prev, ...data.filter((p) => !existingIds.has(p.id) && hasProductImage(p) && hasProductPrice(p))];
       });
       setPage(nextPage);
       setHasMore(data.length === PAGE_SIZE);

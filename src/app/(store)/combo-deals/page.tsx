@@ -1,43 +1,17 @@
 export const dynamic = 'force-dynamic';
 
-import { db } from '@/lib/db';
-import { products, categories } from '@/db/schema';
-import { eq, and, desc, gt } from 'drizzle-orm';
-import { ProductCard } from '@/components/store/ProductCard';
+import { getActiveComboDeals } from '@/lib/combos';
+import { ComboDealCard } from '@/components/store/ComboDealCard';
 import { FlashSaleTimer } from '@/components/store/FlashSaleTimer';
 import { Flame } from 'lucide-react';
-import { hasProductImage } from '@/lib/utils';
 
 export const metadata = {
   title: 'Combo Deals — Fixam Africa',
-  description: 'Shop exclusive combo deals and promo products at Fixam Africa.',
+  description: 'Shop exclusive product bundles at one discounted price at Fixam Africa.',
 };
 
 export default async function ComboDealsPage() {
-  const allPromoProducts = await db
-    .select({
-      id: products.id,
-      name: products.name,
-      slug: products.slug,
-      price: products.price,
-      compareAtPrice: products.compareAtPrice,
-      imageUrl: products.imageUrl,
-      images: products.images,
-      stock: products.stock,
-      isFeatured: products.isFeatured,
-      isPromo: products.isPromo,
-      isActive: products.isActive,
-      rating: products.rating,
-      reviewsCount: products.reviewsCount,
-      categoryName: categories.name,
-    })
-    .from(products)
-    .leftJoin(categories, eq(products.categoryId, categories.id))
-    .where(and(eq(products.isActive, true), eq(products.isPromo, true), gt(products.stock, 0)))
-    .orderBy(desc(products.createdAt));
-
-  // Don't publish products with no image on the storefront.
-  const promoProducts = allPromoProducts.filter(hasProductImage);
+  const combos = await getActiveComboDeals();
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -51,9 +25,9 @@ export default async function ComboDealsPage() {
             <div>
               <h1 className="text-2xl font-black tracking-tight">Combo Deals</h1>
               <p className="text-sm text-orange-100 mt-0.5">
-                {promoProducts.length > 0
-                  ? `${promoProducts.length} exclusive promo product${promoProducts.length !== 1 ? 's' : ''}`
-                  : 'Exclusive promo deals'}
+                {combos.length > 0
+                  ? `${combos.length} exclusive bundle${combos.length !== 1 ? 's' : ''}`
+                  : 'Exclusive product bundles'}
               </p>
             </div>
           </div>
@@ -63,12 +37,12 @@ export default async function ComboDealsPage() {
         </div>
       </div>
 
-      {/* ── Products Grid ── */}
+      {/* ── Bundles Grid ── */}
       <div className="container mx-auto px-4 lg:px-12 py-8">
-        {promoProducts.length > 0 ? (
+        {combos.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {promoProducts.map((p) => (
-              <ProductCard key={p.id} product={p as any} />
+            {combos.map((combo) => (
+              <ComboDealCard key={combo.id} combo={combo} />
             ))}
           </div>
         ) : (
@@ -78,7 +52,7 @@ export default async function ComboDealsPage() {
             </div>
             <h2 className="text-lg font-bold text-gray-800 mb-1">No combo deals right now</h2>
             <p className="text-gray-500 text-sm max-w-xs">
-              Check back soon — our next round of promo deals is coming up!
+              Check back soon — our next round of bundle deals is coming up!
             </p>
           </div>
         )}

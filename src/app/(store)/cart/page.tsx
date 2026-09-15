@@ -18,11 +18,11 @@ const TRUST_BADGES = [
 ];
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, clearCart, subtotal, itemCount } = useCart();
+  const { items, combos, removeItem, updateQuantity, removeCombo, updateComboQuantity, clearCart, subtotal, itemCount } = useCart();
   const [confirmClear, setConfirmClear] = useState(false);
 
   /* ── Empty state ── */
-  if (items.length === 0) {
+  if (items.length === 0 && combos.length === 0) {
     return (
       <div className="min-h-[70vh] bg-gray-50 flex flex-col items-center justify-center px-4 py-20">
         <div className="text-center max-w-sm w-full">
@@ -97,6 +97,95 @@ export default function CartPage() {
 
           {/* ── Cart Items ── */}
           <div className="space-y-3">
+            {combos.map((combo) => {
+              const lineTotal = combo.price * combo.quantity;
+              const atMax = combo.quantity >= combo.maxQuantity;
+
+              return (
+                <div
+                  key={combo.comboId}
+                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                >
+                  <div className="flex">
+                    <Link
+                      href={`/combo-deals/${combo.slug}`}
+                      className="relative flex-shrink-0 w-[96px] sm:w-[120px] bg-gray-50 border-r border-gray-100 self-stretch min-h-[110px]"
+                    >
+                      {combo.imageUrl ? (
+                        <Image src={combo.imageUrl} alt={combo.name} fill className="object-contain p-2.5" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-3xl text-gray-200">🎁</div>
+                      )}
+                    </Link>
+
+                    <div className="flex-1 min-w-0 p-3 sm:p-4 flex flex-col justify-between gap-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/combo-deals/${combo.slug}`}>
+                            <p className="font-bold text-[13px] sm:text-sm text-gray-900 line-clamp-2 hover:text-primary transition-colors leading-snug">
+                              {combo.name}
+                            </p>
+                          </Link>
+                          <span className="inline-block mt-1.5 text-[11px] bg-orange-50 text-primary border border-orange-100 px-2 py-0.5 rounded-full font-medium uppercase tracking-wide">
+                            Bundle
+                          </span>
+                          <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">
+                            {combo.components.map((c) => c.name).join(' + ')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => removeCombo(combo.comboId)}
+                          aria-label="Remove bundle"
+                          className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
+                          <button
+                            onClick={() => updateComboQuantity(combo.comboId, combo.quantity - 1)}
+                            disabled={combo.quantity <= 1}
+                            className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-30"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-8 text-center text-sm font-black text-gray-900 select-none tabular-nums">
+                            {combo.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateComboQuantity(combo.comboId, combo.quantity + 1)}
+                            disabled={atMax}
+                            className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-orange-50 hover:text-primary transition-colors disabled:opacity-30"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="font-black text-base text-primary leading-none tabular-nums">
+                            {formatCurrency(lineTotal)}
+                          </p>
+                          {combo.quantity > 1 && (
+                            <p className="text-[11px] text-gray-400 mt-0.5 tabular-nums">
+                              {formatCurrency(combo.price)} × {combo.quantity}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {atMax && (
+                        <p className="text-[11px] text-amber-500 font-medium -mt-0.5">
+                          Max quantity reached
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
             {items.map((item) => {
               const lineTotal = item.price * item.quantity;
               const atMax = item.quantity >= item.stock;

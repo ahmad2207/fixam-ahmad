@@ -23,7 +23,9 @@ import {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const STATUS_META: Record<string, { label: string; heading: string; message: string; color: string; emoji: string }> = {
+// Exported so whatsappNotifications.ts can reuse the same label/message
+// copy for the WhatsApp status-update template instead of duplicating it.
+export const STATUS_META: Record<string, { label: string; heading: string; message: string; color: string; emoji: string }> = {
   pending: {
     label: 'Order Received',
     heading: "We've got your order",
@@ -154,7 +156,12 @@ export async function sendOrderConfirmationEmail(orderId: string): Promise<void>
       <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:${emailColors.muted};line-height:1.6;">
         We're getting your order ready. Here's what you ordered:
       </p>
-      ${renderItemsTable(items.map((i) => ({ name: `${i.productName}${i.variation ? ` (${i.variation})` : ''}`, qty: i.quantity, price: Number(i.price), image: i.productImage })))}
+      ${renderItemsTable(items.map((i) => ({
+        name: `${i.productName}${i.variation ? ` (${i.variation})` : ''}${i.comboDealName ? ` — part of ${i.comboDealName} bundle` : ''}`,
+        qty: i.quantity,
+        price: Number(i.price),
+        image: i.productImage,
+      })))}
       ${renderTotals([
         { label: 'Subtotal', value: `₦${Number(order.subtotal).toLocaleString()}` },
         { label: isPickup ? 'Pickup' : 'Delivery', value: isPickup ? 'Free' : `₦${Number(order.deliveryFee).toLocaleString()}` },

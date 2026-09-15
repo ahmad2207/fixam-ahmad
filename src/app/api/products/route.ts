@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { products, categories, reviews } from '@/db/schema';
 import { eq, and, or, ilike, desc, avg, count, sql, inArray } from 'drizzle-orm';
-import { hasProductImageSql } from '@/lib/productFilters';
+import { hasProductImageSql, hasProductPriceSql } from '@/lib/productFilters';
 import { getVariationPricingForProducts } from '@/lib/inventory';
 
 export async function GET(req: NextRequest) {
@@ -17,6 +17,11 @@ export async function GET(req: NextRequest) {
   // passes this, to match the has-image filtering already applied to that
   // first page server-side.
   const hasImage = searchParams.get('hasImage') === 'true';
+  // Same opt-in-only story as `hasImage` above: a product's price defaults to
+  // '0' until an admin adds its first inventory batch, so pass this only
+  // from customer-facing requests — POS/admin still need to find priceless
+  // products to finish setting them up.
+  const hasPrice = searchParams.get('hasPrice') === 'true';
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
   // No `limit` param at all means "fetch everything" (used by the POS, the storefront's
   // client-side-filtered browse page, wishlist, etc). Only clamp to [1, 48] when a limit
@@ -35,6 +40,7 @@ export async function GET(req: NextRequest) {
   if (featured) conditions.push(eq(products.isFeatured, true));
   if (search) conditions.push(or(ilike(products.name, `%${search}%`), ilike(products.barcode, `%${search}%`))!);
   if (hasImage) conditions.push(hasProductImageSql);
+  if (hasPrice) conditions.push(hasProductPriceSql);
 
   let query = db
     .select({

@@ -7,6 +7,7 @@ import {
 import { eq, inArray, and } from 'drizzle-orm';
 import { logAdminAction } from '@/lib/auditLog';
 import { sendPaymentConfirmedEmail } from '@/lib/orderNotifications';
+import { sendPaymentConfirmedWhatsApp } from '@/lib/whatsappNotifications';
 import { restoreStockForOrder } from '@/lib/inventory';
 
 type Params = { params: Promise<{ id: string }> };
@@ -115,7 +116,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   // Payment" for a manual/bank-transfer order) — not on every unrelated
   // PATCH, and not repeatedly if it's already confirmed.
   if (body.paymentStatus === 'paid' && existing.paymentStatus !== 'paid') {
-    await sendPaymentConfirmedEmail(id);
+    await Promise.all([sendPaymentConfirmedEmail(id), sendPaymentConfirmedWhatsApp(id)]);
 
     // Mirror the confirmation onto the POD transaction record created at
     // checkout (/api/payment/pod) so it shows up as collected in the admin

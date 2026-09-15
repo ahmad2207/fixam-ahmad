@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { pendingCheckouts, orders, paymentTransactions } from '@/db/schema';
 import { consumeStockReservationsForOrder, generateOrderNumber, createStockReservations, priceCheckoutItems } from '@/lib/inventory';
 import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
+import { sendOrderConfirmationWhatsApp } from '@/lib/whatsappNotifications';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -19,12 +20,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
-      items: rawItems, shippingAddress,
+      items: rawItems, combos, shippingAddress,
       customerEmail, customerName, customerPhone, notes, deliveryMethod,
     } = body;
     const method: 'delivery' | 'pickup' = deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
 
-    if (!rawItems?.length) {
+    if (!rawItems?.length && !combos?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -39,10 +40,11 @@ export async function POST(req: NextRequest) {
     let items, subtotal, deliveryFee, total;
     try {
       ({ items, subtotal, deliveryFee, total } = await priceCheckoutItems(
-        rawItems,
+        rawItems ?? [],
         shippingAddress?.state,
         shippingAddress?.abujaZone,
         method,
+        combos ?? [],
       ));
     } catch (err: any) {
       return NextResponse.json({ error: err.message ?? 'Could not price your cart' }, { status: 400 });
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     // POD orders previously never sent any confirmation email at all.
     // Awaited for the same reason as payment/verify — see comment there.
-    await sendOrderConfirmationEmail(order.id);
+    await Promise.all([sendOrderConfirmationEmail(order.id), sendOrderConfirmationWhatsApp(order.id)]);
 
     return NextResponse.json({
       success: true,

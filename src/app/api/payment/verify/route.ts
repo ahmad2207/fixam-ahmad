@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { paymentTransactions, orders, pendingCheckouts, receipts } from '@/db/schema';
 import { consumeStockReservationsForOrder, generateReceiptNumber, generateOrderNumber } from '@/lib/inventory';
 import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
+import { sendOrderConfirmationWhatsApp } from '@/lib/whatsappNotifications';
 import { eq } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
@@ -118,9 +119,9 @@ export async function POST(req: NextRequest) {
     // Awaited deliberately (not fire-and-forget) — a serverless function can
     // tear down as soon as the response is sent, which previously meant a
     // background fetch() calling back into this app was never guaranteed to
-    // finish. The function itself never throws (self-caught + logged), so
-    // this can't turn an email failure into a failed payment verification.
-    await sendOrderConfirmationEmail(order.id);
+    // finish. Neither function throws (self-caught + logged), so this can't
+    // turn a notification failure into a failed payment verification.
+    await Promise.all([sendOrderConfirmationEmail(order.id), sendOrderConfirmationWhatsApp(order.id)]);
 
     return NextResponse.json({ success: true, orderId: order.id, receiptNumber });
   } catch (err: any) {
