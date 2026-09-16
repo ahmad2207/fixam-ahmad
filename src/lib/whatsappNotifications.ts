@@ -5,8 +5,11 @@
 //
 // Each function here sends one pre-approved WhatsApp message template (see
 // sendWhatsAppTemplate in @/lib/whatsapp for why templates are required).
-// The exact body copy for each template is documented above its sender so
-// the templates can be (re)created in WhatsApp Manager if needed:
+// Template names are configurable via env — WhatsApp Manager may reject the
+// default name (already taken, doesn't meet naming rules, etc.) and the app
+// shouldn't need a code change to point at whatever name actually got
+// approved. The exact body copy for each template is documented below so
+// they can be (re)created in WhatsApp Manager if needed:
 //
 //   order_confirmation   — "Thanks for your order! Order #{{1}} has been
 //                           confirmed — total {{2}}. We'll message you again
@@ -21,6 +24,10 @@ import { orders } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendWhatsAppTemplate, normalizeNigerianPhone } from '@/lib/whatsapp';
 import { STATUS_META } from '@/lib/orderNotifications';
+
+const TEMPLATE_ORDER_CONFIRMATION = process.env.WHATSAPP_TEMPLATE_ORDER_CONFIRMATION || 'order_confirmation';
+const TEMPLATE_ORDER_STATUS_UPDATE = process.env.WHATSAPP_TEMPLATE_ORDER_STATUS_UPDATE || 'order_status_update';
+const TEMPLATE_PAYMENT_CONFIRMED = process.env.WHATSAPP_TEMPLATE_PAYMENT_CONFIRMED || 'payment_confirmed';
 
 function resolveRecipientPhone(order: typeof orders.$inferSelect): string | null {
   return normalizeNigerianPhone(order.shippingPhone);
@@ -40,7 +47,7 @@ export async function sendOrderConfirmationWhatsApp(orderId: string): Promise<vo
     const phone = resolveRecipientPhone(order);
     if (!phone) return;
 
-    await sendWhatsAppTemplate(phone, 'order_confirmation', [
+    await sendWhatsAppTemplate(phone, TEMPLATE_ORDER_CONFIRMATION, [
       order.orderNumber ?? '—',
       formatNaira(order.total),
     ]);
@@ -64,7 +71,7 @@ export async function sendOrderStatusWhatsApp(orderId: string, status: string): 
       message: 'There has been an update to your order.',
     };
 
-    await sendWhatsAppTemplate(phone, 'order_status_update', [
+    await sendWhatsAppTemplate(phone, TEMPLATE_ORDER_STATUS_UPDATE, [
       order.orderNumber ?? '—',
       meta.label,
       meta.message,
@@ -84,7 +91,7 @@ export async function sendPaymentConfirmedWhatsApp(orderId: string): Promise<voi
     const phone = resolveRecipientPhone(order);
     if (!phone) return;
 
-    await sendWhatsAppTemplate(phone, 'payment_confirmed', [
+    await sendWhatsAppTemplate(phone, TEMPLATE_PAYMENT_CONFIRMED, [
       order.orderNumber ?? '—',
       formatNaira(order.total),
     ]);
