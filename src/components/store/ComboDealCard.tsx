@@ -78,11 +78,6 @@ export function ComboDealCard({ combo }: { combo: ComboDealWithComponents }) {
                 <span className="text-lg font-semibold text-primary leading-none">
                   {formatCurrency(combo.price)}
                 </span>
-                {pricing.savings > 0 && (
-                  <span className="text-xs text-gray-400 line-through leading-none ml-1">
-                    {formatCurrency(pricing.sumOfParts)}
-                  </span>
-                )}
               </div>
               {pricing.available && (
                 <button

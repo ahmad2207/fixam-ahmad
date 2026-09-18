@@ -74,9 +74,6 @@ export function ComboDealDetailClient({ combo }: { combo: ComboDealWithComponent
 
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-black text-primary">{formatCurrency(combo.price)}</span>
-              {pricing.savings > 0 && (
-                <span className="text-sm text-gray-400 line-through">{formatCurrency(pricing.sumOfParts)}</span>
-              )}
             </div>
             {/* ── Included products ── */}
             <div>
