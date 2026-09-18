@@ -14,7 +14,11 @@
 //   order_confirmation   — "Thanks for your order! Order #{{1}} has been
 //                           confirmed — total {{2}}. We'll message you again
 //                           as soon as it ships."
-//   order_status_update  — "Update on order #{{1}}: {{2}}. {{3}}"
+//   order_status_update  — "Hi there! 👋 Here's an update on your Fixam
+//                           Africa order #{{1}}: *{{2}}*. {{3}} If you have
+//                           any questions, just reply to this message — our
+//                           team is happy to help. Thanks for shopping with
+//                           us!"
 //                           ({{2}} = STATUS_META label, {{3}} = message)
 //   payment_confirmed    — "Payment received for order #{{1}} — {{2}}. Your
 //                           order is now being processed."

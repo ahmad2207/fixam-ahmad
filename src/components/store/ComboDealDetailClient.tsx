@@ -78,12 +78,6 @@ export function ComboDealDetailClient({ combo }: { combo: ComboDealWithComponent
                 <span className="text-sm text-gray-400 line-through">{formatCurrency(pricing.sumOfParts)}</span>
               )}
             </div>
-            {pricing.savings > 0 && (
-              <span className="inline-block text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full -mt-3">
-                You save {formatCurrency(pricing.savings)}
-              </span>
-            )}
-
             {/* ── Included products ── */}
             <div>
               <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
