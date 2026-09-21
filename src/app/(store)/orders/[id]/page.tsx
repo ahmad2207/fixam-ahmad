@@ -2,8 +2,8 @@ import { Suspense } from 'react';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { orders, orderItems } from '@/db/schema';
-import { eq, and, or } from 'drizzle-orm';
-import { redirect, notFound } from 'next/navigation';
+import { eq, and, or, isNull } from 'drizzle-orm';
+import { notFound } from 'next/navigation';
 import OrderDetailClient from './OrderDetailClient';
 
 interface Props {
@@ -12,20 +12,28 @@ interface Props {
 
 async function OrderDetailFetcher({ id }: { id: string }) {
   const session = await auth();
-  if (!session?.user) redirect('/login');
 
-  const userId = (session.user as any).id as string;
-  const userEmail = session.user?.email ?? '';
-
-  const order = await db
-    .select()
-    .from(orders)
-    .where(and(
-      eq(orders.id, id),
-      or(eq(orders.userId, userId), eq(orders.guestEmail, userEmail)),
-    ))
-    .limit(1)
-    .then((r) => r[0] ?? null);
+  // A guest checkout has no account to log into, so the only thing standing
+  // in for auth on their own order is the order's own unguessable UUID —
+  // the same trust model the public receipt page already uses. Only orders
+  // with no userId (real guest orders) are reachable this way; a signed-in
+  // user can still only see orders that are actually theirs.
+  const order = session?.user
+    ? await db
+        .select()
+        .from(orders)
+        .where(and(
+          eq(orders.id, id),
+          or(eq(orders.userId, (session.user as any).id as string), eq(orders.guestEmail, session.user?.email ?? '')),
+        ))
+        .limit(1)
+        .then((r) => r[0] ?? null)
+    : await db
+        .select()
+        .from(orders)
+        .where(and(eq(orders.id, id), isNull(orders.userId)))
+        .limit(1)
+        .then((r) => r[0] ?? null);
 
   if (!order) notFound();
 

@@ -7,7 +7,7 @@ import {
   Search, Package, ArrowUpDown, ArrowUp, ArrowDown,
   RotateCcw, Trash2, CheckSquare, Square, MinusSquare,
   Plus, TrendingUp, AlertTriangle, X, Edit2, Eye, EyeOff,
-  Filter, Printer, Camera, MoreVertical, CalendarClock,
+  Filter, Printer, Camera, MoreVertical, CalendarClock, Link2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import BarcodeLabelPreview from '@/components/admin/BarcodeLabelPreview';
 import BarcodeScannerModal from '@/components/admin/BarcodeScannerModal';
+import CheckoutLinkModal from '@/components/admin/CheckoutLinkModal';
 
 interface AdminProduct {
   id: string;
@@ -352,6 +353,7 @@ export default function AdminProductsPage() {
   const [restockProduct, setRestockProduct] = useState<AdminProduct | null>(null);
   const [restockDateProduct, setRestockDateProduct] = useState<AdminProduct | null>(null);
   const [labelProduct, setLabelProduct] = useState<AdminProduct | null>(null);
+  const [checkoutLinkProducts, setCheckoutLinkProducts] = useState<AdminProduct[] | null>(null);
   const [bulkAction, setBulkAction] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   // Actions dropdown for a row — `top`/`left` are computed from the trigger
@@ -403,6 +405,11 @@ export default function AdminProductsPage() {
   const handleBulkApply = async () => {
     if (!bulkAction || selected.size === 0) return;
     const ids = [...selected];
+    if (bulkAction === 'checkout-link') {
+      setCheckoutLinkProducts((products ?? []).filter((p) => ids.includes(p.id)));
+      setBulkAction('');
+      return;
+    }
     try {
       if (bulkAction === 'activate' || bulkAction === 'deactivate') {
         const isActive = bulkAction === 'activate';
@@ -542,6 +549,7 @@ export default function AdminProductsPage() {
               <option value="">Action…</option>
               <option value="activate">Activate</option>
               <option value="deactivate">Deactivate</option>
+              <option value="checkout-link">Copy checkout link</option>
             </select>
             <button onClick={handleBulkApply} disabled={!bulkAction}
               className="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-bold hover:bg-primary/90 transition disabled:opacity-50">Apply</button>
@@ -553,6 +561,12 @@ export default function AdminProductsPage() {
       </div>
 
       {restockProduct && <RestockDialog product={restockProduct} onClose={() => setRestockProduct(null)} />}
+      {checkoutLinkProducts && (
+        <CheckoutLinkModal
+          products={checkoutLinkProducts}
+          onClose={() => { setCheckoutLinkProducts(null); setSelected(new Set()); }}
+        />
+      )}
       {restockDateProduct && (
         <RestockDateDialog
           product={restockDateProduct}
@@ -590,6 +604,9 @@ export default function AdminProductsPage() {
               <Link href={`/admin/products/${row.id}/edit`} onClick={close} className={cn(item, 'text-foreground')}>
                 <Edit2 className="w-3.5 h-3.5" /> Edit
               </Link>
+              <button onClick={() => { setCheckoutLinkProducts([row]); close(); }} className={cn(item, 'text-foreground')}>
+                <Link2 className="w-3.5 h-3.5" /> Copy checkout link
+              </button>
               <button onClick={() => { setRestockProduct(row); close(); }} className={cn(item, 'text-foreground')}>
                 <RotateCcw className="w-3.5 h-3.5" /> Add stock
               </button>

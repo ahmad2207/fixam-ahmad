@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCart } from '@/context/CartContext';
+import { useCart, type CartItem } from '@/context/CartContext';
 import { usePaystackPayment } from '@/hooks/usePaystackPayment';
 import { useSession } from 'next-auth/react';
 import { formatCurrency } from '@/lib/utils';
@@ -52,9 +52,10 @@ function F({ label, req, children, wide }: { label: string; req?: boolean; child
   );
 }
 
-export default function CheckoutPage() {
+function CheckoutPageInner() {
   const router = useRouter();
-  const { items, combos, subtotal, clearCart, itemCount } = useCart();
+  const searchParams = useSearchParams();
+  const { items, combos, subtotal, clearCart, addItem, itemCount, hydrated } = useCart();
   const { initiatePayment, isLoading: paystackLoading, error: paystackError } = usePaystackPayment();
   const { data: session } = useSession();
   const { data: storeSettings } = useStoreSetting<{ whatsapp_number?: string; store_address?: string; store_phone?: string }>('general');
@@ -127,6 +128,86 @@ export default function CheckoutPage() {
   useEffect(() => {
     setForm(p => ({ ...p, fullName: session?.user?.name ?? p.fullName, email: session?.user?.email ?? p.email }));
   }, [session]);
+
+  // Quick-buy links (?items=[{slug,qty,variant}]) — generated in the admin
+  // Products page for WhatsApp checkout links — seed the cart with exactly
+  // the requested products, replacing whatever was there. Must wait for
+  // `hydrated`: CartProvider's own localStorage-restore effect fires after
+  // this one (it's a descendant effect, see CartContext's `hydrated` flag),
+  // so dispatching before that would just get overwritten by it.
+  const [resolvingQuickLink, setResolvingQuickLink] = useState(false);
+  const quickLinkHandled = useRef(false);
+  useEffect(() => {
+    if (!hydrated || quickLinkHandled.current) return;
+    const raw = searchParams.get('items');
+    if (!raw) return;
+    quickLinkHandled.current = true;
+
+    let entries: { slug: string; qty?: number; variant?: string }[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) entries = parsed;
+    } catch {
+      // malformed link — ignore, fall through to whatever's already in the cart
+    }
+    if (entries.length === 0) return;
+
+    setResolvingQuickLink(true);
+    (async () => {
+      const resolved: CartItem[] = [];
+      const failed: string[] = [];
+      for (const entry of entries) {
+        if (!entry?.slug) continue;
+        try {
+          const res = await fetch(`/api/products/${entry.slug}`);
+          if (!res.ok) { failed.push(entry.slug); continue; }
+          const product: {
+            id: string; name: string; price: string | number; stock: number;
+            imageUrl: string | null; pricedVariationName: string | null;
+            variationPricing: { option: string; price: number; stock: number }[] | null;
+          } = await res.json();
+
+          let price: number;
+          let stock: number;
+          let variation: string | null = null;
+          let variationOption: string | null = null;
+          if (product.pricedVariationName) {
+            const opt = entry.variant
+              ? product.variationPricing?.find((v) => v.option === entry.variant)
+              : null;
+            if (!opt) { failed.push(product.name ?? entry.slug); continue; }
+            price = opt.price;
+            stock = opt.stock;
+            variation = entry.variant!;
+            variationOption = entry.variant!;
+          } else {
+            price = Number(product.price);
+            stock = product.stock;
+          }
+          if (stock <= 0) { failed.push(product.name ?? entry.slug); continue; }
+
+          resolved.push({
+            productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null,
+            quantity: Math.max(1, Math.min(entry.qty || 1, stock)),
+            variation, variationOption, stock,
+          });
+        } catch {
+          failed.push(entry.slug);
+        }
+      }
+
+      if (resolved.length > 0) {
+        clearCart();
+        resolved.forEach(addItem);
+        toast.success(`Cart set to your requested item${resolved.length > 1 ? 's' : ''}`);
+      }
+      if (failed.length > 0) {
+        toast.error(`Not available right now: ${failed.join(', ')}`);
+      }
+      router.replace('/checkout');
+      setResolvingQuickLink(false);
+    })();
+  }, [hydrated, searchParams, clearCart, addItem, router]);
 
   const handleSelectAddress = useCallback((addr: SavedAddress) => {
     setSelectedAddressId(addr.id);
@@ -288,7 +369,7 @@ export default function CheckoutPage() {
         if (!res.ok) throw new Error(data.error ?? 'Order failed');
         clearCart();
         toast.success('Order placed! Pay cash on delivery.');
-        router.push('/orders');
+        router.push(`/orders/${data.orderId}`);
       } catch (err: any) {
         toast.error(err.message);
       } finally {
@@ -298,6 +379,17 @@ export default function CheckoutPage() {
       await initiatePayment(payload);
     }
   };
+
+  if (resolvingQuickLink) {
+    return (
+      <div className="min-h-[70vh] bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="w-10 h-10 mx-auto mb-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">Loading your order…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0 && combos.length === 0) {
     return (
@@ -803,5 +895,17 @@ export default function CheckoutPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <CheckoutPageInner />
+    </Suspense>
   );
 }

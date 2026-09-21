@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { createContext, useContext, useReducer, useCallback, useEffect, useState } from 'react';
 
 export interface CartItem {
   productId: string;
@@ -134,12 +134,19 @@ interface CartContextValue {
   clearCart: () => void;
   itemCount: number;
   subtotal: number;
+  // False until the localStorage read below has run. A consumer that wants
+  // to programmatically replace the cart on mount (e.g. a quick-buy link)
+  // must wait for this — otherwise this effect's own HYDRATE dispatch, which
+  // fires after a descendant's effect, would silently stomp whatever that
+  // consumer just added.
+  hydrated: boolean;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [], combos: [] });
+  const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage after hydration to avoid server/client mismatch
   useEffect(() => {
@@ -153,6 +160,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // ignore
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
@@ -200,6 +209,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         itemCount,
         subtotal,
+        hydrated,
       }}
     >
       {children}
