@@ -8,6 +8,7 @@ import {
   RotateCcw, Trash2, CheckSquare, Square, MinusSquare,
   Plus, TrendingUp, AlertTriangle, X, Edit2, Eye, EyeOff,
   Filter, Printer, Camera, MoreVertical, CalendarClock, Link2,
+  Download, FileText,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -21,6 +22,7 @@ interface AdminProduct {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
   price: string;
   costPrice: string | null;
   compareAtPrice: string | null;
@@ -341,6 +343,104 @@ function RestockDateDialog({
   );
 }
 
+function downloadProductsCSV(products: AdminProduct[]) {
+  const header = ['Image URL', 'Name', 'Price', 'Description'];
+  const rows = products.map((p) => [
+    p.imageUrl ?? '',
+    p.name,
+    p.price,
+    p.description ?? '',
+  ]);
+  const csv = [header, ...rows]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `product-catalog-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+function buildCatalogHtml(products: AdminProduct[], logoUrl: string): string {
+  const cards = products
+    .map((p) => {
+      const image = p.imageUrl
+        ? `<img src="${escapeHtml(p.imageUrl)}" alt="" style="width:100%;height:100%;object-fit:contain" />`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px">No image</div>`;
+      return `<div style="break-inside:avoid;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="width:100%;height:160px;background:#fafafa;display:flex;align-items:center;justify-content:center">${image}</div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:4px;flex:1">
+          <div style="font-weight:700;font-size:12px;line-height:1.3">${escapeHtml(p.name)}</div>
+          <div style="font-weight:800;font-size:13px;color:#d4622a">${formatCurrency(Number(p.price))}</div>
+          ${p.description ? `<div style="font-size:10px;color:#666;line-height:1.4">${escapeHtml(p.description)}</div>` : ''}
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  const dateStr = new Date().toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Product Catalog</title>
+    <style>
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+      body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #111; }
+      @page { size: A4; margin: 14mm; }
+      .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; border-bottom: 2px solid #111; padding-bottom: 10px; }
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+      .print-bar { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: 10px 14mm; background: #fff; border-bottom: 1px solid #eee; }
+      .print-btn { background: #111; color: #fff; border: 0; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+      .page { padding: 0 14mm 14mm; }
+      @media print { .print-bar { display: none; } .page { padding: 0; } }
+    </style>
+  </head><body>
+    <div class="print-bar"><button class="print-btn" onclick="window.print()">Print / Save as PDF</button></div>
+    <div class="page">
+      <div class="header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="${logoUrl}" alt="Fixam" style="height:32px;width:auto" />
+          <div>
+            <div style="font-weight:800;font-size:15px">Fixam Africa</div>
+            <div style="font-size:10px;color:#666">Product Catalog</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#666">${dateStr}</div>
+      </div>
+      <div class="grid">${cards}</div>
+    </div>
+  </body></html>`;
+}
+
+/**
+ * Opens the catalog in a real new tab with a visible "Print / Save as PDF"
+ * button, rather than the hidden-iframe + auto-print() trick used elsewhere
+ * (e.g. ThermalReceiptPreview) for small single-page documents.
+ *
+ * That trick calls print() from the iframe's `load` event, which only fires
+ * once every subresource has settled — fine for a receipt's one local logo
+ * image, but a catalog can reference 100+ external product images, and a
+ * single slow/hanging one can silently strand `load` (and therefore print())
+ * forever, with nothing visibly wrong. Opening a real tab sidesteps that
+ * entirely: the admin sees the catalog actually render before choosing to
+ * print, instead of the app guessing when "enough" has loaded.
+ */
+function printProductCatalog(products: AdminProduct[]) {
+  const logoUrl = `${window.location.origin}/logo.png`;
+  const html = buildCatalogHtml(products, logoUrl);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  // The new tab has its own reference to the blob once loaded; revoking
+  // right away can race that load on a slow machine, so give it a minute.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 export default function AdminProductsPage() {
   const { data: products, isLoading } = useAdminProducts();
   const qc = useQueryClient();
@@ -483,12 +583,28 @@ export default function AdminProductsPage() {
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Products</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{totalProducts} products in catalog</p>
         </div>
-        <Link
-          href="/admin/products/new"
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition shadow-sm"
-        >
-          <Plus className="w-4 h-4" /> New Product
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadProductsCSV(filtered)}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-2 border border-border px-3.5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button
+            onClick={() => printProductCatalog(filtered)}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-2 border border-border px-3.5 py-2.5 rounded-xl text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition disabled:opacity-50"
+          >
+            <FileText className="w-4 h-4" /> Export Catalog
+          </button>
+          <Link
+            href="/admin/products/new"
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> New Product
+          </Link>
+        </div>
       </div>
 
       {/* ── Stat Cards ── */}
