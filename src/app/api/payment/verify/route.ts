@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { paymentTransactions, orders, pendingCheckouts, receipts } from '@/db/schema';
-import { consumeStockReservationsForOrder, generateReceiptNumber, generateOrderNumber } from '@/lib/inventory';
+import { consumeStockReservationsForOrder, releaseStockReservations, generateReceiptNumber, generateOrderNumber } from '@/lib/inventory';
 import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
 import { sendOrderConfirmationWhatsApp } from '@/lib/whatsappNotifications';
 import { eq } from 'drizzle-orm';
@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
         .update(paymentTransactions)
         .set({ status: 'failed', rawResponse: JSON.stringify(verifyData) })
         .where(eq(paymentTransactions.paystackReference, reference));
+      // Free the reserved stock immediately rather than leaving it locked
+      // until the (much slower) cron-driven expiry — a customer whose card
+      // was declined and who then checks the product page shouldn't see it
+      // as out of stock for up to a day.
+      await releaseStockReservations(txn.checkoutId);
       return NextResponse.json({ error: 'Payment verification failed' }, { status: 402 });
     }
 
