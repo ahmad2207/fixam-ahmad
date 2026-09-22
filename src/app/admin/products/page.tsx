@@ -22,7 +22,7 @@ interface AdminProduct {
   id: string;
   name: string;
   slug: string;
-  description: string | null;
+  specifications: Record<string, string> | null;
   price: string;
   costPrice: string | null;
   compareAtPrice: string | null;
@@ -343,13 +343,24 @@ function RestockDateDialog({
   );
 }
 
+// Mirrors ProductDetailClient's parseSpecs — specifications is normally
+// stored as a plain { key: value } object, but defends against the
+// { key, value }[] shape some older rows may still have.
+function formatSpecs(specifications: AdminProduct['specifications']): string {
+  if (!specifications || typeof specifications !== 'object') return '';
+  const entries = Array.isArray(specifications)
+    ? (specifications as { key: string; value: string }[]).map((s) => [String(s.key ?? ''), String(s.value ?? '')] as const)
+    : Object.entries(specifications);
+  return entries.filter(([k]) => k).map(([k, v]) => `${k}: ${v}`).join(' • ');
+}
+
 function downloadProductsCSV(products: AdminProduct[]) {
-  const header = ['Image URL', 'Name', 'Price', 'Description'];
+  const header = ['Image URL', 'Name', 'Price', 'Specifications'];
   const rows = products.map((p) => [
     p.imageUrl ?? '',
     p.name,
     p.price,
-    p.description ?? '',
+    formatSpecs(p.specifications),
   ]);
   const csv = [header, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
@@ -373,12 +384,13 @@ function buildCatalogHtml(products: AdminProduct[], logoUrl: string): string {
       const image = p.imageUrl
         ? `<img src="${escapeHtml(p.imageUrl)}" alt="" style="width:100%;height:100%;object-fit:contain" />`
         : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:11px">No image</div>`;
+      const specs = formatSpecs(p.specifications);
       return `<div style="break-inside:avoid;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
         <div style="width:100%;height:160px;background:#fafafa;display:flex;align-items:center;justify-content:center">${image}</div>
         <div style="padding:10px 12px;display:flex;flex-direction:column;gap:4px;flex:1">
           <div style="font-weight:700;font-size:12px;line-height:1.3">${escapeHtml(p.name)}</div>
           <div style="font-weight:800;font-size:13px;color:#d4622a">${formatCurrency(Number(p.price))}</div>
-          ${p.description ? `<div style="font-size:10px;color:#666;line-height:1.4">${escapeHtml(p.description)}</div>` : ''}
+          ${specs ? `<div style="font-size:10px;color:#666;line-height:1.4">${escapeHtml(specs)}</div>` : ''}
         </div>
       </div>`;
     })
