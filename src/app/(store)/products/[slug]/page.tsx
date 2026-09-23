@@ -100,6 +100,7 @@ export default async function ProductPage({ params }: Props) {
         stock:          p.stock,
         sku:            p.sku,
         variations:     p.variations ?? undefined,
+        variationImages: (p.variationImages as Record<string, string> | null) ?? undefined,
         pricedVariationName: p.pricedVariationName,
         variationPricing,
         specifications: (p.specifications as Record<string, string> | null) ?? undefined,

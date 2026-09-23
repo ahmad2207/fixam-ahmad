@@ -23,6 +23,15 @@ export const products = pgTable('products', {
   barcode: text('barcode').unique(),
   status: text('status').notNull().default('active'),
   variations: jsonb('variations').$type<{ name: string; options: string[] }[]>().default([]),
+  // Option value -> image URL, e.g. { "Red": "https://...", "Blue": "https://..." }.
+  // Deliberately keyed by option string rather than scoped to one named
+  // variation group (unlike pricedVariationName below) — whichever group's
+  // options an admin actually assigns a photo to becomes "the visual group"
+  // implicitly, so a product can be priced by Size but shown by Color
+  // without needing a second "which group is visual" column. Absent/empty
+  // for a product with no variation-specific photos; the storefront falls
+  // back to imageUrl/images in that case.
+  variationImages: jsonb('variation_images').$type<Record<string, string>>().default({}),
   // Set together: pricedVariationName names which entry in `variations`
   // above (e.g. "Size") determines price/stock — null means this product's
   // variations (if any) are cosmetic labels only, unchanged from before.

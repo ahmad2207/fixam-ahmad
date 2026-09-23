@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useCategories } from '@/hooks/useCategories';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import BarcodeSvg from '@/components/admin/BarcodeSvg';
 import BarcodeScannerModal from '@/components/admin/BarcodeScannerModal';
@@ -40,6 +41,10 @@ export interface ProductFormValues {
   tags: string;
   images: string[];
   variations: Variation[];
+  // Option value -> image URL. Not scoped to a particular variation group —
+  // whichever group's options actually get a photo assigned becomes "the
+  // visual group" on the storefront (see products.variationImages comment).
+  variationImages: Record<string, string>;
   specs: SpecEntry[];
   // Which variation group (matched by name against `variations` above, if
   // any) determines price/stock — '' means all variations here are cosmetic
@@ -66,6 +71,7 @@ const DEFAULT_VALUES: ProductFormValues = {
   tags: '',
   images: [],
   variations: [],
+  variationImages: {},
   specs: [],
   pricedVariationName: '',
   defaultVariationOption: '',
@@ -129,6 +135,65 @@ function ToggleChip({
   );
 }
 
+// Compact single-image picker for one variation option (e.g. "Red"). Reuses
+// the same upload endpoint as the main gallery (useImageUpload) but keeps
+// just one URL rather than an array — a variation option shows one photo,
+// not a gallery.
+function VariationOptionImage({
+  url,
+  onChange,
+}: {
+  url: string | null;
+  onChange: (url: string | null) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { upload, isUploading } = useImageUpload();
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    const uploaded = await upload(file);
+    if (uploaded) onChange(uploaded);
+  };
+
+  return (
+    <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-border bg-muted/40 flex-shrink-0 group">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+      {isUploading ? (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      ) : url ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt="" className="w-full h-full object-cover" />
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+          >
+            <Trash2 className="w-2 h-2" />
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full h-full flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+          title="Add photo for this option"
+        >
+          <ImageIcon className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface ProductFormProps {
   mode: 'create' | 'edit';
   initialValues?: Partial<ProductFormValues>;
@@ -182,6 +247,13 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
         variations: p.variations.map((item, idx) => (idx === i ? { ...item, [field]: val } : item)),
         pricedVariationName: wasThisRowPriced ? val.trim() : p.pricedVariationName,
       };
+    });
+
+  const setVariationOptionImage = (option: string, url: string | null) =>
+    setForm((p) => {
+      const next = { ...p.variationImages };
+      if (url) next[option] = url; else delete next[option];
+      return { ...p, variationImages: next };
     });
 
   // Only one variation group can carry price — checking a new one clears
@@ -308,6 +380,19 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
       variations: form.variations
         .filter((v) => v.name.trim())
         .map((v) => ({ name: v.name.trim(), options: v.options.split(',').map((o) => o.trim()).filter(Boolean) })),
+      // Drop any assigned image whose option string no longer exists in any
+      // group — e.g. the admin renamed/removed an option after picking its
+      // photo. Keyed by option value, not by group (see the field's comment
+      // in ProductFormValues).
+      variationImages: (() => {
+        const validOptions = new Set(
+          form.variations.flatMap((v) => v.options.split(',').map((o) => o.trim()).filter(Boolean)),
+        );
+        const pruned = Object.fromEntries(
+          Object.entries(form.variationImages).filter(([option]) => validOptions.has(option)),
+        );
+        return Object.keys(pruned).length > 0 ? pruned : {};
+      })(),
       specifications: Object.keys(specsObj).length > 0 ? specsObj : null,
     };
 
@@ -623,6 +708,25 @@ export function ProductForm({ mode, initialValues, isSubmitting, onCancel, onSub
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+
+                {options.length > 0 && (
+                  <div className="pl-1">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                      Photo per option (optional — shown when a shopper picks that option)
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      {options.map((opt) => (
+                        <div key={opt} className="flex flex-col items-center gap-1">
+                          <VariationOptionImage
+                            url={form.variationImages[opt] ?? null}
+                            onChange={(url) => setVariationOptionImage(opt, url)}
+                          />
+                          <span className="text-[10px] text-muted-foreground max-w-[48px] truncate" title={opt}>{opt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <label className={`flex items-center gap-2 text-xs font-medium pl-1 ${trimmedName ? 'text-muted-foreground' : 'text-muted-foreground/50'}`}>
                   <input

@@ -29,6 +29,10 @@ interface Product {
   compareAtPrice?: string | null; imageUrl?: string | null;
   images?: string[] | null; stock: number; sku?: string | null;
   variations?: { name: string; options: string[] }[] | null;
+  // Option value -> image URL. Not scoped to one named group — whichever
+  // group's options actually carry a photo becomes "the visual group" for
+  // gallery-switching below (see products.variationImages schema comment).
+  variationImages?: Record<string, string> | null;
   // Set together when this product's price varies by variation (e.g.
   // Size) — pricedVariationName names which group in `variations` above,
   // variationPricing carries each of that group's options' own price/stock
@@ -429,11 +433,33 @@ export function ProductDetailClient({
   const variationString = Object.values(selectedVariations).filter(Boolean).join(' / ') || null;
   const variationOptionValue = pricedGroupName ? (selectedPricedOption ?? null) : null;
 
+  // Whichever selected option (in any group) has a photo assigned "wins" —
+  // in practice only one group (e.g. Color) ever carries images, so there's
+  // never a real conflict between groups. No selection yet -> no override,
+  // so the product's default photo shows first, per Temu/Amazon-style UX.
+  const activeVariationImage = Object.values(selectedVariations)
+    .map((opt) => product.variationImages?.[opt])
+    .find(Boolean) ?? null;
+  // The variation's own photo leads the gallery; the product's other photos
+  // remain browsable after it, so picking a color doesn't hide the rest of
+  // the gallery — just re-orders which photo comes first.
+  const displayImages = activeVariationImage
+    ? [activeVariationImage, ...allImages.filter((u) => u !== activeVariationImage)]
+    : allImages;
+
   // A stale quantity picked against one option's stock could exceed a
   // different option's — reset to 1 whenever the priced selection changes.
   useEffect(() => {
     setQuantity(1);
   }, [selectedPricedOption]);
+
+  // Jump straight to the variation's photo whenever the resolved image
+  // changes (a new option picked, or a picked option cleared) — otherwise
+  // `activeImage` could keep pointing at whatever index was showing before,
+  // which no longer matches what `displayImages[0]` now is.
+  useEffect(() => {
+    setActiveImage(0);
+  }, [activeVariationImage]);
   const avgRating = initialReviews.length
     ? initialReviews.reduce((s, r) => s + r.rating, 0) / initialReviews.length
     : 0;
@@ -444,8 +470,8 @@ export function ProductDetailClient({
     ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`Hi! I'm interested in *${product.name}* (${formatProductPrice(price)}). Is it available?`)}`
     : null;
 
-  const prevImage = () => setActiveImage(i => (i - 1 + allImages.length) % allImages.length);
-  const nextImage = () => setActiveImage(i => (i + 1) % allImages.length);
+  const prevImage = () => setActiveImage(i => (i - 1 + displayImages.length) % displayImages.length);
+  const nextImage = () => setActiveImage(i => (i + 1) % displayImages.length);
 
   const parseSpecs = (): [string, string][] => {
     const raw = product.specifications;
@@ -467,11 +493,16 @@ export function ProductDetailClient({
     return entries;
   };
 
+  // The variation's own photo if one's picked and assigned, otherwise
+  // whatever's actively being viewed, otherwise the product's default —
+  // so a cart line for "Blue" shows the blue photo, not always slot 0.
+  const cartImageUrl = activeVariationImage ?? displayImages[activeImage] ?? product.imageUrl ?? null;
+
   const doAddToCart = () => {
     if (needsVariationSelection) { toast.error(`Please select a ${pricedGroupName}`); return; }
     if (!inStock) return;
     addItem({
-      productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null,
+      productId: product.id, name: product.name, price, imageUrl: cartImageUrl,
       quantity, variation: variationString, variationOption: variationOptionValue, stock: effectiveStock,
     });
     setShowDialog(true);
@@ -480,7 +511,7 @@ export function ProductDetailClient({
     if (needsVariationSelection) { toast.error(`Please select a ${pricedGroupName}`); return; }
     if (!inStock) return;
     addItem({
-      productId: product.id, name: product.name, price, imageUrl: product.imageUrl ?? null,
+      productId: product.id, name: product.name, price, imageUrl: cartImageUrl,
       quantity, variation: variationString, variationOption: variationOptionValue, stock: effectiveStock,
     });
     router.push('/checkout');
@@ -516,9 +547,9 @@ export function ProductDetailClient({
             <div className="flex">
 
               {/* Vertical thumbnail strip */}
-              {allImages.length > 1 && (
+              {displayImages.length > 1 && (
                 <div className="flex flex-col gap-1.5 p-1.5 border-r border-gray-100 overflow-y-auto [&::-webkit-scrollbar]:hidden flex-shrink-0 w-[70px]">
-                  {allImages.map((img, i) => (
+                  {displayImages.map((img, i) => (
                     <button key={i}
                       onMouseEnter={() => setActiveImage(i)}
                       onClick={() => setActiveImage(i)}
@@ -533,9 +564,9 @@ export function ProductDetailClient({
 
               {/* Main image */}
               <div className="relative flex-1 aspect-square bg-gray-100 group min-w-0">
-                {allImages.length > 0 ? (
+                {displayImages.length > 0 ? (
                   <Image
-                    src={allImages[activeImage]}
+                    src={displayImages[activeImage]}
                     alt={product.name}
                     fill
                     className="object-cover transition-opacity duration-200"
@@ -546,7 +577,7 @@ export function ProductDetailClient({
                   <div className="absolute inset-0 flex items-center justify-center text-6xl text-gray-200">📦</div>
                 )}
 
-                {allImages.length > 1 && (
+                {displayImages.length > 1 && (
                   <>
                     <button onClick={prevImage}
                       className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 shadow border border-gray-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
@@ -579,9 +610,9 @@ export function ProductDetailClient({
                   </div>
                 )}
 
-                {allImages.length > 1 && (
+                {displayImages.length > 1 && (
                   <span className="absolute bottom-3 right-3 z-10 bg-black/40 text-white text-[10px] font-semibold px-2 py-0.5 backdrop-blur-sm">
-                    {activeImage + 1} / {allImages.length}
+                    {activeImage + 1} / {displayImages.length}
                   </span>
                 )}
               </div>

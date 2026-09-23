@@ -39,6 +39,9 @@ export default function EditProductPage() {
             name: v.name,
             options: v.options.join(', '),
           })),
+          variationImages: product.variationImages && typeof product.variationImages === 'object'
+            ? product.variationImages
+            : {},
           pricedVariationName: product.pricedVariationName ?? '',
           defaultVariationOption: product.defaultVariationOption ?? '',
           specs: product.specifications && typeof product.specifications === 'object'
