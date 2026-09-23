@@ -51,12 +51,16 @@ export async function POST(req: NextRequest) {
 
     const client = new GoogleGenerativeAI(apiKey);
     const model = client.getGenerativeModel({
-      model: 'gemini-flash-latest',
-      // gemini-flash-latest spends part of this budget on invisible internal
-      // "thinking" tokens before it writes the actual JSON answer (observed
-      // ~835 thinking tokens for this prompt) — this SDK version has no
-      // thinkingConfig to cap that separately, so the budget needs enough
-      // headroom for both, or the JSON answer gets cut off mid-string.
+      // gemini-flash-latest currently returns 503 "high demand" for this key
+      // regardless of prompt — gemini-flash-lite-latest is the confirmed-
+      // working current alias. Swap back if/when the full flash model
+      // recovers and quality needs the difference.
+      model: 'gemini-flash-lite-latest',
+      // gemini-flash-lite-latest spends part of this budget on invisible
+      // internal "thinking" tokens before it writes the actual JSON answer —
+      // this SDK version has no thinkingConfig to cap that separately, so
+      // the budget needs enough headroom for both, or the JSON answer gets
+      // cut off mid-string.
       generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 4096 },
     });
 
@@ -93,14 +97,17 @@ export async function POST(req: NextRequest) {
     // again until the daily quota resets (or the plan is upgraded).
     const message = typeof err?.message === 'string' ? err.message : '';
     const isRateLimited = err?.status === 429 || /quota|Too Many Requests/i.test(message);
+    const isOverloaded = err?.status === 503;
 
     return NextResponse.json(
       {
         error: isRateLimited
           ? "The AI service's daily request quota has been used up — try again later, or check the Gemini API plan/billing."
-          : 'Failed to generate specs',
+          : isOverloaded
+            ? 'The AI model is temporarily overloaded — try again in a moment.'
+            : 'Failed to generate specs',
       },
-      { status: isRateLimited ? 429 : 500 },
+      { status: isRateLimited ? 429 : isOverloaded ? 503 : 500 },
     );
   }
 }
