@@ -6,7 +6,7 @@ import { asc, and, eq } from 'drizzle-orm';
 import { DEFAULT_BY_TYPE } from '@/lib/defaultBanners';
 import type { BannerType } from '@/db/schema/banners';
 
-const VALID_TYPES: BannerType[] = ['hero', 'side', 'promo', 'cta'];
+const VALID_TYPES: BannerType[] = ['hero', 'side', 'promo', 'cta', 'top'];
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -41,9 +41,12 @@ export async function POST(req: NextRequest) {
 
   const resolvedType: BannerType = VALID_TYPES.includes(bannerType) ? bannerType : 'hero';
   const requiresImage = resolvedType !== 'cta';
+  // Top Strip has no text overlay, so heading is just an internal label —
+  // not required from the admin, falls back to the title below.
+  const headingRequired = resolvedType !== 'top';
 
-  if (!title || !heading || (requiresImage && !imageUrl)) {
-    return NextResponse.json({ error: 'title and heading are required; imageUrl required for non-CTA banners' }, { status: 400 });
+  if (!title || (headingRequired && !heading) || (requiresImage && !imageUrl)) {
+    return NextResponse.json({ error: 'title is required (and heading, except for Top Strip banners); imageUrl required for non-CTA banners' }, { status: 400 });
   }
 
   const [row] = await db.insert(banners).values({
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
     title,
     imageUrl:     imageUrl || null,
     eyebrow:      eyebrow || null,
-    heading,
+    heading:      heading || title,
     subheading:   subheading || null,
     ctaLabel:     ctaLabel || null,
     ctaHref:      ctaHref || null,

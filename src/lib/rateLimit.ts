@@ -38,6 +38,10 @@ const limiters = redis
       payment: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '60 s'), prefix: 'rl:payment' }),
       // Contact form: prevent spam submissions.
       contact: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '60 s'), prefix: 'rl:contact' }),
+      // Fixember spin: the win/lose roll is server-computed and can't be
+      // influenced by retrying, but this still caps how hard one IP can
+      // hammer the endpoint.
+      fixemberSpin: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '60 s'), prefix: 'rl:fixember-spin' }),
     }
   : null;
 

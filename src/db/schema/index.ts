@@ -22,3 +22,5 @@ export * from './newsletterSubscribers';
 export * from './banners';
 export * from './contactMessages';
 export * from './stockNotifications';
+export * from './fixemberPrizes';
+export * from './fixemberSpins';

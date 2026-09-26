@@ -1,14 +1,17 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, CircleCheckBig, Clock, Package, Truck,
   XCircle, Loader2, CreditCard, Banknote, MapPin, Store,
-  ChevronRight, MessageSquare,
+  ChevronRight, MessageSquare, Gift,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { getPaymentMethodLabel } from '@/lib/orders';
+import type { SpinResult } from '@/lib/fixember';
+import FixemberWheel from '@/components/store/FixemberWheel';
 
 /* ─── Types ─── */
 export interface OrderDetailData {
@@ -135,6 +138,19 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
 
   const orderRef = order.orderNumber ?? `#${order.id.slice(0, 10).toUpperCase()}`;
 
+  // The server decides eligibility (subtotal threshold, order status, and
+  // whether this order already spun) — the client just asks and renders
+  // whatever comes back, rather than duplicating that threshold here.
+  const [fixember, setFixember] = useState<SpinResult | null>(null);
+  const [showWheel, setShowWheel] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/fixember/spin?orderId=${order.id}`)
+      .then((r) => r.json())
+      .then(setFixember)
+      .catch(() => setFixember({ eligible: false }));
+  }, [order.id]);
+
   return (
     <div className="min-h-screen bg-gray-100 pb-8">
 
@@ -219,6 +235,47 @@ export default function OrderDetailClient({ order, items }: { order: OrderDetail
               : 'Complete your payment to confirm this order.'}
           </p>
         </div>
+
+        {/* ── FIXEMBER SPIN & WIN ── */}
+        {fixember?.eligible && !fixember.alreadySpun && (
+          <div className="rounded-2xl p-5 mb-3 bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 text-center">
+            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-white flex items-center justify-center shadow-sm">
+              <Gift className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="font-black text-gray-900 mb-1">🎉 You&apos;ve Unlocked a Fixember Spin!</h2>
+            <p className="text-xs text-gray-500 mb-3">Orders ₦150,000 and above get one free shot at a prize.</p>
+            <button
+              onClick={() => setShowWheel(true)}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors"
+            >
+              Spin the Wheel
+            </button>
+          </div>
+        )}
+        {fixember?.eligible && fixember.alreadySpun && (
+          <div className={`rounded-2xl p-4 mb-3 flex items-center gap-3 border ${
+            fixember.isWin ? 'bg-brand-green-50 border-brand-green-200' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <Gift className={`h-5 w-5 flex-shrink-0 ${fixember.isWin ? 'text-brand-green-600' : 'text-gray-400'}`} />
+            <p className={`text-sm font-semibold ${fixember.isWin ? 'text-brand-green-700' : 'text-gray-500'}`}>
+              {fixember.isWin
+                ? <>Fixember Spin: you won a <strong>{fixember.prizeLabel}</strong> on this order!</>
+                : 'Fixember Spin: no prize on this order — thanks for shopping with us!'}
+            </p>
+          </div>
+        )}
+        {showWheel && fixember?.eligible && (
+          <FixemberWheel
+            orderId={order.id}
+            segments={fixember.segments}
+            onClose={() => {
+              setShowWheel(false);
+              // Re-check so the card above switches from "spin now" to the
+              // recorded result without a full page reload.
+              fetch(`/api/fixember/spin?orderId=${order.id}`).then((r) => r.json()).then(setFixember).catch(() => {});
+            }}
+          />
+        )}
 
         {/* ── ORDER INFO ── */}
         <div className="bg-white rounded-2xl shadow-sm p-5 mb-3">

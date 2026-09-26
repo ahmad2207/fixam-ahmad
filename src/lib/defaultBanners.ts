@@ -140,9 +140,25 @@ export const DEFAULT_CTA_BANNERS: DefaultBanner[] = [
   },
 ];
 
+// heading is required by the DB column but never rendered for this type —
+// it's just an internal label, same idea as `title`.
+export const DEFAULT_TOP_BANNERS: DefaultBanner[] = [
+  {
+    bannerType: 'top',
+    title:        'Fixember Promotion',
+    imageUrl:     '/spin.gif',
+    heading:      'Fixember',
+    ctaHref:      '/products',
+    theme:        'dark',
+    displayOrder: 0,
+    isActive:     true,
+  },
+];
+
 export const DEFAULT_BY_TYPE: Record<BannerType, DefaultBanner[]> = {
   hero:  DEFAULT_HERO_BANNERS,
   side:  DEFAULT_SIDE_BANNERS,
   promo: DEFAULT_PROMO_BANNERS,
   cta:   DEFAULT_CTA_BANNERS,
+  top:   DEFAULT_TOP_BANNERS,
 };

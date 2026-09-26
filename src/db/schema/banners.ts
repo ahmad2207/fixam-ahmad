@@ -1,12 +1,17 @@
 import { pgTable, text, integer, boolean, timestamp } from 'drizzle-orm/pg-core';
 
-export type BannerType = 'hero' | 'side' | 'promo' | 'cta';
+export type BannerType = 'hero' | 'side' | 'promo' | 'cta' | 'top';
 
 export const BANNER_TYPE_META: Record<BannerType, { label: string; hint: string; max: number }> = {
   hero:  { label: 'Hero Carousel',  hint: 'Full-width auto-sliding banner at the top of the homepage',          max: 10 },
   side:  { label: 'Side Tiles',     hint: 'Two compact tiles beside the carousel — desktop only (first 2 used)', max: 2  },
   promo: { label: 'Promo Grid',     hint: 'Three-column promo banners below Flash Deals (first 3 used)',         max: 3  },
   cta:   { label: 'CTA Banner',     hint: 'Full-width promotional strip below all product sections (first 1 used, no image needed)', max: 1 },
+  // Unlike every other type, this renders the image alone, full-width, with
+  // no heading/eyebrow/CTA text overlaid — for a pre-made graphic that
+  // already has its own text baked in. Shown first, above every other
+  // homepage section.
+  top:   { label: 'Top Strip',      hint: 'Full-width image banner shown above everything else on the homepage — image only, no text overlay (first 1 used)', max: 1 },
 };
 
 export const banners = pgTable('banners', {

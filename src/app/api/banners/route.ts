@@ -5,7 +5,7 @@ import { asc, and, eq } from 'drizzle-orm';
 import { DEFAULT_BY_TYPE } from '@/lib/defaultBanners';
 import type { BannerType } from '@/db/schema/banners';
 
-const VALID_TYPES: BannerType[] = ['hero', 'side', 'promo', 'cta'];
+const VALID_TYPES: BannerType[] = ['hero', 'side', 'promo', 'cta', 'top'];
 
 export async function GET(req: NextRequest) {
   const type = (req.nextUrl.searchParams.get('type') ?? 'hero') as BannerType;

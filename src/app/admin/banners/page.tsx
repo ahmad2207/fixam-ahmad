@@ -99,7 +99,12 @@ function BannerFormPanel({
   const set = (k: keyof BannerForm, v: string | boolean) => setForm((p) => ({ ...p, [k]: v }));
 
   const isCta = form.bannerType === 'cta';
-  const canSave = !!form.title && !!form.heading && (isCta || !!form.imageUrl);
+  // Top Strip is a pre-made graphic with its own text baked in — only the
+  // image, an internal title, and where clicking it goes are meaningful;
+  // eyebrow/heading/subheading/CTA-label/theme are all overlay concerns that
+  // don't apply since nothing gets overlaid on this type.
+  const isTop = form.bannerType === 'top';
+  const canSave = !!form.title && (isTop || !!form.heading) && (isCta || !!form.imageUrl);
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 space-y-5 shadow-sm">
@@ -113,12 +118,14 @@ function BannerFormPanel({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Internal title */}
-        <div>
+        <div className={isTop ? 'sm:col-span-2' : ''}>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Internal Title *</label>
           <input value={form.title} onChange={(e) => set('title', e.target.value)}
             placeholder="e.g. Cookware Sale Jan 2025"
             className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
+        {!isTop && (
+        <>
         {/* Eyebrow */}
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
@@ -144,23 +151,28 @@ function BannerFormPanel({
             placeholder="Premium stainless-steel pots, pans & sets for every kitchen"
             className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
-        {/* CTA */}
+        {/* CTA label */}
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">CTA Button Label</label>
           <input value={form.ctaLabel} onChange={(e) => set('ctaLabel', e.target.value)}
             placeholder="Shop Now"
             className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">CTA Link</label>
+        </>
+        )}
+        {/* CTA link — kept for Top Strip too, since the whole banner is clickable */}
+        <div className={isTop ? 'sm:col-span-2' : ''}>
+          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+            {isTop ? 'Link (where clicking the banner goes)' : 'CTA Link'}
+          </label>
           <input value={form.ctaHref} onChange={(e) => set('ctaHref', e.target.value)}
             placeholder="/products?category=cookware"
             className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-background" />
         </div>
       </div>
 
-      {/* Theme — hidden for CTA which always uses dark gradient */}
-      {!isCta && (
+      {/* Theme — hidden for CTA (always dark gradient) and Top Strip (no overlay at all) */}
+      {!isCta && !isTop && (
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Overlay Theme</label>
           <div className="flex gap-2 flex-wrap">
@@ -208,7 +220,7 @@ function BannerFormPanel({
 }
 
 /* ─── Main page ─── */
-const TABS: BannerType[] = ['hero', 'side', 'promo', 'cta'];
+const TABS: BannerType[] = ['top', 'hero', 'side', 'promo', 'cta'];
 
 export default function BannersPage() {
   const qc = useQueryClient();

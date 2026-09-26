@@ -15,6 +15,7 @@ import {
   Image,
   MessageSquare,
   Flame,
+  Gift,
 } from 'lucide-react';
 
 export type NavItem = {
@@ -41,6 +42,7 @@ export const adminNavGroups: NavGroup[] = [
     items: [
       { href: '/admin/products',     label: 'Products',     icon: Package },
       { href: '/admin/combo-deals', label: 'Combo Deals',  icon: Flame },
+      { href: '/admin/fixember',    label: 'Fixember',     icon: Gift },
       { href: '/admin/inventory',   label: 'Inventory',    icon: Warehouse },
       { href: '/admin/categories',  label: 'Categories',   icon: Tag },
       { href: '/admin/banners',     label: 'Banners',      icon: Image },

@@ -76,7 +76,7 @@ export default async function HomePage() {
   const [
     activeCombos, topSellerProducts, recommendedProducts,
     categoriesWithCount, allCategoryProducts,
-    promoBanners, ctaBanners,
+    promoBanners, ctaBanners, topBanners,
   ] = await Promise.all([
     // Combo deals — real multi-product bundles (see src/lib/combos.ts)
     getActiveComboDeals(),
@@ -135,6 +135,7 @@ export default async function HomePage() {
 
     getActiveBanners('promo'),
     getActiveBanners('cta'),
+    getActiveBanners('top'),
   ]);
 
   // Group products by category — every photographed product in the category,
@@ -151,6 +152,7 @@ export default async function HomePage() {
   const categoryGroups = Array.from(categoryMap.values()).filter(g => g.items.length > 0 && g.slug !== 'bakeware');
 
   const ctaBanner = ctaBanners[0] ?? null;
+  const topBanner = topBanners[0] ?? null;
 
   const today = new Date();
   const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
@@ -158,6 +160,20 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+
+      {/* ── TOP STRIP ── image-only, no text overlay, shown first.
+          The source image is a very wide/thin strip (~16:1 — logo+person on
+          the left, tagline in the middle, prize icons on the right). At a
+          phone's width that's inherently either a ~24px unreadable sliver
+          (object-contain, preserving the full image) or an arbitrary crop
+          that cuts off the logo or the icons (object-cover) — neither reads
+          well, so this only shows at `sm:` and up until there's a
+          purpose-cropped mobile version of the graphic. */}
+      {topBanner?.imageUrl && (
+        <Link href={topBanner.ctaHref || '/products'} className="hidden sm:block relative w-full aspect-[1440/88] bg-white">
+          <BannerImage src={topBanner.imageUrl} alt={topBanner.title} className="object-contain" />
+        </Link>
+      )}
 
       {/* ── COMBO DEALS ── */}
       <section className="bg-white shadow-sm mt-3 pt-4 pb-5">
