@@ -2,6 +2,7 @@ import { StoreFooter } from '@/components/store/StoreFooter';
 import { MobileBottomNav } from '@/components/store/MobileBottomNav';
 import { StickyHeader } from '@/components/store/StickyHeader';
 import { TawkChat } from '@/components/store/TawkChat';
+import FixemberPromoModal from '@/components/store/FixemberPromoModal';
 import { db } from '@/lib/db';
 import { categories, products } from '@/db/schema';
 import { eq, and, gt, count, asc } from 'drizzle-orm';
@@ -35,6 +36,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       <StoreFooter />
       <MobileBottomNav />
       <TawkChat />
+      <FixemberPromoModal />
     </>
   );
 }

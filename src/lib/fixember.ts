@@ -43,7 +43,7 @@ function pickRandom<T>(rows: T[]): T | undefined {
   return rows[Math.floor(Math.random() * rows.length)];
 }
 
-async function getActiveSegments(executor: DbOrTx): Promise<WheelSegment[]> {
+export async function getActiveSegments(executor: DbOrTx = db): Promise<WheelSegment[]> {
   const rows = await executor
     .select()
     .from(fixemberPrizes)
