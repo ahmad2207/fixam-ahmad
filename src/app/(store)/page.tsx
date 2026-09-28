@@ -7,6 +7,8 @@ import { ProductPageSlider } from '@/components/store/ProductPageSlider';
 import { ComboDealSlider } from '@/components/store/ComboDealSlider';
 import { getActiveBanners } from '@/lib/serverBanners';
 import { getActiveComboDeals } from '@/lib/combos';
+import { getActiveSegments } from '@/lib/fixember';
+import FixemberTopBanner from '@/components/store/FixemberTopBanner';
 import { hasProductImageSql } from '@/lib/productFilters';
 import { BANNER_THEMES } from '@/db/schema/banners';
 import Link from 'next/link';
@@ -76,7 +78,7 @@ export default async function HomePage() {
   const [
     activeCombos, topSellerProducts, recommendedProducts,
     categoriesWithCount, allCategoryProducts,
-    promoBanners, ctaBanners, topBanners,
+    promoBanners, ctaBanners, topBanners, fixemberSegments,
   ] = await Promise.all([
     // Combo deals — real multi-product bundles (see src/lib/combos.ts)
     getActiveComboDeals(),
@@ -136,6 +138,7 @@ export default async function HomePage() {
     getActiveBanners('promo'),
     getActiveBanners('cta'),
     getActiveBanners('top'),
+    getActiveSegments(),
   ]);
 
   // Group products by category — every photographed product in the category,
@@ -161,18 +164,13 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-gray-100">
 
-      {/* ── TOP STRIP ── image-only, no text overlay, shown first.
-          The source image is a very wide/thin strip (~16:1 — logo+person on
-          the left, tagline in the middle, prize icons on the right). At a
-          phone's width that's inherently either a ~24px unreadable sliver
-          (object-contain, preserving the full image) or an arbitrary crop
-          that cuts off the logo or the icons (object-cover) — neither reads
-          well, so this only shows at `sm:` and up until there's a
-          purpose-cropped mobile version of the graphic. */}
-      {topBanner?.imageUrl && (
-        <Link href={topBanner.ctaHref || '/products'} className="hidden sm:block relative w-full aspect-[1440/88] bg-white">
-          <BannerImage src={topBanner.imageUrl} alt={topBanner.title} className="object-contain" />
-        </Link>
+      {/* ── TOP STRIP ── shown first, above everything else. Real markup
+          (see FixemberTopBanner) rather than the earlier flat-image version
+          — a fixed-aspect graphic can only ever be one shape, which read
+          fine on desktop but became an unreadable sliver on a phone; a flex
+          row reflows at any width instead. */}
+      {topBanner && (
+        <FixemberTopBanner segments={fixemberSegments} ctaHref={topBanner.ctaHref || '/products'} />
       )}
 
       {/* ── COMBO DEALS ── */}

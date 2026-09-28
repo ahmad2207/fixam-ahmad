@@ -40,13 +40,15 @@ export async function POST(req: NextRequest) {
   const { bannerType, title, imageUrl, eyebrow, heading, subheading, ctaLabel, ctaHref, theme, displayOrder, isActive } = body;
 
   const resolvedType: BannerType = VALID_TYPES.includes(bannerType) ? bannerType : 'hero';
-  const requiresImage = resolvedType !== 'cta';
+  // Top Strip is fully coded markup (FixemberTopBanner) — it never displays
+  // an image, same as CTA never overlays one.
+  const requiresImage = resolvedType !== 'cta' && resolvedType !== 'top';
   // Top Strip has no text overlay, so heading is just an internal label —
   // not required from the admin, falls back to the title below.
   const headingRequired = resolvedType !== 'top';
 
   if (!title || (headingRequired && !heading) || (requiresImage && !imageUrl)) {
-    return NextResponse.json({ error: 'title is required (and heading, except for Top Strip banners); imageUrl required for non-CTA banners' }, { status: 400 });
+    return NextResponse.json({ error: 'title is required (and heading, except for Top Strip banners); imageUrl required except for CTA/Top Strip banners' }, { status: 400 });
   }
 
   const [row] = await db.insert(banners).values({

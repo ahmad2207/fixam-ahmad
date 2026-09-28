@@ -99,22 +99,29 @@ function BannerFormPanel({
   const set = (k: keyof BannerForm, v: string | boolean) => setForm((p) => ({ ...p, [k]: v }));
 
   const isCta = form.bannerType === 'cta';
-  // Top Strip is a pre-made graphic with its own text baked in — only the
-  // image, an internal title, and where clicking it goes are meaningful;
-  // eyebrow/heading/subheading/CTA-label/theme are all overlay concerns that
-  // don't apply since nothing gets overlaid on this type.
+  // Top Strip is fully coded markup (FixemberTopBanner) that renders the
+  // live wheel segments + fixed copy directly — no image is ever displayed
+  // for this type, so it isn't collected here either; only the internal
+  // title, whether it's active, and where clicking it goes are meaningful.
   const isTop = form.bannerType === 'top';
-  const canSave = !!form.title && (isTop || !!form.heading) && (isCta || !!form.imageUrl);
+  const canSave = !!form.title && (isTop || !!form.heading) && (isCta || isTop || !!form.imageUrl);
 
   return (
     <div className="bg-card border border-border rounded-2xl p-6 space-y-5 shadow-sm">
-      {/* Banner image */}
+      {/* Banner image — not applicable to Top Strip, which is coded markup, not an image */}
+      {!isTop && (
       <div>
         <label className="block text-sm font-semibold text-foreground mb-2">
           Banner Image{isCta ? ' (optional — overlaid on dark gradient)' : ' *'}
         </label>
         <BannerImageUpload value={form.imageUrl} onChange={(url) => set('imageUrl', url)} />
       </div>
+      )}
+      {isTop && (
+        <p className="text-xs text-muted-foreground bg-muted/40 rounded-xl p-3">
+          The Top Strip banner shows the live Fixember wheel segments and fixed copy directly (see Admin → Fixember to edit its contents) — no image to upload here. Use the fields below just to turn it on/off and set where clicking it goes.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Internal title */}

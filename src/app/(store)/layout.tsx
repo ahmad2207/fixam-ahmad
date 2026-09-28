@@ -27,10 +27,10 @@ export default async function StoreLayout({ children }: { children: React.ReactN
 
   return (
     <>
+      {/* StickyHeader renders its own spacer sized to its real measured
+          height (see that component) — a hardcoded one here would drift out
+          of sync with however tall the header actually ends up being. */}
       <StickyHeader categories={cats} />
-
-      {/* Spacer — top bar (50) + nav (56 mobile / 80 desktop) + trust strip (40) */}
-      <div className="h-[146px] lg:h-[170px]" />
 
       <main className="flex-1 pb-16 lg:pb-0">{children}</main>
       <StoreFooter />

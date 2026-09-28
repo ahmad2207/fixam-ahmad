@@ -70,7 +70,7 @@ export default function FixemberPromoModal() {
           <h2 className="text-4xl font-black mb-2 leading-none">
             <span className="text-white">FIX</span><span className="text-primary">EMBER</span>
           </h2>
-          <p className="text-white/80 text-sm mb-6">Spend ₦150,000 or more and unlock a free spin of the wheel after checkout.</p>
+          <p className="text-white/80 text-sm mb-6">Spend ₦150,000 or more and unlock a FREE SPIN to win a gift after checkout! 🎁</p>
 
           {/* Decorative wheel — purely illustrative, not interactive/spinnable here */}
           <div className="relative w-48 h-48 mx-auto mb-5">

@@ -141,12 +141,12 @@ export const DEFAULT_CTA_BANNERS: DefaultBanner[] = [
 ];
 
 // heading is required by the DB column but never rendered for this type —
-// it's just an internal label, same idea as `title`.
+// it's just an internal label, same idea as `title`. No imageUrl: this
+// type is fully coded markup (FixemberTopBanner), never an image.
 export const DEFAULT_TOP_BANNERS: DefaultBanner[] = [
   {
     bannerType: 'top',
     title:        'Fixember Promotion',
-    imageUrl:     '/spin.gif',
     heading:      'Fixember',
     ctaHref:      '/products',
     theme:        'dark',
