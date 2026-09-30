@@ -179,6 +179,7 @@ export default function AdminReceiptDetailPage() {
             <p className="font-bold text-neutral-900 text-[13px]">{receipt.customerName || 'Walk-in Customer'}</p>
             {receipt.customerEmail && <p className="text-[11px] text-neutral-500 mt-0.5">{receipt.customerEmail}</p>}
             {receipt.customerPhone && <p className="text-[11px] text-neutral-500">{receipt.customerPhone}</p>}
+            {receipt.customerAddress && <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">{receipt.customerAddress}</p>}
           </div>
         </div>
 

@@ -32,6 +32,7 @@ export interface ThermalReceipt {
   receiptNumber: string;
   customerName?: string | null;
   customerPhone?: string | null;
+  customerAddress?: string | null;
   total: string;
   subtotal: string;
   deliveryFee: string;
@@ -49,6 +50,8 @@ interface Props {
   storePhone?: string;
   onClose: () => void;
 }
+
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], logoUrl: string, storeAddress: string, storePhone: string): string {
   const rows = items
@@ -109,6 +112,7 @@ export function buildThermalHtml(receipt: ThermalReceipt, items: ThermalItem[], 
         <div>Type: ${receipt.type?.toUpperCase()}</div>
         ${receipt.customerName ? `<div>Customer: ${receipt.customerName}</div>` : ''}
         ${receipt.customerPhone ? `<div>Phone: ${receipt.customerPhone}</div>` : ''}
+        ${receipt.customerAddress ? `<div>Address: ${escapeHtml(receipt.customerAddress)}</div>` : ''}
         ${receipt.salesRep ? `<div>Sales Rep: ${receipt.salesRep}</div>` : ''}
       </div>
       <div style="border-top:1px dashed #000;margin:4px 0"></div>
@@ -255,6 +259,7 @@ export default function ThermalReceiptPreview({ receipt, storeAddress = 'Abuja, 
                 <div>Type: {receipt.type?.toUpperCase()}</div>
                 {receipt.customerName && <div>Customer: {receipt.customerName}</div>}
                 {receipt.customerPhone && <div>Phone: {receipt.customerPhone}</div>}
+                {receipt.customerAddress && <div>Address: {receipt.customerAddress}</div>}
                 {receipt.salesRep && <div>Sales Rep: {receipt.salesRep}</div>}
               </div>
               <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }} />

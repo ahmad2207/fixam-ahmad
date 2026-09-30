@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { receipts } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { getReceiptCustomerAddress } from '@/lib/receipts';
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,7 +16,8 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     const { id } = await params;
     const [row] = await db.select().from(receipts).where(eq(receipts.id, id));
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json(row);
+    const customerAddress = await getReceiptCustomerAddress(row.orderId);
+    return NextResponse.json({ ...row, customerAddress });
   } catch (err) {
     console.error('[receipts/[id]] GET error:', err);
     return NextResponse.json({ error: 'Failed to fetch receipt' }, { status: 500 });

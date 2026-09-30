@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { receipts, storeSettings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { getReceiptCustomerAddress } from '@/lib/receipts';
 import { FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 interface Props {
@@ -30,6 +31,8 @@ export default async function PublicReceiptPage({ params }: Props) {
       </div>
     );
   }
+
+  const customerAddress = await getReceiptCustomerAddress(receipt.orderId);
 
   let items: Array<{ product_name: string; variation?: string; quantity: number; price: string | number }> = [];
   try {
@@ -108,6 +111,7 @@ export default async function PublicReceiptPage({ params }: Props) {
               <p className="font-bold text-neutral-900 text-[13px]">{receipt.customerName || 'Walk-in Customer'}</p>
               {receipt.customerEmail && <p className="text-[11px] text-neutral-500 mt-0.5">{receipt.customerEmail}</p>}
               {receipt.customerPhone && <p className="text-[11px] text-neutral-500">{receipt.customerPhone}</p>}
+              {customerAddress && <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">{customerAddress}</p>}
             </div>
           </div>
 

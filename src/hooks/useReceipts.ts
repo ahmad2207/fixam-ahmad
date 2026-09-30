@@ -10,6 +10,8 @@ export interface Receipt {
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  /** Delivery address from the linked order — only returned by the single-receipt endpoint. */
+  customerAddress?: string | null;
   subtotal: string;
   deliveryFee: string;
   total: string;
