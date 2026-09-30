@@ -22,6 +22,8 @@ export default async function AdminCustomersPage() {
             total: orders.total,
             status: orders.status,
             createdAt: orders.createdAt,
+            shippingCity: orders.shippingCity,
+            shippingState: orders.shippingState,
           })
           .from(orders)
           .where(inArray(orders.userId, userIds))
@@ -47,6 +49,14 @@ export default async function AdminCustomersPage() {
     if (a.userId && !addressByUser.has(a.userId)) {
       addressByUser.set(a.userId, { city: a.city, state: a.state });
     }
+  }
+
+  // Checkout doesn't save to the address book — the address typed there lives
+  // only on the order. Fall back to the most recent order that shipped somewhere.
+  for (const [userId, userOrders] of ordersByUser) {
+    if (addressByUser.has(userId)) continue;
+    const o = userOrders.find((o) => o.shippingCity && o.shippingState);
+    if (o) addressByUser.set(userId, { city: o.shippingCity!, state: o.shippingState! });
   }
 
   const customersWithStats: CustomerRow[] = allProfiles.map((profile) => {
