@@ -5,6 +5,7 @@ import { consumeStockReservationsForOrder, releaseStockReservations, generateRec
 import { sendOrderConfirmationEmail } from '@/lib/orderNotifications';
 import { sendOrderConfirmationWhatsApp } from '@/lib/whatsappNotifications';
 import { eq } from 'drizzle-orm';
+import { saveCheckoutAddress } from '@/lib/addresses';
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
     if (!checkout) return NextResponse.json({ error: 'Checkout not found' }, { status: 404 });
 
     const shippingAddr = checkout.shippingAddress as any;
+    const addressId = checkout.deliveryMethod === 'delivery'
+      ? await saveCheckoutAddress(checkout.userId, shippingAddr)
+      : null;
 
     // Create order
     const orderNumber = await generateOrderNumber();
@@ -67,6 +71,7 @@ export async function POST(req: NextRequest) {
       .values({
         orderNumber,
         userId: checkout.userId ?? null,
+        addressId,
         guestEmail: checkout.guestEmail,
         status: 'confirmed',
         paymentMethod: 'paystack',

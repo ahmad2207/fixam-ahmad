@@ -7,6 +7,7 @@ import { sendOrderConfirmationWhatsApp } from '@/lib/whatsappNotifications';
 import { eq } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
+import { saveCheckoutAddress } from '@/lib/addresses';
 
 export async function POST(req: NextRequest) {
   try {
@@ -74,11 +75,13 @@ export async function POST(req: NextRequest) {
     // Create the order immediately (no payment needed upfront)
     const orderNumber = await generateOrderNumber();
     const addr = shippingAddress as any;
+    const addressId = method === 'delivery' ? await saveCheckoutAddress(userId, addr) : null;
     const [order] = await db
       .insert(orders)
       .values({
         orderNumber,
         userId,
+        addressId,
         guestEmail: customerEmail,
         status: 'pending',
         paymentMethod: 'pod',
